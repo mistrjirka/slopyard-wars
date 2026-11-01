@@ -1,3 +1,8 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Local provider credentials must never be included in builds or commits.
+.env
+.env.*
+!.env.example
