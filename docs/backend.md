@@ -1,22 +1,62 @@
-# Backend (scripts/game.gd, catalog.gd, seller_service.gd)
+# World and trading backend
 
-`Game` autoload implements the shared contract (signals `changed`, `notice`; `solo/host/join_game/leave/start_match/act/me/local_id/is_host`, helpers `compatibility`, `build_issues`, `preview_score`, `seller_status`). Optional extra keys: `state.ranking` (player ids best→worst), `state.seller_status`, `state.match_id`; player `busy` (game minutes the workbench is busy), `pos` (car position), `destroyed` (names of burnt parts); trip `fuel`, `price`; chat message `pending: true`; item `form` ("ATX"/"mATX").
+## Owners
 
-## World and rules
-- Map space is 1000×600; the car starts at (500,300) and each pickup is one-way to the listing `pos` (next trip starts where you are). Trip = 15 + 0.25·distance game minutes, fuel = $5 + 0.02·distance (paid on departure; wasted if you lose the race). Price is charged only at arrival.
-- Clock: 6 game minutes per real second, 4320 total. Install costs 10 and a tuning stress test 20 game minutes of workbench time (`busy`); install/tune are refused while driving or busy. Chat, offers and travel stay available.
-- Market: ~45 listings at start (guaranteed several cheap compatible "anchor" builds per player, cheapest ≈ $110–250; budget clamped 600–5000). Every 90 game minutes: up to 2 non-anchor idle listings expire, 2 new appear, categories with <2 available are restocked, one price drops 10%. Sold/expired are kept (max 20, `status`). Listings with a car en route never expire.
-- Compatibility: sockets OX3/OX4/NX5 (CPU↔board), memory DDR3/4/5 (RAM↔board), ATX board needs ATX case, install order case → motherboard → rest (PSU needs only a case). Graphics: GPU, or CPU with integrated graphics on a board with video outputs. PSU must cover the rig's draw (watts × clock × voltage for tuned CPU/GPU/RAM, +20W misc) else the build is invalid.
-- Chat agreements: the host validates model-proposed buyer offers and seller decisions against message prices or its prior counter, checks the hidden seller floor, and stores confirmed prices in `player.offers`. Counters are not agreements and agreements do not reserve stock. Travel requires a valid agreement; arrival still resolves shared stock first-come-first-served.
-- Tuning (cpu/gpu/ram): clock and voltage normalized 1.00–1.60. **Voltage > 1.40 destroys the part permanently.** Stable clock = 1 + 1.3·(V−1) (e.g. 1.20 V→1.26, 1.40 V→1.52); score multiplier = 1 + 0.9·(clock−1), cut by 5×excess (floor 0.25) when above the stable clock. Safe guidance: 1.30–1.40 V with clock ≈ stable limit.
-- Score per category in fictional units (CPU/GPU/RAM include multiplier; iGPU uses CPU multiplier); total = 1000·Σ weight·score/ref (refs 6000/6000/4000/4000). Weights: Balanced .25 each; CPU .45/.15/.20/.20; GPU .15/.45/.20/.20; Storage .15/.15/.20/.50 (cpu/gpu/ram/storage). Invalid builds keep category scores but `total` 0 with `issues`. Solo best per objective in `user://highscore.json`.
-- Match ends when all players finish or time runs out; disconnected players are auto-finished. Late LAN joins are refused.
+- `scripts/game.gd` (`Game` autoload): authoritative match, clock, movement, inventory, listing ownership, chat decisions, appointments and transactions. Public signals remain `changed()` and `notice(message)`.
+- `scripts/world_rules.gd`: shared home/town bounds, solid geometry, spawn/door/car/workbench locations and collision-aware motion. Rendering and host movement use the same shapes; clients never supply final coordinates.
+- `scripts/trade_rules.gd`: contact availability, eligible places, finite upcoming meeting choices and day/time formatting. `Catalog.LOCATIONS` is the sole meeting-place coordinate map.
+- `scripts/seller_service.gd`: bounded OpenRouter counterparty dialogue/decision proposals and a clearly marked offline fallback. The model cannot directly change inventory or balances.
+- `scripts/town_view.gd`, `town_map.gd`: pixel-world and read-only town overview.
+- `scripts/phone.gd`: Browse / Messages / Sell UI. `main.gd` owns overlays/input and reuses existing assembly, workbench, tuning and results components.
 
-## LAN
-ENet UDP port 24680, max 4 players. Host is authoritative; clients send `act` by RPC and receive a full state snapshot (≤ each frame with change, plus 1 Hz heartbeat). Other players' chats/offers are stripped from your snapshot; clients extrapolate `remaining`/trip timers between snapshots. Arrival race: all trips resolve on the host in order of arrival; first arrival is charged and gets the item, later ones are told too late and keep the cash (fuel lost).
+The old standalone `market_view.gd` / `drive_view.gd` widgets remain unused in the repository; their old travel action cannot bypass the new physical world. The active entry point is still `scenes/main.tscn`.
 
-## Seller AI
-Only the host/solo process reads `OPENROUTER_API_KEY`; the key is never stored in state or snapshots. OpenRouter model `inclusionai/ling-3.0-flash` returns bounded JSON dialogue and a proposed buyer intent. The host validates proposed prices against the buyer message or prior host counter, and validates the seller action against the floor and listing; the model cannot mutate state. Requests have a 12-second timeout, max 2 concurrent plus 4 queued, 60 per match and 8 messages of history. Errors or missing credentials produce visibly marked offline replies using the same agreement gate. Late replies are discarded after cancellation, match end, player departure or listing disappearance.
+## Time and spatial state
 
-## Known limits
-Seller text may still contain non-price claims that contradict specs; the separate hardware notes remain authoritative. Live negotiation supports numeric prices and written amounts through 999. Offline fallback is deliberately simpler: numeric prices, asking/full-price references, implicit "I'll take it" purchase intent, and short counter acceptances; written-out numbers are not recognized offline. Snapshots are full-state (fine for ≤4 players). No reconnect. Pickup doesn't model a return trip. Smoke checks only (no automated test suite, per request).
+`remaining` is game minutes until the three-day deadline, initially 4320. `Game.clock()` returns absolute minutes starting Day 1 08:00 (480). Rate is 2 game minutes per real second; Day 4 08:00 ends the run. Clients extrapolate the clock between host snapshots. Solo `wait` intentionally advances 30 minutes, or up to 120 toward a nearby appointment. LAN wait cannot skip shared time.
+
+Player state adds `area` (`home`/`town`), `pos`, `car_pos`, `driving`, `facing`, `meetings` and `meeting_proposals`. The host consumes bounded normalized directional input and stops stale input after 0.4 seconds. Foot speed is 78 world pixels/sec, car speed 190. The host substeps motion against solid shapes and broadcasts spatial snapshots about every 80ms. There is no client prediction yet.
+
+Home is a 384×256 room and the town is 1024×640. E transitions only near the door, enters a nearby car for $3, parks/exits where there is space, or trades with a scheduled nearby contact. Installation, tuning and finishing require home workbench proximity. Opening phone/workbench/map stops local movement input but not time.
+
+## Buying and selling
+
+Existing `solo/host/join_game/leave/start_match/me/local_id/is_host`, compatibility, score and seller-status helpers remain. `Game.act` now supports:
+
+- `move {direction: Vector2}`, `interact {}`, `wait {}`;
+- `chat {listing_id, text}` for both sellers and NPC buyers;
+- `post_sale {item_id, price}` and `cancel_sale {listing_id}`;
+- `handoff {listing_id}` (also invoked by E near the contact);
+- `install {item_id}`, `tune {category, clock, voltage}`, `finish {}`.
+
+Legacy `travel` is refused: no timed automatic pickup or teleport remains. There is no numeric purchase-offer action.
+
+System listings have `owner: 0`. Player listings have the player ID in `owner`, the inventory identity in `item_id`, and one NPC buyer contact. The host generates a private bounded buyer budget relative to the item's used price; the buyer opens with a lower offer, and the actual LLM handles subsequent negotiation. The listed item stays in inventory but is locked from installation and duplicate listing until cancelled or sold. Each fresh player has one explicitly named old spare case so Sell is usable immediately.
+
+`offers` contains accepted prices, `counters` outstanding counterparty prices. Neither gives a reservation. `meeting_proposals` contains suggested canonical slots; `meetings` contains confirmed slots `{id, place, start, end, pos, label}`. `active_meetings(player)` decorates these with listing/contact identity, buy/sell side and early/now/missed status.
+
+The service receives only valid upcoming meeting choices and its previous proposal. The host matches the returned ID to its own data, refuses stale/end-past slots, and rechecks overlapping appointments at other locations for the same contact. Price plus an explicit accepted meeting is required. Meetings protect system listings from incidental expiry during their window; another player can still complete a valid competing handoff first.
+
+A handoff checks current player, listing, accepted price, confirmed time window, town area, not driving, and ≤28px contact proximity. Purchases debit once and transfer one listing to inventory; public price reductions are honored. Sales remove the exact still-owned listed item and credit once. The listing becomes sold atomically before another intent can transfer it. Cancelled/missing/expired listings cannot transfer. Early/late/distant handoffs don't change cash or inventory. Missed appointments can be renegotiated while the listing remains available.
+
+The availability owner assigns stable contact-specific hour windows and two eligible places. NPCs materialize for active appointments, not full autonomous commute simulation. All valid active contacts and nearby peers are rendered in the shared town.
+
+## Seller service
+
+The host uses `inclusionai/ling-3.0-flash` with native forced `market_reply` function output. This is a decision proposal tool, not a money-transfer tool. Its schema carries dialogue, human price intent/amount, counterparty price action/counter amount and meeting action/canonical ID. The same contract supports an NPC seller or an NPC buyer; concrete role examples prevent reversing buyer/seller price fields.
+
+The host validates message-grounded prices, prior counters, seller floor / NPC buyer ceiling, stock, player/match identity and meeting choices. Availability/spec questions alone don't authorize purchases. Logistics can reaffirm an existing accepted price without manufacturing another price agreement. A provider's known `accept` intent synonym is normalized to an offer but must still pass the same host grounding.
+
+Requests have a 12-second timeout, max 400 output tokens, reasoning disabled, 2 concurrent plus 4 queued, a per-match request budget, bounded 8-message history and 240-character buyer input. Failures show offline status/replies. Queued work and late replies are cancelled/discarded after leaving, match end, removed players or unavailable listings. Keys stay out of snapshots/logs/files. `last_response` stores only the last bounded dialogue/function JSON and finish reason for local diagnostics, never credentials or reasoning; it is not replicated.
+
+Other players' chats/offers/counters/proposals and private buyer budgets are stripped from network snapshots. Confirmed meetings/spatial state are visible to peers for rendering. No production abuse-rate limiting, reconnect or dedicated-server lifecycle is promised.
+
+## Building and scores
+
+Sockets OX3/OX4/NX5, DDR3/4/5 and ATX/mATX compatibility are unchanged. Case then board precede remaining components; graphics can be CPU integrated graphics with board outputs. PSU must cover tuned draw. Installation costs 10 game minutes of workbench busy time; stress testing 20. Clock and voltage are normalized 1.00–1.60; voltage >1.40 destroys a part. Stable clock = 1 + 1.3·(V−1); excess clock reduces performance. Scores and objective weighting remain in `catalog.gd`; invalid builds score zero. Solo bests remain in `user://highscore.json`.
+
+## Validation and limits
+
+Actual native-model responses and persisted outcomes were inspected for buying, counterpart buyer negotiation and meeting confirmation. A disposable host-rule smoke verified no transfer from home or before the appointment and exactly-once sale credit/removal. A keyboard/pointer-rendered run completed both a purchase and sale through actual walking/driving, confirmed NPC presence, then returned home to the workbench and assembly. A two-process localhost ENet run confirmed both home spawn and host-authoritative client movement (192,180 → 272.6,180 on both peers); LAN waiting did not skip time. With the provider credential absent, offline chat still confirmed canonical appointments, a missed meeting charged nothing, rescheduling produced a new future window, duplicate listing/installation was refused, and cancelling unlocked installation. Current world/map/phone were rendered at 1440×900 and 1280×720. Godot 4.7.2 import/parsing and game logs were free of script errors; diff whitespace and credential scans were clean. Original prototype checks covered component burnout, valid benchmark scoring and contested ENet purchases; those older checks used timer-based trips, not the new physical handoff.
+
+The pixel town, movement/collision, phone, schedule and trade paths are a first playable pass. Contacts may phrase logistics imperfectly; the explicit canonical meeting/status is authoritative. No unfinished-match persistence, police/traffic, advanced vehicle dynamics or fully simulated NPC daily movement. No automated suites were created or run.

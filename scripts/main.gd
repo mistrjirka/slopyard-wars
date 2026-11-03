@@ -1,10 +1,13 @@
 extends Control
-## Slopyard Wars UI shell: menu, lobby, game (tabbed command center), results. All state changes go through Game.act().
+## Slopyard Wars shell: menu, lobby, walkable world, phone and home workbench, results. All state changes go through Game.act().
 const K = preload("res://scripts/ui_kit.gd")
 const PartArt = preload("res://scripts/part_art.gd")
 const Catalog = preload("res://scripts/catalog.gd")
-const MarketView = preload("res://scripts/market_view.gd")
-const DriveView = preload("res://scripts/drive_view.gd")
+const Phone = preload("res://scripts/phone.gd")
+const TownView = preload("res://scripts/town_view.gd")
+const World = preload("res://scripts/world_rules.gd")
+const Trade = preload("res://scripts/trade_rules.gd")
+const TownMap = preload("res://scripts/town_map.gd")
 const BenchView = preload("res://scripts/bench_view.gd")
 const TuneView = preload("res://scripts/tune_view.gd")
 const ResultsView = preload("res://scripts/results_view.gd")
@@ -18,12 +21,12 @@ const OBJECTIVES := {
 	"Storage": "Storage counts 50%. Fast drives win this one.",
 }
 const STEPS: Array = [
-	["1  FIND", "Browse CLASSIFIEDS. Use FITS MY RIG so you only see parts that work with what you own."],
-	["2  HAGGLE", "Chat with the seller and agree a price. A deal is NOT a reservation."],
-	["3  DRIVE", "Pick a pin on the DRIVE map. Trips cost game time and fuel; a rival can beat you there."],
-	["4  BUILD", "Install on the WORKBENCH: case, then board, then CPU / RAM / GPU / storage / PSU. Each part has its own mini-game."],
+	["1  EXPLORE", "WASD / arrows to walk. You start at home. E uses doors, your car and meeting contacts."],
+	["2  PHONE", "P opens Browse, Messages and Sell. Agree price, place AND time in chat. People have different schedules."],
+	["3  MEET", "Walk outside, E to enter the car, then drive yourself. Park and walk to the contact at the agreed time."],
+	["4  BUILD / SELL", "B at your home workbench opens assembly. Sell spare parts on the phone; NPC buyers will haggle."],
 	["5  TUNE", "Overclock CPU, GPU and RAM. More volts = more speed, but over 1.40 V a part burns out forever."],
-	["6  BENCH", "Finish before the deadline. 3 days pass in 12 real minutes. CPU, GPU, RAM and storage are scored."],
+	["6  BENCH", "Finish before the deadline. 3 days pass in 36 real minutes. CPU, GPU, RAM and storage are scored."],
 ]
 
 var _phase: String = ""
@@ -33,9 +36,6 @@ var _screen_layer: Control
 var _toast_box: VBoxContainer
 var _modal: Control
 var _notice_log: Array = []
-var _last_day: int = 0
-var _guide_t: float = 0.0
-var _guide_tab: String = ""
 
 # menu / lobby widgets
 var _name_edit: LineEdit
@@ -55,26 +55,8 @@ var _results: Control
 
 # game widgets
 var _game: Control
-var _views: Dictionary = {}
-var _tab_btns: Dictionary = {}
-var _tab: String = "market"
 var _clock_lbl: Label
-var _left_lbl: Label
-var _time_bar: ProgressBar
 var _cash_lbl: Label
-var _budget_lbl: Label
-var _obj_lbl: Label
-var _obj_sub: Label
-var _trip_pill: PanelContainer
-var _ai_pill: PanelContainer
-var _ticker: Label
-var _guide_panel: PanelContainer
-var _guide_lbl: Label
-var _guide_btn: Button
-var _wait: Control
-var _wait_lbl: Label
-var _help_log: VBoxContainer
-var _help_sig: int = -1
 
 func _ready() -> void:
 	theme = K.make_theme()
@@ -209,18 +191,29 @@ func _open_assembly(item: Dictionary) -> void:
 
 func _unhandled_key_input(e: InputEvent) -> void:
 	var k := e as InputEventKey
-	if k == null or not k.pressed or k.echo:
-		return
-	if k.keycode == KEY_ESCAPE and _modal.visible:
-		_modal_close()
+	if k == null or not k.pressed or k.echo: return
+	if k.keycode == KEY_ESCAPE:
+		if _modal.visible: _modal_close()
+		elif is_instance_valid(_phone_layer) and _phone_layer.visible: _phone_layer.visible = false
+		elif is_instance_valid(_workspace) and _workspace.visible: _workspace.visible = false
+		elif is_instance_valid(_map_layer) and _map_layer.visible: _map_layer.visible = false
+		else: return
 		get_viewport().set_input_as_handled()
 		return
-	if _phase == "playing" and not _modal.visible and not k.ctrl_pressed and not k.alt_pressed:
-		var order := ["market", "drive", "bench", "tune", "help"]
-		var i := k.keycode - KEY_1
-		if i >= 0 and i < order.size():
-			_set_tab(order[i])
-			get_viewport().set_input_as_handled()
+	if _phase != "playing" or _modal.visible: return
+	match k.keycode:
+		KEY_P, KEY_TAB: _toggle_phone()
+		KEY_M: _toggle_map()
+		KEY_B: _open_workspace("bench")
+		KEY_T: _open_workspace("tune")
+		KEY_E:
+			if not _overlay_open():
+				if Game.me().area == "home" and Game.me().pos.distance_to(World.BENCH) < 50: _open_workspace("bench")
+				else: Game.act("interact")
+		KEY_SPACE:
+			if not _overlay_open(): Game.act("wait")
+		_: return
+	get_viewport().set_input_as_handled()
 
 # ------------------------------------------------------------------ phase handling
 
@@ -251,10 +244,8 @@ func _enter_phase(ph: String) -> void:
 	if ph == "playing":
 		_match_id = int(Game.state.get("match_id", 0))
 		_build_game()
-		_last_day = 0
 		_show_screen("game")
-		_set_tab("market")
-		_toast("Match on! Read the banner under the tabs for your next step. Keys 1-5 switch tabs.")
+		_toast("Welcome home. WASD / arrows to walk. P: phone · E: interact · B: workbench · M: town map.")
 	elif ph == "results":
 		_show_screen("results")
 		_results.refresh()
@@ -477,308 +468,191 @@ func _replay() -> void:
 
 # ------------------------------------------------------------------ game screen
 
+# World presentation never owns inventory, clock or movement authority.
+var _world: Control
+var _phone: Control
+var _phone_layer: Control
+var _workspace: Control
+var _map_layer: Control
+var _bench: Control
+var _tune: Control
+var _context_label: Label
+var _appointment_label: Label
+var _move_t := 0.0
+var _tracked := -1
+
 func _build_game() -> void:
 	if _screens.has("game"):
-		_screens["game"].queue_free()
-		_screens.erase("game")
-	_views.clear()
-	_tab_btns.clear()
-	var root := VBoxContainer.new()
+		_screens.game.queue_free()
+	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.add_theme_constant_override("separation", 0)
 	_screen_layer.add_child(root)
 	_screens["game"] = root
 	_game = root
-	# top bar
+	_world = TownView.new()
+	_world.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(_world)
 	var top := K.panel("Topbar")
-	var th := K.hbox(22)
-	th.add_child(K.lbl("SLOPYARD\nWARS", "H2", K.LIME))
-	var dl := K.vbox(2)
-	dl.custom_minimum_size.x = 250
-	var dr := K.hbox(10)
+	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	var row := K.hbox(18)
+	row.add_child(K.lbl("SLOPYARD / TOWN", "H2", K.LIME))
 	_clock_lbl = K.lbl("", "Big")
-	dr.add_child(_clock_lbl)
-	_left_lbl = K.lbl("", "Mono", K.ORANGE)
-	dr.add_child(_left_lbl)
-	dl.add_child(dr)
-	_time_bar = ProgressBar.new()
-	_time_bar.max_value = 4320.0
-	_time_bar.custom_minimum_size.y = 8
-	_time_bar.show_percentage = false
-	dl.add_child(_time_bar)
-	dl.add_child(K.lbl("BENCHMARK DEADLINE - rig must be finished", "Tiny", K.FAINT))
-	th.add_child(dl)
-	var cv := K.vbox(2)
-	cv.custom_minimum_size.x = 150
+	row.add_child(_clock_lbl)
 	_cash_lbl = K.lbl("", "Big", K.LIME)
-	cv.add_child(_cash_lbl)
-	_budget_lbl = K.lbl("", "Tiny")
-	cv.add_child(_budget_lbl)
-	th.add_child(cv)
-	var ov := K.vbox(2)
-	_obj_lbl = K.lbl("", "Mono", K.SKY)
-	ov.add_child(_obj_lbl)
-	_obj_sub = K.lbl("", "Tiny")
-	ov.add_child(_obj_sub)
-	th.add_child(ov)
-	th.add_child(K.spacer())
-	_trip_pill = K.pill("", K.ORANGE)
-	_trip_pill.visible = false
-	th.add_child(_trip_pill)
-	_ai_pill = K.pill("", K.LIME)
-	th.add_child(_ai_pill)
-	th.add_child(K.btn("MENU", "GhostButton", func(): ask("Leave the match?", "Your progress is lost and you return to the main menu.", "Leave", func(): Game.leave())))
-	top.add_child(th)
+	row.add_child(_cash_lbl)
+	row.add_child(K.spacer())
+	row.add_child(K.btn("PHONE [P]", "PrimaryButton", _toggle_phone))
+	row.add_child(K.btn("MAP [M]", "", _toggle_map))
+	row.add_child(K.btn("MENU", "GhostButton", func(): ask("Leave match?", "This unfinished run is not saved.", "Leave", func(): Game.leave())))
+	top.add_child(row)
 	root.add_child(top)
-	# tabs
-	var tabs := K.panel("Topbar")
-	tabs.add_theme_stylebox_override("panel", K.box(Color("060d20"), K.LINE, 0, 0, 12, 4))
-	var tr := K.hbox(4)
-	var grp := ButtonGroup.new()
-	var defs := [["market", "1 CLASSIFIEDS"], ["drive", "2 DRIVE"], ["bench", "3 WORKBENCH"], ["tune", "4 OVERCLOCK"], ["help", "5 GUIDE"]]
-	for d in defs:
-		var b := K.btn(String(d[1]), "TabButton", _set_tab.bind(d[0]))
-		b.button_group = grp
-		tr.add_child(b)
-		_tab_btns[d[0]] = b
-	tr.add_child(K.spacer())
-	_ticker = K.lbl("", "Tiny", K.MUTED)
-	_ticker.clip_text = true
-	_ticker.custom_minimum_size.x = 380
-	_ticker.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	tr.add_child(_ticker)
-	tabs.add_child(tr)
-	root.add_child(tabs)
-	# guide banner
-	_guide_panel = K.panel("CardTight")
-	_guide_panel.add_theme_stylebox_override("panel", K.box(Color(K.LIME, 0.08), K.LIME_DIM, 0, 1, 18, 6))
-	var gr := K.hbox(10)
-	gr.add_child(K.lbl("NEXT", "Eyebrow"))
-	_guide_lbl = K.lbl("", "", K.CREAM, true)
-	_guide_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gr.add_child(_guide_lbl)
-	_guide_btn = K.btn("GO", "GhostButton", func(): if _guide_tab != "": _set_tab(_guide_tab))
-	gr.add_child(_guide_btn)
-	_guide_panel.add_child(gr)
-	root.add_child(_guide_panel)
-	# content
-	var stack := MarginContainer.new()
-	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	for s in ["left", "right"]:
-		stack.add_theme_constant_override("margin_" + s, 16)
-	stack.add_theme_constant_override("margin_top", 12)
-	stack.add_theme_constant_override("margin_bottom", 12)
-	root.add_child(stack)
-	var market := MarketView.new()
-	market.ask = ask
-	market.went_driving.connect(func(): _set_tab("drive"))
-	stack.add_child(market)
-	_views["market"] = market
-	var drive := DriveView.new()
-	drive.open_listing.connect(func(id: int): _set_tab("market"); market.select(id))
-	drive.went_driving.connect(func(): pass)
-	stack.add_child(drive)
-	_views["drive"] = drive
-	var bench := BenchView.new()
-	bench.ask = ask
-	bench.install_requested.connect(_open_assembly)
-	bench.go_market.connect(func(): _set_tab("market"))
-	stack.add_child(bench)
-	_views["bench"] = bench
-	var tune := TuneView.new()
-	tune.ask = ask
-	stack.add_child(tune)
-	_views["tune"] = tune
-	stack.add_child(_build_help())
-	for k in _views:
-		_views[k].visible = false
-	# locked overlay
-	_wait = Control.new()
-	_wait.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_wait.visible = false
-	var dim := ColorRect.new()
-	dim.color = Color(K.NAVY0, 0.88)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_wait.add_child(dim)
-	var wc := CenterContainer.new()
-	wc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var wcard := K.panel("Hero")
-	var wv := K.vbox(10)
-	wv.add_child(K.lbl("RIG LOCKED", "Title", K.LIME))
-	_wait_lbl = K.lbl("", "Muted", null, true)
-	_wait_lbl.custom_minimum_size.x = 420
-	wv.add_child(_wait_lbl)
-	wcard.add_child(wv)
-	wc.add_child(wcard)
-	_wait.add_child(wc)
-	stack.add_child(_wait)
+	var bottom := K.panel("Topbar")
+	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bottom.offset_top = -90
+	var hints := K.vbox(4)
+	_context_label = K.lbl("", "Mono", K.CREAM, true)
+	hints.add_child(_context_label)
+	_appointment_label = K.lbl("", "Tiny", K.SKY, true)
+	hints.add_child(_appointment_label)
+	hints.add_child(K.lbl("WASD / arrows: move  ·  E: door / car / handoff  ·  P: phone  ·  M: map  ·  B/T: home workbench  ·  Space: wait (solo)", "Tiny", K.MUTED, true))
+	bottom.add_child(hints)
+	root.add_child(bottom)
+	_phone_layer = Control.new()
+	_phone_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(_phone_layer)
+	var shade := ColorRect.new()
+	shade.color = Color(0.02, 0.04, 0.09, 0.50)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_phone_layer.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_phone_layer.add_child(center)
+	_phone = Phone.new()
+	center.add_child(_phone)
+	_phone.close_requested.connect(func(): _phone_layer.visible = false)
+	_phone.track_requested.connect(func(id: int):
+		_tracked = id
+		_world.tracked = id
+		_phone_layer.visible = false
+		_toast("Meeting tracked. M shows the whole town; follow the yellow marker. Park and E at the contact."))
+	_phone_layer.visible = false
+	_workspace = K.panel("Card")
+	_workspace.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_workspace.offset_left = 24
+	_workspace.offset_right = -24
+	_workspace.offset_top = 80
+	_workspace.offset_bottom = -100
+	root.add_child(_workspace)
+	var work := K.vbox(8)
+	_workspace.add_child(work)
+	work.add_child(K.btn("BACK TO ROOM [Esc]", "GhostButton", func(): _workspace.visible = false))
+	_bench = BenchView.new()
+	_bench.ask = ask
+	_bench.install_requested.connect(_open_assembly)
+	_bench.go_market.connect(_toggle_phone)
+	_bench.go_tuning.connect(func(): _open_workspace("tune"))
+	work.add_child(_bench)
+	_tune = TuneView.new()
+	_tune.ask = ask
+	work.add_child(_tune)
+	_workspace.visible = false
+	_map_layer = K.panel("Card")
+	_map_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_map_layer.offset_left = 80
+	_map_layer.offset_right = -80
+	_map_layer.offset_top = 90
+	_map_layer.offset_bottom = -110
+	root.add_child(_map_layer)
+	_map_layer.visible = false
+	_update_world_hud()
 
-func _build_help() -> Control:
-	var sc := K.scroll()
-	_views["help"] = sc
-	var v := K.vbox(10)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(v)
-	v.add_child(K.lbl("FIELD GUIDE", "Title"))
-	var rules := [
-		["YOUR GOAL", "Build the highest-scoring working PC inside your budget before the 3-day deadline (12 real minutes). Required: case, PSU, CPU, motherboard, RAM, storage, plus graphics (a GPU, or a CPU with integrated graphics on a board that has video outputs)."],
-		["BUYING", "Listings are shared and change over time. Chat to agree a price before pickup. The host validates agreements and sales. An accepted deal does not reserve the part: you must drive there and arrive first."],
-		["COMPATIBILITY", "CPU socket must equal the board socket (OX3 / OX4 / NX5). RAM type must equal the board's memory (DDR3 / DDR4 / DDR5). ATX boards need ATX cases. Wrong purchase? There is no refund: buy the matching part and swap it in; the old one stays in inventory."],
-		["POWER", "The PSU must cover the whole rig, including overclocks. Overloaded builds are invalid and score zero."],
-		["OVERCLOCKING", "CPU, GPU and RAM accept clock and voltage 1.00 - 1.60. Above 1.40 V the part is destroyed permanently. Stable clock = 1 + 1.3 x (V - 1); over that, performance drops. Safe sweet spot: 1.30 - 1.40 V near the stable clock."],
-		["TIME", "Driving and bench work consume game time; the market keeps moving. Finish early to lock a score, or run until the deadline."],
-	]
-	for r in rules:
-		var p := K.panel("Card")
-		var pv := K.vbox(4)
-		pv.add_child(K.lbl(String(r[0]), "Eyebrow"))
-		pv.add_child(K.lbl(String(r[1]), "", K.CREAM, true))
-		p.add_child(pv)
-		v.add_child(p)
-	v.add_child(K.lbl("MESSAGE LOG", "Eyebrow"))
-	_help_log = K.vbox(4)
-	v.add_child(_help_log)
-	return sc
+func _overlay_open() -> bool:
+	return _modal.visible or _phone_layer.visible or _workspace.visible or _map_layer.visible
 
-func _set_tab(t: String) -> void:
-	if not _views.has(t):
+func _toggle_phone() -> void:
+	if _phase != "playing": return
+	_workspace.visible = false
+	_map_layer.visible = false
+	_phone_layer.visible = not _phone_layer.visible
+	if _phone_layer.visible: _phone.refresh()
+	Game.act("move", {"direction": Vector2.ZERO})
+
+func _toggle_map() -> void:
+	if _phase != "playing": return
+	_phone_layer.visible = false
+	_workspace.visible = false
+	_map_layer.visible = not _map_layer.visible
+	if not _map_layer.visible: return
+	K.clear(_map_layer)
+	var scroll := K.scroll()
+	_map_layer.add_child(scroll)
+	var box := K.vbox(8)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
+	var header := K.hbox(8)
+	header.add_child(K.lbl("SLOPYARD TOWN · MEETING PLACES", "H2"))
+	header.add_child(K.spacer())
+	header.add_child(K.btn("Close [M/Esc]", "GhostButton", func(): _map_layer.visible = false))
+	box.add_child(header)
+	var map: Control = TownMap.new()
+	map.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	map.custom_minimum_size.y = 400
+	box.add_child(map)
+	box.add_child(K.lbl("Home: center of town. Meeting signs: harbor southwest, scrapyard northwest, Grease Alley north-center, mill northeast, suburbs east, dorms south, storage far east. The yellow world marker tracks your selected appointment.", "Muted", null, true))
+	for m: Dictionary in Game.active_meetings(Game.me()):
+		box.add_child(K.btn(str(m.name) + " · " + str(m.label) + " · " + str(m.status), "", func(): _tracked = int(m.listing_id); _world.tracked = _tracked; _map_layer.visible = false))
+
+func _open_workspace(which: String) -> void:
+	var p: Dictionary = Game.me()
+	if p.is_empty() or p.area != "home" or p.pos.distance_to(World.BENCH) > 58:
+		_toast("Walk up to the PC workbench inside your house first.")
 		return
-	_tab = t
-	for k in _views:
-		_views[k].visible = k == t
-	if _tab_btns.has(t):
-		_tab_btns[t].button_pressed = true
-	_help_sig = -1
-	_game_refresh()
+	_phone_layer.visible = false
+	_map_layer.visible = false
+	_workspace.visible = true
+	_bench.visible = which == "bench"
+	_tune.visible = which == "tune"
+	if which == "bench": _bench.refresh()
+	else: _tune.refresh()
 
 func _game_refresh() -> void:
-	if _game == null or not _screens.has("game"):
-		return
-	var st: Dictionary = Game.state
-	var me: Dictionary = Game.me()
-	var v: Control = _views.get(_tab)
-	if v != null and v.has_method("refresh"):
-		v.refresh()
-	if _tab == "help" and _help_sig != _notice_log.size():
-		_help_sig = _notice_log.size()
-		K.clear(_help_log)
-		for i in range(_notice_log.size() - 1, maxi(-1, _notice_log.size() - 25), -1):
-			_help_log.add_child(K.lbl(String(_notice_log[i]), "Muted", null, true))
-	var ev: Array = st.get("events", [])
-	_ticker.text = String(ev[ev.size() - 1]) if not ev.is_empty() else ""
-	var s: String = Game.seller_status()
-	var live: bool = s.to_lower().contains("live") or s.to_lower().contains("online")
-	K.set_pill(_ai_pill, ("AI SELLERS: LIVE" if live else "AI SELLERS: OFFLINE"), K.LIME if live else K.ORANGE)
-	_ai_pill.tooltip_text = s
-	# locked overlay
-	var locked: bool = bool(me.get("ready", false))
-	_wait.visible = locked
-	if locked:
-		var lines: Array = []
-		for id in st.players:
-			lines.append("%s %s" % ["done:" if st.players[id].ready else "working:", st.players[id].name])
-		_wait_lbl.text = "Your rig is submitted. Waiting for the others or the deadline.\n\n" + "\n".join(lines)
-	_update_guide(true)
+	if not is_instance_valid(_world): return
+	if _phone_layer.visible: _phone.refresh()
+	if _workspace.visible:
+		if _bench.visible: _bench.refresh()
+		if _tune.visible: _tune.refresh()
+	_update_world_hud()
 
 func _process(delta: float) -> void:
-	if _phase == "results":
-		_results.tick(delta)
-		return
-	if _phase != "playing" or _game == null:
-		return
-	_update_top()
-	var v: Control = _views.get(_tab)
-	if v != null:
-		if v.has_method("tick"):
-			if _tab == "tune":
-				v.tick(delta)
-			else:
-				v.tick()
-	_guide_t += delta
-	if _guide_t > 0.4:
-		_guide_t = 0.0
-		_update_guide(false)
+	if _phase != "playing" or not is_instance_valid(_world) or Game.me().is_empty(): return
+	_move_t += delta
+	if _move_t >= 0.10:
+		_move_t = 0
+		var input := Vector2.ZERO
+		if not _overlay_open() and not Game.me().ready:
+			input = Vector2(float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)), float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP))).limit_length()
+		Game.act("move", {"direction": input})
+	_update_world_hud()
+	if _workspace.visible:
+		if _bench.visible: _bench.tick()
+		if _tune.visible: _tune.tick(delta)
 
-func _set_text(l: Label, t: String) -> void:
-	if l.text != t:
-		l.text = t
-
-func _update_top() -> void:
-	var st: Dictionary = Game.state
-	var rem: float = float(st.get("remaining", 0.0))
-	var me: Dictionary = Game.me()
-	_set_text(_clock_lbl, K.clock_text(rem))
-	_set_text(_left_lbl, K.real_left(rem) + " left")
-	_time_bar.value = 4320.0 - rem
-	var low: bool = rem < 864.0
-	_time_bar.theme_type_variation = "RiskBar" if low else ""
-	_left_lbl.add_theme_color_override("font_color", K.DANGER if low else K.ORANGE)
-	var day := mini(int((4320.0 - rem) / 1440.0) + 1, 3)
-	if day != _last_day:
-		if _last_day != 0:
-			_toast("DAY %d begins. %s left on the clock." % [day, K.real_left(rem)])
-		_last_day = day
-	var cash: int = int(me.get("cash", 0))
-	_set_text(_cash_lbl, K.money(cash))
-	var budget: int = int(st.get("budget", 0))
-	_set_text(_budget_lbl, "budget %s - spent %s" % [K.money(budget), K.money(maxi(0, budget - cash))])
-	var obj: String = String(st.get("objective", "Balanced"))
-	var w: Dictionary = Catalog.WEIGHTS.get(obj, Catalog.WEIGHTS.Balanced)
-	_set_text(_obj_lbl, "OBJECTIVE: %s" % obj.to_upper())
-	_set_text(_obj_sub, "CPU %d%%  GPU %d%%  RAM %d%%  STO %d%%" % [w.cpu * 100, w.gpu * 100, w.ram * 100, w.storage * 100])
-	var trip: Dictionary = me.get("trip", {})
-	_trip_pill.visible = not trip.is_empty()
-	if not trip.is_empty():
-		K.set_pill(_trip_pill, "DRIVING - ETA %d s" % ceili(maxf(0.0, float(trip.remaining)) / 6.0), K.ORANGE)
-
-func _update_guide(force: bool) -> void:
-	if _guide_lbl == null or Game.me().is_empty():
-		return
-	var g := _guide(Game.me())
-	_set_text(_guide_lbl, g[0])
-	_guide_lbl.add_theme_color_override("font_color", g[1])
-	_guide_tab = String(g[2])
-	_guide_btn.visible = _guide_tab != "" and _guide_tab != _tab
-
-func _guide(me: Dictionary) -> Array:
-	var inst: Dictionary = me.get("installed", {})
-	var inv: Array = me.get("inventory", [])
-	if bool(me.get("ready", false)):
-		return ["Rig locked. Waiting for the other players or the deadline.", K.SKY, ""]
-	var trip: Dictionary = me.get("trip", {})
-	if not trip.is_empty():
-		return ["Driving to the pickup. The workbench is locked until you arrive; if a rival gets there first you lose the fuel, not the cash.", K.ORANGE, "drive"]
-	var order := ["case", "motherboard", "cpu", "gpu", "ram", "psu", "storage"]
-	for c in order:
-		for it in inv:
-			if it.category == c:
-				var why: String = Game.compatibility(it, me)
-				if why == "" :
-					return ["Install %s on the WORKBENCH (order: case, board, then the rest)." % it.name, K.LIME, "bench"]
-	for it in inv:
-		var why2: String = Game.compatibility(it, me)
-		if why2 != "" and not why2.begins_with("Install a"):
-			return ["%s will not install: %s. Buy a compatible part (try FITS MY RIG), then swap." % [it.name, why2], K.DANGER, "market"]
-	var owned := {}
-	for c in inst:
-		owned[c] = inst[c]
-	for it in inv:
-		if not owned.has(it.category):
-			owned[it.category] = it
-	var missing: Array = []
-	for c in order:
-		if c == "gpu":
-			continue
-		if not owned.has(c):
-			missing.append(String(K.CAT_LABEL[c]).to_lower())
-	if not owned.has("gpu"):
-		var igpu: bool = owned.has("cpu") and owned.has("motherboard") and owned.cpu.integrated and owned.motherboard.integrated
-		if not igpu:
-			missing.append("graphics (GPU, or iGPU CPU + board with video out)")
-	if not missing.is_empty():
-		return ["Still to buy: %s. Cash left %s." % [", ".join(missing), K.money(me.get("cash", 0))], K.CREAM, "market"]
-	var issues: Array = Game.build_issues(me)
-	if not issues.is_empty():
-		return ["Build problem: %s" % issues[0], K.ORANGE, "bench"]
-	var sc: Dictionary = Game.preview_score(me)
-	return ["Rig is valid (score %d). Overclock for more points, or FINISH on the WORKBENCH. Unspent cash is worth nothing." % sc.total, K.LIME, "tune"]
+func _update_world_hud() -> void:
+	if not is_instance_valid(_clock_lbl) or Game.me().is_empty(): return
+	var p: Dictionary = Game.me()
+	_clock_lbl.text = Trade.stamp(Game.clock())
+	_cash_lbl.text = "$%d" % int(p.cash)
+	var hint := "Home · E at the door to go outside. Walk to the PC desk for B: assembly / T: tuning."
+	if p.area == "town":
+		hint = "Driving · WASD / arrows. E parks and gets out. Fuel costs $3 each time you start the car." if p.driving else "Town · E by your car to drive, by home to go inside, or by a scheduled contact to trade."
+	if p.ready: hint = "Rig locked. Waiting for the other builders or the deadline."
+	_context_label.text = hint
+	var meetings: Array = Game.active_meetings(p)
+	var line := "Three-day deadline: " + Trade.stamp(Trade.START + 4320) + " · " + str(Game.state.objective) + " objective · P opens your phone."
+	if not meetings.is_empty():
+		var m: Dictionary = meetings[0]
+		for candidate: Dictionary in meetings:
+			if int(candidate.listing_id) == _tracked: m = candidate
+		line = str(m.contact) + " · " + str(m.label) + " · " + str(m.status).to_upper() + " · Space waits in solo; missed? message to reschedule."
+	_appointment_label.text = line

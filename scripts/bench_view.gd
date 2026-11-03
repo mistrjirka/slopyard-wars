@@ -187,8 +187,8 @@ func _rebuild(me: Dictionary) -> void:
 		var e := K.panel("Inset")
 		var ev := K.vbox(6)
 		ev.add_child(K.lbl("Nothing in your parts box yet.", "Mono"))
-		ev.add_child(K.lbl("Find a part in CLASSIFIEDS, haggle, then drive to collect it on the DRIVE tab. Pickups land here.", "Muted", null, true))
-		ev.add_child(K.btn("OPEN CLASSIFIEDS", "GhostButton", func(): go_market.emit()))
+		ev.add_child(K.lbl("Use your phone to agree price, time and place; drive to the meeting and complete the handoff. Collected parts land here.", "Muted", null, true))
+		ev.add_child(K.btn("OPEN PHONE", "GhostButton", func(): go_market.emit()))
 		e.add_child(ev)
 		_inv_box.add_child(e)
 	for it in inv:
@@ -205,7 +205,7 @@ func _rebuild(me: Dictionary) -> void:
 			r.add_child(K.lbl("x", "Mono", K.DANGER))
 			r.add_child(K.lbl(String(i), "Muted", K.CREAM, true))
 			_check_box.add_child(r)
-		_check_box.add_child(K.lbl("Wrong socket or memory type? You cannot sell parts: buy the matching board/CPU/RAM (FITS MY RIG filter) and swap it in.", "Tiny", K.ORANGE, true))
+		_check_box.add_child(K.lbl("Wrong socket or memory type? Sell the spare using your phone, or buy a compatible board/CPU/RAM and swap it in.", "Tiny", K.ORANGE, true))
 	# power
 	var cap := 0
 	if inst.has("psu"):

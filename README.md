@@ -1,56 +1,71 @@
 # Slopyard Wars
 
-A playable **Godot 4.7** prototype inspired by the second-hand PC-building race in *Scrapyard Wars*. Three days. One budget. A shared used-parts market. Build the fastest rig you can before the clock runs out.
+A **Godot 4.7** used-PC-building race inspired by *Scrapyard Wars*. Start at home, message local sellers on your phone, drive to appointments, build a compatible computer and overclock it before the three-day deadline.
 
 ## Run
 
-Open `project.godot` in Godot 4.7 and press **F5 (Run Project)**, or from this directory:
+Open `project.godot` in Godot 4.7 and press **F5**, or:
 
 ```sh
 godot --path .
 ```
 
-Mouse and keyboard; a 1440×900 window is recommended. No downloaded game assets or Python/Node service is needed. The existing Godot AI editor integration is preserved, but gameplay does not require an MCP connection.
+A 1440×900 window is recommended; 1280×720 is supported. No Python/Node server is required to play. The existing Godot AI addon is preserved but an MCP connection isn't needed for gameplay.
 
-### LLM sellers
+### Live marketplace characters
 
-Launch Godot from a shell that has `OPENROUTER_API_KEY` set. The solo player / LAN **host** makes requests to OpenRouter using `inclusionai/ling-3.0-flash`; joining players need no key. Requests incur your provider's normal usage charges. Do not put the key in project files, exported builds, screenshots, or Git.
+Launch Godot from a shell containing `OPENROUTER_API_KEY`. Only the solo process / LAN host makes OpenRouter requests, using **`inclusionai/ling-3.0-flash`**. Provider usage charges apply. Never put the key in project files or an exported build.
 
-Without a key, or if OpenRouter fails, the game remains playable with explicitly labeled **offline** seller dialogue. Price negotiation, inventory, compatibility and scoring always run in game code. Seller dialogue cannot award parts or change your balance.
-
-## The race
-
-1. **Start solo**, or host/join a LAN lobby. Choose the starting budget and benchmark objective.
-2. **Shop the market.** Inspect specs, socket, memory generation, asking price and seller personality. New listings appear, old ones disappear and prices drop while you play.
-3. **Negotiate.** Message the seller with your offer or agree to their counter; travel unlocks only after a confirmed chat agreement. An accepted offer is **not a reservation**.
-4. **Drive to collect.** Pickups take simulated travel time and fuel. You pay for the part on arrival; the first player to arrive gets it. If someone beats you there, you keep the part money but lose your travel fuel.
-5. **Assemble the rig.** Collect a case, PSU, CPU, compatible motherboard, RAM and HDD/SSD, plus either a graphics card or compatible integrated graphics. Fit the case and motherboard first, then complete the assembly interaction for each part.
-6. **Tune carefully.** CPU, GPU and RAM have clock/voltage controls. These are normalized game multipliers, **not real-world hardware advice**. Too much clock is unstable; voltage **above 1.40× destroys the part permanently**. Buy a replacement if there is time.
-7. **Benchmark.** Submit your build before the deadline. CPU, graphics, memory and storage contribute according to the selected objective. Incomplete/incompatible rigs score zero with reasons shown. Solo best scores are saved locally.
-
-Three in-game days take approximately **12 real minutes**. The clock continues while shopping, chatting and building. Assembly and stress runs also make your workbench temporarily busy.
+Without a key, or on a provider failure, clearly marked **offline** replies keep the trading loop playable. The fallback understands fewer natural-language variations. The game, not the model, owns money, inventory, schedules and transaction validation.
 
 ## Controls
 
-- **Mouse:** select listings, send chat, agree a price, drive, and operate the workbench.
-- **1–5:** switch between Classifieds, Drive, Workbench, Overclock and Guide (outside text fields).
-- **Assembly:** follow the highlighted targets; click screws/clips, drag parts into position, and drag cables to matching sockets. **R/E/right-click** rotates a CPU or flips RAM; there is also a Rotate button. **Esc** cancels.
-- **Overclock dials:** drag or scroll; focus a dial and use arrow keys for precise changes. Settings take effect only when you run the stress test.
+| Control | Action |
+|---|---|
+| **WASD / arrow keys** | Walk; drive while in your car |
+| **E** | Use home door; enter car; park/get out; complete a nearby scheduled handoff; use home workbench |
+| **P / Tab** | Open or pocket your phone |
+| **M** | Town overview and appointment tracking |
+| **B / T** | Assembly / overclocking, only beside the workbench inside your house |
+| **Space** | Intentionally wait in solo: 30 game minutes, or up to two hours toward a nearby upcoming meeting |
+| **Esc** | Close phone, map, workbench or current dialog |
+
+Movement stops while an interface is open. The world clock does **not** pause while you chat. Waiting cannot skip time for other LAN players.
+
+Assembly uses clicks, dragging, cable matching, and **R/E/right-click** rotation where instructed. Overclock dials accept dragging, scrolling and focused arrow-key adjustments.
+
+## The loop
+
+1. **Start solo or host/join LAN.** Choose a budget and CPU, GPU, Storage or Balanced benchmark objective. You spawn in a furnished house with your PC workbench. A visible old spare case lets you try selling immediately; it isn't cash until actually sold.
+2. **Use your phone.** **Browse** shows social-classifieds listing tiles, **Messages** holds individual conversations, and **Sell** lets you list owned spare parts. Hardware notes help you match sockets, memory and power; sellers aren't all experts.
+3. **Negotiate price, place and time.** There's no checkout or Buy button. Ordinary-person sellers and buyers can counter, refuse, get impatient or be unsure about technical questions. Each contact has different daytime/evening availability and two possible meeting locations. Ask naturally or use the meeting-suggestion messages.
+4. **Check the confirmed meeting.** Agreeing only a price isn't enough. A confirmed appointment shows its **day, time, place and window end**. Track it from the conversation or map. A proposal is not confirmation. An agreement also isn't an exclusive reservation: shared stock still goes to the first valid handoff.
+5. **Go there yourself.** Walk through the home door, approach your car and press E. Starting the car costs $3 fuel. Drive around town, park, and walk to the contact. They appear during the agreed window; E transfers the part and payment only at the right place and time. Early? Wait. Missed them? Message to reschedule.
+6. **Sell spares.** Post an inventory part and a buyer will open with an offer. Negotiate in Messages, agree a meeting and physically hand it over to receive money. A live listing locks the part from installation; cancelling unlocks it. Installed/destroyed parts can't be listed, and handoffs can't pay twice.
+7. **Build at home.** Return to your workbench and assemble case → compatible motherboard → CPU/RAM/graphics/PSU/storage through their minigames. Graphics can come from a discrete card or a CPU with integrated graphics plus a board with video outputs. Wrong purchase? Sell it or swap in compatible hardware.
+8. **Tune and benchmark.** CPU/GPU/RAM clock and voltage settings can improve performance, destabilize it, overload the PSU or permanently destroy a part. Finish beside the home workbench. Incomplete rigs score zero with reasons; solo best scores persist locally.
+
+## Clock and appointments
+
+The run starts **Day 1 at 08:00** and ends **Day 4 at 08:00**: three complete days. At two game minutes per real second, a day is about **12 real minutes**, or **36 minutes for the full run**, before intentional solo waits. Day/night tint and local appointments take inspiration from compressed-time life games; this is not an exact reproduction of *Schedule I*.
+
+Contacts offer a small set of upcoming feasible windows, generally up to 90 game minutes long. Different characters prefer different hours and meeting places. Overlapping appointments cannot place the same person at different locations. NPCs currently appear at meetings rather than simulating a full commute/work/home life.
 
 ## Multiplayer
 
-- One player selects **Host**; others select **Join** and enter the host's LAN IP.
-- ENet uses **UDP port 24680**, up to **4 players**. Allow that port through the host firewall. On one machine use `127.0.0.1` in the second instance.
-- Join before the host starts the match. There is no public matchmaking, NAT traversal, dedicated-server setup or reconnect support in this prototype.
-- All players see the same listings. The host owns the clock, purchases, inventory and benchmarks. Other players do not receive your private seller-chat history or offers.
-- Finish early to lock your rig; results appear when everyone finishes or time expires.
+- Up to **4 players**, ENet **UDP 24680**. Join the host's LAN address before the match starts. Use `127.0.0.1` for two instances on one machine.
+- The host owns movement/collision, time, availability, cash, parts and handoffs; clients send directional/action intents, not teleport coordinates.
+- Players have their own car and rig; nearby peers and active contacts are visible. The small home layout is shared rather than separate customizable houses.
+- Public matchmaking, NAT traversal, reconnect and unfinished-match saves aren't implemented. Separate-machine LAN connectivity has not been verified.
 
-## Prototype scope
+## Prototype notes
 
-This is a 2D strategy/workbench prototype, not yet a freely walkable 3D garage. Driving is a timed pickup route visualized on the city map, not a vehicle physics simulator. Hardware and benchmark numbers are fictional. Assembly interactions are a first pass intended for iteration. Solo is a high-score run; there is no AI rival builder yet. No save/resume of an unfinished match.
+The world and sprite atlas are original, code-authored retro pixel art—no Pokémon/Nintendo assets. Car controls are simple top-down directional driving, not a vehicle physics simulator. Hardware and benchmarks are fictional. Voltage is a **normalized game multiplier**, not real-world advice: **above 1.40× permanently destroys the component**.
 
-See [`docs/backend.md`](docs/backend.md) for scoring, compatibility, negotiation and seller-service limits.
+There is no AI rival PC builder in solo; it remains a high-score challenge. LLM dialogue can sometimes be imperfect: use the game's explicit price/meeting status, not a vague chat promise, to check whether a transaction is actually agreed.
+
+See [`docs/backend.md`](docs/backend.md) for state ownership and trading rules.
 
 ## Validation
 
-Earlier prototype validation on Godot 4.7.2 covered a full rendered solo run, live OpenRouter chat, six-part integrated-graphics assembly, safe overclocking and valid benchmark results, and layout at 1440×900 and 1280×720. The newer chat-agreement flow was checked through focused live model/runtime probes and an actual pointer-driven UI run: availability did not unlock pickup, a natural purchase message received seller acceptance, and the agreed pickup transferred the part. The updated tile-and-chat marketplace was inspected at 1440×900 and 1280×720. Additional runtime smoke checks exercised all seven assembly minigames, component destruction, and a contested purchase between two local ENet instances. The two-window UI host/join/start/wait/results flow was also exercised. Separate-machine LAN connectivity has not been verified. No automated test suite was added or run.
+Focused real-model checks exercised buying and NPC-buyer price negotiation, meeting proposals/acceptance and canonical persisted appointments. A rendered pointer/keyboard playthrough covered home spawn, leaving home, entering and driving the car, phone negotiation, waiting for a contact, buying, listing a spare, a buyer's counteroffer, driving to and completing the sale, returning home and using the workbench. Host-rule smoke checks covered early/distant/duplicate handoff refusal. Additional scope and current checks are recorded in `docs/backend.md`. No automated test suite was added or run.
