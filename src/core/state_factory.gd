@@ -12,5 +12,5 @@ static func blank() -> Dictionary:
 static func player(pname: String) -> Dictionary:
 	var n := pname.strip_edges().left(16)
 	return {"name": n if n != "" else "Player", "cash": 0, "inventory": [], "installed": {}, "tuning": {}, "chats": {},
-		"offers": {}, "counters": {}, "meetings": {}, "meeting_proposals": {}, "area": "home", "driving": false, "car_pos": World.CAR_START, "facing": Vector2.DOWN, "ready": false, "score": {}, "best": 0, "busy": 0.0, "pos": World.SPAWN, "destroyed": [],
+		"offers": {}, "counters": {}, "meetings": {}, "meeting_proposals": {}, "contact_relations": {}, "area": "home", "driving": false, "car_pos": World.CAR_START, "facing": Vector2.DOWN, "ready": false, "score": {}, "best": 0, "busy": 0.0, "pos": World.SPAWN, "destroyed": [],
 		"workshop_modifiers": {"cooling_bonus": 0, "lucky_tests": 0}, "world_visits": {}, "serviced_parts": {}, "last_stress_test": {}, "benchmark_checked": false}

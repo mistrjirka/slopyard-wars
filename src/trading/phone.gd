@@ -1,12 +1,13 @@
 extends Control
 ## LuckyFold app controller. Cover messages and unfolded marketplace share one conversation/draft state.
 const Device = preload("res://src/trading/luckyfold_shell.gd")
-const Stats = preload("res://src/data/hardware_stats.gd")
+const MarketplaceView = preload("res://src/trading/marketplace_view.gd")
+const SellView = preload("res://src/trading/sell_view.gd")
 const Characters = preload("res://src/data/characters.gd")
 const K = preload("res://src/ui/ui_kit.gd")
-const Art = preload("res://src/ui/part_art.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
 const Catalog = preload("res://src/data/catalog.gd")
+const Relationships = preload("res://src/trading/contact_relationships.gd")
 signal close_requested
 signal track_requested(listing_id: int)
 var page := "browse"
@@ -20,7 +21,9 @@ var _send: Button
 var _log: VBoxContainer
 var _scroll: ScrollContainer
 var _context: Label
-var _search := ""
+var _browse_filters := {"query": "", "category": "", "sort": "price_asc"}
+var _browse_view: Control
+var _sale_prices: Dictionary = {}
 var _slots := false
 var _drafts := {}
 var _device: Control
@@ -136,8 +139,10 @@ func refresh() -> void:
 	_clock.text = Trade.stamp(Game.clock()) + "   ·   $%d" % int(Game.me().cash)
 	var me: Dictionary = Game.me()
 	var active_page := page if unfolded else "messages"
+	_device.set_message_layout(active_page == "messages" and selected >= 0)
 	var sig := str(unfolded) + active_page + str(selected)
 	sig += str(_waiting_for_reply()) + str(me.ready)
+	sig += str(me.get("contact_relations", {}))
 	if active_page == "messages" and selected >= 0:
 		var l := _listing(selected)
 		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(l.get("status", "gone")) + str(_slots)
@@ -151,6 +156,10 @@ func refresh() -> void:
 		if active_page == "messages":
 			sig += str(me.chats) + str(me.meetings)
 	if sig == _sig:
+		return
+	if active_page == "browse" and is_instance_valid(_browse_view) and _browse_view.get_parent() == _body:
+		_sig = sig
+		_browse_view.update_listings(Game.state.listings, me)
 		return
 	var refocus := is_instance_valid(_composer) and _composer.has_focus()
 	var caret := _composer.caret_column if refocus else 0
@@ -174,63 +183,10 @@ func refresh() -> void:
 
 
 func _browse() -> void:
-	var hint := K.lbl("Message someone. Agree a price, then a place and time. No checkout button.", "Muted", null, true)
-	_body.add_child(hint)
-	var search := LineEdit.new()
-	search.placeholder_text = "Search parts or sellers..."
-	search.text = _search
-	_body.add_child(search)
-	var scroll := K.scroll()
-	_body.add_child(scroll)
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
-	scroll.add_child(grid)
-	var cards: Array = []
-	for l in Game.state.listings:
-		if int(l.get("owner", 0)) != 0 or l.status != "available":
-			continue
-		var card := K.panel("CardTight")
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		var box := K.vbox(3)
-		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var art: Control = Art.new()
-		art.custom_minimum_size = Vector2(150, 72)
-		art.show_item(l)
-		box.add_child(art)
-		box.add_child(K.lbl("$%d" % int(l.price), "Big", K.SKY))
-		var name_label := K.lbl(str(l.get("manufacturer", "")) + " " + str(l.name), "", K.CREAM, true)
-		name_label.custom_minimum_size.x = 180
-		box.add_child(name_label)
-		var detail := "Condition %d/100" % int(l.get("condition", 100))
-		if str(l.category) in ["cpu", "gpu", "ram", "storage"]:
-			detail += " · stock %d" % roundi(Stats.stock_score(l))
-		if float(l.get("oc_potential", 0)) > 0:
-			detail += " · OC +%d%%" % roundi(float(l.oc_potential) * 100)
-		box.add_child(K.lbl(detail, "Tiny", K.LIME, true))
-		var stock_fault := Stats.stock_failure_chance(l)
-		if stock_fault > 0:
-			box.add_child(K.lbl("RELIABILITY WARNING · %.1f%% stock failure risk" % (stock_fault * 100), "Tiny", K.ORANGE, true))
-		var fire := Stats.stock_fire_chance(l)
-		if fire > 0:
-			box.add_child(K.lbl("CONNECTOR FIRE · %.1f%% at stock; higher when overclocked" % (fire * 100), "Tiny", K.ORANGE, true))
-		box.add_child(K.lbl(Stats.value_text(l), "Tiny", K.MUTED, true))
-		box.add_child(K.lbl(str(l.seller) + " · " + str(l.location), "Tiny", null, true))
-		card.add_child(box)
-		card.gui_input.connect(func(e: InputEvent):
-			if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-				open_listing(int(l.id)))
-		grid.add_child(card)
-		cards.append([card, (str(l.name) + str(l.seller) + str(l.category)).to_lower()])
-	search.text_changed.connect(func(t: String):
-		_search = t
-		for pair in cards:
-			pair[0].visible = t == "" or t.to_lower() in pair[1])
-	for pair in cards:
-		pair[0].visible = _search == "" or _search.to_lower() in pair[1]
+	_browse_view = MarketplaceView.new()
+	_browse_view.setup(_browse_filters, Game.state.listings, Game.me())
+	_browse_view.listing_selected.connect(open_listing)
+	_body.add_child(_browse_view)
 
 
 func _threads() -> void:
@@ -312,6 +268,8 @@ func _thread() -> void:
 		_context.text = "No price agreement yet. Ask or make an offer in your own words."
 	if l.status != "available":
 		_context.text = str(l.status).to_upper() + " · this listing is no longer available."
+	if Relationships.blocked(me, l):
+		_context.text = "This contact has stopped trading with you for this run. Try another seller."
 	conversation.add_child(_context)
 	if not unfolded:
 		_meeting_actions(conversation, l)
@@ -329,19 +287,37 @@ func _thread() -> void:
 		if msg.speaker == "system":
 			col = K.ORANGE
 		bubble.add_child(K.lbl(str(msg.speaker) + "\n" + str(msg.text), "", col, true))
-		_log.add_child(bubble)
+		var row := HBoxContainer.new()
+		var mine: bool = str(msg.speaker) == str(me.name)
+		row.alignment = BoxContainer.ALIGNMENT_END if mine else BoxContainer.ALIGNMENT_BEGIN
+		if msg.speaker == "system":
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bubble.size_flags_horizontal = Control.SIZE_FILL
+		row.add_child(bubble)
+		var fit_bubble := func(): bubble.custom_minimum_size.x = maxf(0, row.size.x * (0.72 if msg.speaker != "system" else 0.88))
+		row.resized.connect(fit_bubble)
+		_log.add_child(row)
 	if me.chats.get(selected, []).is_empty():
 		_log.add_child(K.lbl("Say hello. People won't always know the specs, and they have lives outside the marketplace.", "Muted", null, true))
 	var row := K.hbox(6)
+	if unfolded:
+		var fault_clearance := Control.new()
+		fault_clearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(fault_clearance)
+		row.resized.connect(_fit_message_bar.bind(weakref(row)), CONNECT_DEFERRED)
 	_composer = LineEdit.new()
 	_composer.placeholder_text = "Quick message..." if not unfolded else "Message..."
 	_composer.max_length = 240
 	_composer.text = str(_drafts.get(selected, ""))
+	_composer.editable = not Relationships.blocked(me, l)
+	if not _composer.editable:
+		_composer.placeholder_text = "This contact blocked you."
 	_composer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_composer.text_submitted.connect(_send_text)
 	row.add_child(_composer)
 	_send = K.btn("Send", "PrimaryButton", func(): _send_text(_composer.text))
-	_send.disabled = pending or _waiting_for_reply() or l.status != "available" or me.ready
+	_send.disabled = pending or _waiting_for_reply() or l.status != "available" or me.ready or Relationships.blocked(me, l)
 	row.add_child(_send)
 	conversation.add_child(row)
 	var quick := K.hbox(4)
@@ -352,7 +328,18 @@ func _thread() -> void:
 		b.disabled = _send.disabled
 		quick.add_child(b)
 	conversation.add_child(quick)
+	if unfolded:
+		conversation.move_child(quick, row.get_index())
 	_scroll_bottom.call_deferred(weakref(_scroll))
+
+
+func _fit_message_bar(row_reference: WeakRef) -> void:
+	var row := row_reference.get_ref() as HBoxContainer
+	if not is_instance_valid(row):
+		return
+	_device.set_message_bar_height(row.get_combined_minimum_size().y)
+	var fault_clearance := row.get_child(0) as Control
+	fault_clearance.custom_minimum_size.x = maxf(0, _device.message_text_left() - row.global_position.x - row.get_theme_constant("separation"))
 
 
 func _meeting_actions(parent: VBoxContainer, listing: Dictionary) -> void:
@@ -373,7 +360,10 @@ func _meeting_actions(parent: VBoxContainer, listing: Dictionary) -> void:
 		scroll.size_flags_vertical = Control.SIZE_FILL
 		scroll.add_child(choices)
 		parent.add_child(scroll)
-	for slot: Dictionary in Game.contact_options(listing):
+	var options: Array = Game.contact_options(listing)
+	if options.is_empty():
+		choices.add_child(K.lbl("No meeting window remains before tonight's deadline. Try another contact or head home to build.", "Tiny", K.ORANGE, true))
+	for slot: Dictionary in options:
 		var b := K.btn(str(slot.label), "GhostButton", _send_text.bind("Can we meet " + str(slot.label) + "?"))
 		b.add_theme_font_size_override("font_size", 11)
 		b.clip_text = true
@@ -411,39 +401,7 @@ func _send_text(text: String) -> void:
 
 
 func _sell() -> void:
-	_body.add_child(K.lbl("YOUR SPARE PARTS", "H2"))
-	_body.add_child(K.lbl("List an owned spare. Buyers will haggle in Messages. Sold parts are handed over at a scheduled meeting; no instant money. Cancel a listing to install its part.", "Muted", null, true))
-	var scroll := K.scroll()
-	_body.add_child(scroll)
-	var box := K.vbox(10)
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(box)
-	var me: Dictionary = Game.me()
-	for item: Dictionary in me.inventory:
-		var active := {}
-		for l in Game.state.listings:
-			if int(l.get("owner", 0)) == Game.local_id() and int(l.get("item_id", -99999)) == int(item.id) and l.status == "available":
-				active = l
-		var card := K.panel("Card")
-		var v := K.vbox(6)
-		v.add_child(K.lbl(str(item.name), "Mono", null, true))
-		if not active.is_empty():
-			v.add_child(K.lbl("Listed $%d · %s is interested" % [int(active.price), active.seller], "Tiny", K.SKY))
-			var row := K.hbox(6)
-			row.add_child(K.btn("Chat with buyer", "", open_listing.bind(int(active.id))))
-			row.add_child(K.btn("Cancel listing", "GhostButton", func(): Game.act("cancel_sale", {"listing_id": active.id})))
-			v.add_child(row)
-		else:
-			var row := K.hbox(6)
-			var price := SpinBox.new()
-			price.min_value = 1
-			price.max_value = 5000
-			price.value = maxi(5, int(item.price))
-			price.prefix = "$"
-			row.add_child(price)
-			row.add_child(K.btn("Post listing", "PrimaryButton", func(): Game.act("post_sale", {"item_id": item.id, "price": int(price.value)})))
-			v.add_child(row)
-		card.add_child(v)
-		box.add_child(card)
-	if me.inventory.is_empty():
-		box.add_child(K.lbl("No spare parts. Installed components must be replaced at the workbench before selling.", "Muted", null, true))
+	var view := SellView.new()
+	view.setup(Game.me(), Game.state.listings, _sale_prices)
+	view.listing_selected.connect(open_listing)
+	_body.add_child(view)

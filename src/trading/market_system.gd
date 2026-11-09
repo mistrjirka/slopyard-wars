@@ -5,6 +5,7 @@ const Characters = preload("res://src/data/characters.gd")
 const Catalog = preload("res://src/data/catalog.gd")
 const Stats = preload("res://src/data/hardware_stats.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
+const Relationships = preload("res://src/trading/contact_relationships.gd")
 
 var session: Node
 var state: Dictionary:
@@ -14,6 +15,8 @@ var state: Dictionary:
 var next_id := 1
 var floors: Dictionary = {}
 var anchors: Dictionary = {}
+var sale_interest: Dictionary = {}
+var interest_delay_scale := 1.0
 
 
 func _init(game_session: Node) -> void:
@@ -21,7 +24,10 @@ func _init(game_session: Node) -> void:
 
 
 func add_listing(tpl: Resource, anchor: bool) -> Dictionary:
-	var l: Dictionary = Catalog.build_listing(session.rng, tpl, next_id)
+	var contact := _available_contact()
+	if contact == null:
+		return {}
+	var l: Dictionary = Catalog.build_listing(session.rng, tpl, next_id, contact)
 	next_id += 1
 	l.pos = Catalog.LOCATIONS[l.location]
 	l["owner"] = 0
@@ -31,6 +37,13 @@ func add_listing(tpl: Resource, anchor: bool) -> Dictionary:
 		anchors[l.id] = true
 	state.listings.append(l)
 	return l
+
+
+## New stock and buyers must still have a feasible appointment before tonight's deadline.
+func _available_contact() -> Resource:
+	var available := Characters.ALL.filter(func(contact):
+		return not Trade.options(contact.display_name, contact.meeting_places[0], session.clock()).is_empty())
+	return null if available.is_empty() else available[session.rng.randi_range(0, available.size() - 1)]
 
 
 func contact_options(listing: Dictionary) -> Array:
@@ -75,6 +88,9 @@ func active_meetings(player: Dictionary) -> Array:
 
 func handoff(pid: int, p: Dictionary, lid: int) -> void:
 	var l := listing(lid)
+	if not l.is_empty() and Relationships.blocked(p, l):
+		session.notify_player(pid, "This contact has ended trading with you.")
+		return
 	if l.is_empty() or l.status != "available" or not p.meetings.has(lid) or not p.offers.has(lid):
 		session.notify_player(pid, "No live agreed meeting for this listing.")
 		return
@@ -136,12 +152,15 @@ func post_sale(pid: int, p: Dictionary, d: Dictionary) -> void:
 	if item.is_empty():
 		session.notify_player(pid, "Only spare parts you own can be listed.")
 		return
+	var contact := _available_contact()
+	if contact == null:
+		session.notify_player(pid, "No buyers have a meeting window left before tonight's deadline. Keep the spare and finish your build.")
+		return
 	var l: Dictionary = item.duplicate(true)
 	l.id = next_id
 	next_id += 1
 	l["owner"] = pid
 	l["item_id"] = id
-	var contact := Characters.pick(session.rng)
 	l["buyer_max"] = maxi(5, int(Stats.reference_price(item) * session.rng.randf_range(contact.buyer_budget_range.x, contact.buyer_budget_range.y)))
 	l.price = ask
 	l.status = "available"
@@ -151,12 +170,40 @@ func post_sale(pid: int, p: Dictionary, d: Dictionary) -> void:
 	l.location = contact.meeting_places[0]
 	l.pos = Catalog.LOCATIONS[l.location]
 	l["first_offer"] = maxi(1, mini(ask, int(l.buyer_max * 0.65)))
+	l["buyer_contacted"] = false
 	state.listings.append(l)
 	anchors[l.id] = true
 	floors[l.id] = 1
-	p.counters[l.id] = l.first_offer
-	session.dialogue.say(p, l.id, l.seller, Characters.line(contact.buyer_opening, int(l.first_offer)))
-	session.notify_player(pid, "%s messaged about your listing. Check Messages on your phone." % l.seller)
+	var ratio := float(ask) / Stats.reference_price(item)
+	var chance := clampf(1.0 - maxf(0, ratio - 1.15) * 2.0, 0, 1)
+	if ratio <= contact.maximum_asking_ratio and session.rng.randf() < chance:
+		var delay: float = session.rng.randf_range(contact.buyer_interest_delay_minutes.x, contact.buyer_interest_delay_minutes.y)
+		delay *= 1.0 + maxf(0, ratio - 1.0) * 18.0
+		sale_interest[l.id] = {"pid": pid, "match": state.match_id, "due": session.clock() + delay * interest_delay_scale}
+	session.notify_player(pid, "Listing posted. Buyers may take a while; an ambitious asking price can attract no replies.")
+	deliver_interest()
+
+
+func deliver_interest() -> void:
+	for lid in sale_interest.keys():
+		var lead: Dictionary = sale_interest[lid]
+		var item := listing(lid)
+		if lead.match != state.match_id or item.is_empty() or item.status != "available" or not state.players.has(lead.pid) or state.players[lead.pid].ready:
+			sale_interest.erase(lid)
+			continue
+		if session.clock() < float(lead.due):
+			continue
+		sale_interest.erase(lid)
+		if contact_options(item).is_empty():
+			continue
+		var player: Dictionary = state.players[lead.pid]
+		if Relationships.blocked(player, item):
+			continue
+		item.buyer_contacted = true
+		player.counters[lid] = item.first_offer
+		session.dialogue.say(player, lid, item.seller, Characters.line(Characters.for_listing(item).buyer_opening, int(item.first_offer)))
+		session.notify_player(lead.pid, "%s messaged about your listing. Check Messages on your phone." % item.seller)
+		session.mark_changed()
 
 
 func refresh() -> void:
@@ -175,7 +222,8 @@ func refresh() -> void:
 		session.record_event("%s took '%s' off the market" % [l.seller, l.name])
 	for k in 2:
 		var l = add_listing(Catalog.random_pick(session.rng), false)
-		session.record_event("New listing: %s - $%d (%s)" % [l.name, l.price, l.location])
+		if not l.is_empty():
+			session.record_event("New listing: %s - $%d (%s)" % [l.name, l.price, l.location])
 	for c in Catalog.CATEGORIES:
 		var n := 0
 		for l in state.listings:
@@ -183,7 +231,8 @@ func refresh() -> void:
 				n += 1
 		if n < 2:
 			var l = add_listing(Catalog.random_pick(session.rng, c), false)
-			session.record_event("Restocked: %s - $%d" % [l.name, l.price])
+			if not l.is_empty():
+				session.record_event("Restocked: %s - $%d" % [l.name, l.price])
 	for l in pool.slice(2, 3):
 		var cut := int(l.price * 0.9)
 		l.price = cut

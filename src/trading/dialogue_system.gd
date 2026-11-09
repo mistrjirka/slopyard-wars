@@ -4,6 +4,7 @@ extends RefCounted
 const Config = preload("res://src/core/game_config.gd")
 const Characters = preload("res://src/data/characters.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
+const Relationships = preload("res://src/trading/contact_relationships.gd")
 
 var session: Node
 var state: Dictionary:
@@ -13,6 +14,7 @@ var state: Dictionary:
 var pending: Dictionary = {}
 var pending_by: Dictionary = {}
 var serial := 0
+var delay_scale := 1.0 # Local tests may disable presentation delays.
 
 
 func _init(game_session: Node) -> void:
@@ -41,8 +43,14 @@ func chat(pid: int, p: Dictionary, d: Dictionary) -> void:
 	if int(l.get("owner", 0)) > 0 and int(l.owner) != pid:
 		session.notify_player(pid, "This is another player's private buyer conversation.")
 		return
+	if int(l.get("owner", 0)) == pid and not l.get("buyer_contacted", true):
+		session.notify_player(pid, "No buyer has contacted you about this listing yet.")
+		return
 	if pending_by.has(pid):
 		session.notify_player(pid, "Wait for the seller to answer your last message first.")
+		return
+	if Relationships.blocked(p, l):
+		session.notify_player(pid, "This contact has stopped dealing with you for this run. Try someone else.")
 		return
 	var hist: Array = []
 	for m in p.chats.get(lid, []):
@@ -52,6 +60,8 @@ func chat(pid: int, p: Dictionary, d: Dictionary) -> void:
 	say(p, lid, "system", "%s is typing..." % l.seller, true)
 	serial += 1
 	pending[serial] = {"pid": pid, "lid": lid, "match": state.match_id, "text": text}
+	var delay := Characters.for_listing(l).reply_delay_seconds
+	pending[serial]["deliver_at"] = session.clock() + session.rng.randf_range(delay.x, delay.y) * Config.RATE * delay_scale
 	pending_by[pid] = serial
 	var context: Dictionary = l.duplicate()
 	context["seller_floor"] = int(session.market.floors[lid])
@@ -62,12 +72,22 @@ func chat(pid: int, p: Dictionary, d: Dictionary) -> void:
 	context["meeting_proposal"] = p.meeting_proposals.get(lid, {})
 	context["agreed_price"] = int(p.offers.get(lid, 0))
 	context["availability"] = Trade.profile(l.seller, l.location).note
+	var character := Characters.for_listing(l)
+	context["contact_strikes"] = int(Relationships.relation(p, character).strikes)
+	var parsed_offer: Dictionary = session.seller.offline_decision(context, text, int(context.prior_counter))
+	var preview := Relationships.preview(p, l, text, int(parsed_offer.amount) if parsed_offer.intent == "offer" else 0)
+	context["required_refusal_reason"] = preview.reason if preview.blocked else ""
+	var needs_intro: bool = not context.sale_side and character.requires_conversation and not Relationships.relation(p, character).introduced and not Relationships.engages(p, l, text)
+	context["conversation_request"] = character.rapport_invitation if needs_intro else ""
 	pending[serial]["options"] = context.meeting_options
 	session.seller.submit(serial, context, hist, text)
 
 
 func receive_reply(req: int, ok: bool, decision: Dictionary, error: String) -> void:
 	if not pending.has(req):
+		return
+	if session.clock() < float(pending[req].get("deliver_at", 0)):
+		pending[req]["response"] = {"ok": ok, "decision": decision, "error": error}
 		return
 	var job: Dictionary = pending[req]
 	pending.erase(req)
@@ -116,12 +136,52 @@ func receive_reply(req: int, ok: bool, decision: Dictionary, error: String) -> v
 	if intent == "accept_counter":
 		if counter <= 0:
 			intent = "offer" if amount_in_message(query, amount, int(l.price)) else "none"
+		elif fallback.intent == "offer" and int(fallback.amount) != counter:
+			# A clear new price is not consent to the old counter, even if the model says so.
+			intent = "none"
 		else:
 			amount = counter
 	# A logistics reply can reaffirm an already accepted price without a new monetary commitment.
+	var social_offer := amount if intent == "offer" else (int(fallback.amount) if fallback.intent == "offer" else 0)
+	var relationship := Relationships.assess(p, l, job.text, social_offer, str(decision.get("contact_action", "none")))
+	if relationship.blocked:
+		_end_relationship(p, l)
+		var character := Characters.for_listing(l)
+		var authored_refusal: String = str(character.refusal_by_reason.get(relationship.reason, character.refusal_line))
+		var refusal: String = line if ok and decision.get("contact_action", "none") == "block" and action == "none" else authored_refusal
+		say(p, job.lid, l.seller, public_reply(refusal, l, p, job.lid))
+		say(p, job.lid, "system", "Contact blocked you for this run. Their other listings and existing meetings are also unavailable to you.")
+		session.mark_changed()
+		return
+	if relationship.warning:
+		var character := Characters.for_listing(l)
+		line = character.patience_warning
+		say(p, job.lid, l.seller, line)
+		session.mark_changed()
+		return
+	if relationship.needs_conversation:
+		# Enforce the deal requirement, not a canned replacement for every social reply.
+		# Availability questions and clarification must retain the model's actual response.
+		if action in ["accept", "counter"] or intent in ["offer", "accept_counter"]:
+			line = Characters.for_listing(l).rapport_invitation
+		elif not ok:
+			line = Characters.for_listing(l).rapport_invitation
+		line = public_reply(line, l, p, job.lid)
+		say(p, job.lid, l.seller, ("" if ok else "[offline] ") + line)
+		session.mark_changed()
+		return
 	if p.offers.has(job.lid) and amount == int(p.offers[job.lid]) and action == "accept" and str(decision.get("meeting_action", "none")) != "none":
 		intent = "none"
 		action = "none"
+	# A counterparty willing to concede beyond a grounded offer can accept that offer.
+	# Never let an NPC seller undercut the buyer, or an NPC buyer overbid the seller.
+	if intent in ["offer", "accept_counter"] and action == "counter" and amount >= floor_price and amount <= ceiling and proposal >= floor_price and proposal <= ceiling:
+		if (not selling and proposal <= amount) or (selling and proposal >= amount):
+			action = "accept"
+			line = Characters.line(Characters.for_listing(l).price_accept, amount)
+			# The replacement price reply does not convey any model-proposed logistics.
+			decision = decision.duplicate()
+			decision["meeting_action"] = "none"
 	if intent in ["offer", "accept_counter"] and action == "accept" and amount >= floor_price and amount <= ceiling and not ("confirm" in line.to_lower() or "if you" in line.to_lower()):
 		p.offers[job.lid] = amount
 		p.counters.erase(job.lid)
@@ -138,9 +198,56 @@ func receive_reply(req: int, ok: bool, decision: Dictionary, error: String) -> v
 		# Never present an invalid or ungrounded proposed transaction as confirmed.
 		say(p, job.lid, "system", "Seller response could not be validated; please clarify your offer.")
 		line = "Could you clarify what you have in mind?"
+	line = public_reply(line, l, p, job.lid)
 	say(p, job.lid, l.seller, ("" if ok else "[offline] ") + line)
 	apply_meeting(p, l, decision, job.get("options", []))
 	session.mark_changed()
+
+
+func tick() -> void:
+	for req in pending.keys():
+		var job: Dictionary = pending[req]
+		if job.has("response") and session.clock() >= float(job.get("deliver_at", 0)):
+			var response: Dictionary = job.response
+			receive_reply(req, response.ok, response.decision, response.error)
+
+
+func _end_relationship(player: Dictionary, listing: Dictionary) -> void:
+	var character := Characters.for_listing(listing)
+	for other: Dictionary in state.listings:
+		if Characters.for_listing(other).id != character.id:
+			continue
+		for key in ["offers", "counters", "meetings", "meeting_proposals"]:
+			player[key].erase(other.id)
+
+
+## Explicit control-language leaks are replaced with a host-validated public response.
+func public_reply(line: String, listing: Dictionary, player: Dictionary, lid: int) -> String:
+	# Keep NPC texts casual even if the provider ignores the punctuation instruction.
+	line = RegEx.create_from_string("[ \\t]*\u2014[ \\t]*").sub(line, ", ", true)
+	var leak := RegEx.create_from_string("(?i)(seller_floor|buyer_max|system prompt|counter_bias|price_floor|(?:set|configured|hidden|private|internal|absolute) (?:minimum|maximum|floor|ceiling|budget|limit)|(?:above|below) (?:the |my )?(?:minimum|floor|ceiling)|(?:minimum|maximum) (?:threshold|allowed)|as an (?:ai|llm))")
+	if leak.search(line) == null:
+		return line
+	# Preserve safe reactions instead of flattening the whole message into a price template.
+	var sentences := RegEx.create_from_string("(?s).+?(?:[.!?](?=\\s|$)|$)")
+	var safe: Array[String] = []
+	for sentence: RegExMatch in sentences.search_all(line):
+		var fragment := sentence.get_string().strip_edges()
+		if leak.search(fragment) == null and fragment != "":
+			safe.append(fragment)
+	var character := Characters.for_listing(listing)
+	var price_line := ""
+	var public_price := 0
+	if player.offers.has(lid):
+		public_price = int(player.offers[lid])
+		price_line = Characters.line(character.price_accept, public_price)
+	elif player.counters.has(lid):
+		public_price = int(player.counters[lid])
+		price_line = Characters.line(character.price_counter, public_price)
+	var already_priced := RegEx.create_from_string("\\$%d(?![0-9]|\\.[0-9])" % public_price).search(" ".join(safe)) != null
+	if price_line != "" and not already_priced:
+		safe.append(price_line)
+	return " ".join(safe) if not safe.is_empty() else "What did you have in mind?"
 
 
 func apply_meeting(p: Dictionary, l: Dictionary, d: Dictionary, offered: Array) -> void:

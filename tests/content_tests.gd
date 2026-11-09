@@ -344,9 +344,7 @@ func _activities() -> void:
 	player.workshop_modifiers.lucky_tests = 0
 	game.act("world_activity", {"activity_id": "lucky_square"})
 	check.call(player.workshop_modifiers.lucky_tests == 0, "Daily prayer cap survives using the blessing")
-	game.state.remaining -= 1440
-	game.act("world_activity", {"activity_id": "lucky_square"})
-	check.call(player.workshop_modifiers.lucky_tests == 1, "Prayer renews on the next day")
+	check.call(game.state.remaining < 1440, "The single-day challenge ends before daily activities can be farmed again")
 	player = fresh()
 	player.area = "town"
 	player.pos = Activities.find("dubious_bin").position

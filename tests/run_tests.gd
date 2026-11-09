@@ -37,6 +37,8 @@ func fresh() -> Dictionary:
 func _run() -> void:
 	game = root.get_node("Game")
 	game.seller.online_enabled = false
+	game.dialogue.delay_scale = 0
+	game.market.interest_delay_scale = 0
 	game.score_path = "res://artifacts/test_scores.json"
 	DirAccess.make_dir_recursive_absolute("res://artifacts")
 	_test_data_and_rules()
@@ -47,6 +49,8 @@ func _run() -> void:
 	_test_privacy_and_lifecycle()
 	await preload("res://tests/content_tests.gd").new().run(game, expect)
 	await preload("res://tests/phone_tests.gd").new().run(game, expect)
+	await preload("res://tests/marketplace_tests.gd").new().run(game, expect)
+	preload("res://tests/conversation_tests.gd").new().run(game, expect)
 	await _test_screens()
 	game.leave()
 	await process_frame
@@ -214,13 +218,13 @@ func send_chat(listing_id: int, message: String) -> void:
 
 func _test_dialogue() -> void:
 	var player := fresh()
-	var listing: Dictionary = game.state.listings[0]
+	var listing: Dictionary = game.state.listings.filter(func(item): return not preload("res://src/data/characters.gd").for_listing(item).requires_conversation)[0]
 	await send_chat(listing.id, "I'll pay $%d" % listing.price)
 	expect(player.offers.has(listing.id), "Offline chat agrees a grounded asking price")
 	expect(player.meeting_proposals.has(listing.id) and not player.meetings.has(listing.id), "A proposal alone is not a confirmed meeting")
 	await send_chat(listing.id, "Yes, that price, time and place works.")
 	expect(player.meetings.has(listing.id), "Offline chat confirms a canonical appointment")
-	var next: Dictionary = game.state.listings[1]
+	var next: Dictionary = game.state.listings.filter(func(item): return item.id != listing.id)[0]
 	await send_chat(next.id, "Does it fit my socket?")
 	expect(not player.offers.has(next.id), "Specification questions cannot create price commitments")
 	game.act("chat", {"listing_id": next.id, "text": "I'll pay full price"})
@@ -283,6 +287,23 @@ func _test_screens() -> void:
 	for frame in 3:
 		await process_frame
 	expect(device._brand.get_rect().is_equal_approx(initial_brand), "Refolding preserves the correct first-open brand position")
+	screen._phone.set_unfolded(true)
+	screen._toggle_phone()
+	screen._toggle_phone()
+	for frame in 3:
+		await process_frame
+	expect(not screen._phone.unfolded and screen._phone.size.x < 500 and not device._fault.visible,
+		"Taking the phone out again always opens the folded cover")
+	screen._phone.set_unfolded(true)
+	var listing_id: int = game.state.listings[0].id
+	screen._phone.open_listing(listing_id)
+	screen._phone._composer.text = "Keep this message in my pocket"
+	screen._phone.close_requested.emit()
+	screen._toggle_phone()
+	for frame in 3:
+		await process_frame
+	expect(not screen._phone.unfolded and screen._phone.selected == listing_id and screen._phone._composer.text == "Keep this message in my pocket",
+		"Closing and reopening folds the phone without losing the conversation or draft")
 	screen._toggle_map()
 	await process_frame
 	expect(screen._map_layer.visible and not screen._phone_layer.visible, "Map and phone overlays exclude each other")

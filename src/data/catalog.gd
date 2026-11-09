@@ -25,7 +25,7 @@ static func blank_item() -> Dictionary:
 		"description": "", "location": "", "pos": Vector2.ZERO, "status": "available", "buyer": 0, "form": ""}
 
 
-static func spec_text(it: Dictionary) -> String:
+static func spec_text(it: Dictionary, include_value_guide: bool = true) -> String:
 	var bits: Array[String] = []
 	match it.category:
 		"case": bits.append("Fits %s boards" % ("ATX and mATX" if it.form == "ATX" else "mATX only"))
@@ -42,12 +42,13 @@ static func spec_text(it: Dictionary) -> String:
 		"ram": bits.append("%s, rated RAM score %d" % [it.memory, it.ram])
 		"storage": bits.append("Rated storage score %d" % it.storage)
 	bits.append(Stats.performance_text(it))
-	bits.append(Stats.value_text(it))
+	if include_value_guide:
+		bits.append(Stats.value_text(it))
 	bits.append(str(it.get("buying_notes", "")))
 	return " · ".join(bits)
 
 
-static func build_listing(rng: RandomNumberGenerator, tpl: PartDefinition, id: int) -> Dictionary:
+static func build_listing(rng: RandomNumberGenerator, tpl: PartDefinition, id: int, contact: Resource = null) -> Dictionary:
 	var it := blank_item()
 	it.id = id
 	it.category = tpl.category
@@ -61,7 +62,7 @@ static func build_listing(rng: RandomNumberGenerator, tpl: PartDefinition, id: i
 	for k in ["cpu", "gpu", "ram", "storage"]:
 		it[k] = float(it[k])
 	it.price = maxi(5, int(round(tpl.base_price * rng.randf_range(0.7, 1.3))))
-	var s := Characters.pick(rng)
+	var s: Resource = contact if contact != null else Characters.pick(rng)
 	it.seller = s.display_name
 	it["character_id"] = str(s.id)
 	it.personality = s.tagline

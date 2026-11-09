@@ -6,6 +6,7 @@ signal join_requested(address: String, player_name: String)
 const K = preload("res://src/ui/ui_kit.gd")
 const PartArt = preload("res://src/ui/part_art.gd")
 const Setup = preload("res://src/ui/match_setup.gd")
+const Config = preload("res://src/core/game_config.gd")
 const BUDGETS = Setup.BUDGETS
 const OBJECTIVES = Setup.OBJECTIVES
 const STEPS = Setup.STEPS
@@ -34,7 +35,7 @@ func _ready() -> void:
 	var hero := K.vbox(14)
 	hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hero.size_flags_stretch_ratio = 1.25
-	hero.add_child(K.lbl("3 DAYS. ONE BUDGET. A PILE OF USED PARTS.", "Eyebrow"))
+	hero.add_child(K.lbl("ONE DAY. ONE BUDGET. A PILE OF USED PARTS.", "Eyebrow"))
 	hero.add_child(K.lbl("SLOPYARD WARS", "Display"))
 	hero.add_child(K.lbl("Hunt classifieds, haggle with eccentric sellers, drive across town for the parts, assemble the rig by hand, overclock it to the edge and out-benchmark your rivals.", "Muted", null, true))
 	var art := Control.new()
@@ -75,6 +76,7 @@ func _ready() -> void:
 	v.add_child(_name_edit)
 	v.add_child(K.hrule())
 	v.add_child(K.lbl("SOLO RUN", "Eyebrow"))
+	v.add_child(K.lbl("08:00–22:00 · about %d real minutes before time skips. Hunt parts, collect them, then leave the evening for your build." % roundi(Config.TOTAL_MINUTES / Config.RATE / 60.0), "Tiny", K.MUTED, true))
 	var r1 := K.hbox(8)
 	r1.add_child(K.lbl("Budget", "Muted"))
 	_budget_opt = OptionButton.new()

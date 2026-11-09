@@ -12,7 +12,7 @@ Restart the run after editing content. Shared Resources are definitions; every r
 
 ## Characters
 
-`system_prompt` describes the person's perspective, humor, conversational habits and limits. `favorite_topics`, `pet_peeves` and `technical_knowledge` supplement it in every LLM request. A character can be a seller or an NPC buyer. The provider also receives factual hardware notes, the current conversation and feasible appointment choices.
+`system_prompt` describes the person's perspective, humor, conversational habits and limits. `favorite_topics`, `pet_peeves` and `technical_knowledge` supplement it in every LLM request. A character can be a seller or an NPC buyer. The provider also receives factual hardware notes, the current conversation and feasible appointment choices. Hardware context retains compatibility and risk disclosures but excludes the marketplace UI's price-guide commentary, which otherwise tends to dominate bargaining dialogue.
 
 The current roster includes Sunny Dave, Granite Greta, Slick Vic, Haggle Hank, Desperate Dana, Professor Pixel, Gentle Gus, Stone Sally, Fast Eddie, Bargain Bella, Broke Brandon and Benchmark Bea. Their jokes have different premises: rehabilitating abandoned PCs, receipt archaeology, haunted coil whine, involuntary auctioneering, a tiny moving expedition, sandwich peer review, snail racing, office-PC unions, a slow racing bicycle, coupon strategy, RGB research and benchmarking the kettle.
 
@@ -27,8 +27,29 @@ Behavior fields have actual mechanical effects:
 | `meeting_places` | Names from `Catalog.LOCATIONS`; at least one required |
 | `hours` | Daily `Vector2i(start_hour, end_hour)` windows; 0–24, end greater than start |
 | `schedule_note` | Human-readable description of availability |
+| `backstory`, `conversation_hooks` | Consistent biography, relationships, ambitions and topics the player can ask about |
+| `texting_style` | Everyday vocabulary, cadence and habits; keeps expertise from turning every message into a report |
+| `current_situation` | Authored activity for this run, used as conversational context rather than a mandatory anecdote; not a simulated task |
+| `dialogue_examples` | Short examples of voice, not a bank of replies; avoid scripting the actual negotiation or embedding prices |
+| `reply_delay_seconds` | Minimum reply-delivery delay range in real seconds at normal clock speed; converted to game time |
+| `buyer_interest_delay_minutes` | Base first-contact wait at guide price; game minutes, normally 8–18 |
+| `maximum_asking_ratio` | Buyer refuses to respond above this asking-price/reference-value ratio; default 1.65 |
+| `patience_limit`, `lowball_fraction` | Minor irritations accumulate to the patience limit (currently two); below 55% of asking is an extreme lowball by default |
+| `block_on_lowball` | Block immediately on the first extreme lowball; enabled by default |
+| `sensitive_topics`, `personal_boundaries` | Editable hobby/project keywords and contextual instructions; blunt dismissal of these topics can block on the first message |
+| `patience_warning`, `refusal_line` | Character-specific warning and final refusal text |
+| `refusal_by_reason` | Authored fallback comebacks keyed by `hobby`, `lowball`, and `conduct`; used offline or when the model fails to produce a valid farewell |
+| `requires_conversation`, `rapport_keywords`, `rapport_invitation` | Optional short personal chat before bargaining; invitation explicitly names useful topics |
 
 Offline play uses the authored `greeting`, `price_accept`, `price_counter`, `technical_reply`, `buyer_opening` and `smalltalk`. Price templates replace `{price}` with the number. Write these as well as the prompt so a character remains recognizable without a provider. The game validates the price and appointment regardless of the character's prose.
+
+Live refusals should defend the particular interest or react to the insulting offer that ended the deal. A non-mutating relationship preview tells the model when a host-enforced block is already required and why, so it can write that farewell in the same request. All twelve characters also have reason-specific fallback lines. The model sees the biography and recent chat and can classify unfamiliar paraphrases or indirect references with `contact_action=block`; sensitive-topic matching is an additional deterministic fallback, not the vocabulary the player is restricted to. Novel wording can still be misunderstood, and offline fallback has no semantic understanding beyond the authored checks.
+
+All twelve characters have biographies, conversation hooks, texting voices and a current activity. Greta secretly writes receipt detective stories; Brandon is making a film about a heroic loading bar; Gus's seven stream viewers include his mother on three accounts. The global prompt favors short reactions to the actual message, relevant anecdotes and distinct responses to successive offers. Listing details are reference material, not a greeting script. Asking whether something is available means whether it is still for sale; meeting hours come up when discussing pickup or after agreement. Voice examples illustrate unrelated situations so the model has to apply the voice to the current conversation. Private negotiation bounds must never be discussed; the host removes sentences with explicit internal-limit wording while preserving safe reactions and supplying the validated public price only if needed. This is a targeted prose filter, not a guarantee against every possible paraphrase.
+
+Gus, Professor Pixel and Brandon prefer a brief personal exchange before offering a deal. Topic references can satisfy this immediately; after an invitation, a civil non-price follow-up (including "What?", "Why?" or an acknowledgement) also counts. Genuine questions and polite redirection remain welcome. All twelve characters now have authored sensitive topics: Greta's trains and detective stories, Brandon's film, Bella's coupons, Bea's experiments and so on. Clear dismissals such as "I don't care about your film" or "Your research is pointless" trigger a host-enforced immediate block when they match that character's topics. The model can recognize other contextual disrespect via `contact_action=block`, without a prior-warning requirement. A first extreme lowball or direct insult also blocks immediately; minor annoyances use the authored patience limit. Refusal clears that player's agreements and meetings across the character's listings and disables typing and sending in both phone modes. Other players remain unaffected, and relationships reset for a new run. The model cannot unblock someone or change another player's relationship.
+
+First-contact interest falls with the asking/reference-price ratio: up to 1.15x the interest roll succeeds, then probability declines to zero at 1.65x. The character's `maximum_asking_ratio` may impose an earlier cutoff. Delay is multiplied by `1 + max(0, ratio - 1) * 18`, so a 1.5x ask may wait 80–180 game minutes and often receives no response. This models one potential lead per posting; it does not promise eventual interest. Cancelling removes the opportunity for a late message, and contacts without a remaining appointment window do not respond.
 
 ## Hardware
 
@@ -53,6 +74,8 @@ Manufacturers and names are fictional. The current conventions are LVD LuckyForc
 | `buying_notes` | Explain the model's practical tradeoffs in plain language |
 
 Condition scales rated performance and value by `0.75 + 0.25 × condition / 100`. Support-part quality is condition-adjusted too. A promising model can be a poor purchase if worn or overpriced. X5D entries deliberately combine high stock scores with modest clock headroom and lower voltage tolerance; the L-suffix LuckyCore offers more tuning room.
+
+The Sell screen uses this same current value, not the item's old purchase price. Suggested asks run from 100–115% of the value; the quick-deal button uses 80%. These are public negotiation guides with live feedback, not guaranteed offers. Buyer personality and budget still decide the actual deal. Changing `base_price` or condition automatically changes the guidance.
 
 `Overclock.evaluate` is the one tuning calculation used by UI, score and host. It combines hardware support, condition, clock and voltage stress, and heat. Lucky's blessing reduces a nonzero failure probability by 25%, then expires on the attempted test. Tests above 1.40× voltage always destroy the component. Safe presets search for a zero-risk setting on normal models; faulty models return stock and the UI explicitly labels it lowest risk, not safe. Successful risky tests cause wear, and previewed scores include that wear. The chance is per test, not a continuous background hazard.
 
@@ -102,6 +125,10 @@ Each entry supplies an `id`, `area`, reachable `position`, interaction `radius`,
 For existing mechanics, add or edit entries through data. New mechanic types need validation and an effect in `ActivitySystem`; keep that separate from UI and data. Costs are validated before granting rewards. Solo pays time immediately; LAN uses a per-player busy timer. Art does not define collision: keep interaction positions reachable in `world_rules.gd`.
 
 Cooling activities can set `reward_name` (currently **LuckyGoop Dragon Chill**) and `strength` in the resource. The name and bonus appear at the tuning bench. This is an applied treatment, not a loose inventory item: it persists across part swaps until the run ends. Cooling is capped at 100 points; the paste helps temperatures and stable headroom, not the inherent CPU/connector fault. The existing Paste Club placeholder is reused; no additional artwork is required.
+
+## Run pacing
+
+The default challenge lasts a single day, 08:00–22:00, with about 19 real minutes before time skips. Tune the clock and market refresh interval in `src/core/game_config.gd`. Existing daily activity caps therefore permit one use during this run. Character hours must intersect the run with at least a 30-minute appointment window; newly generated contacts are filtered for a feasible meeting before the deadline. Evening build reminders are advisory, so late shopping and early finishing remain possible.
 
 ## Check changes
 

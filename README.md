@@ -1,6 +1,6 @@
 # Slopyard Wars
 
-A **Godot 4.7** used-PC-building race inspired by *Scrapyard Wars*. Start at home, message local sellers on your phone, drive to appointments, build a compatible computer and overclock it before the three-day deadline.
+A **Godot 4.7** used-PC-building race inspired by *Scrapyard Wars*. Start at home, message local sellers on your phone, drive to appointments, build a compatible computer and overclock it before tonight's 22:00 deadline.
 
 ## Run
 
@@ -41,9 +41,13 @@ Five labeled placeholder PNGs are already wired into the world under [`assets/wo
 
 ### Live marketplace characters
 
-Launch Godot from a shell containing `OPENROUTER_API_KEY`. Only the solo process / LAN host makes OpenRouter requests, using **`inclusionai/ling-3.0-flash`**. Provider usage charges apply. Never put the key in project files or an exported build.
+Set `OPENROUTER_API_KEY` in the environment, or put a local key in `.local/openrouter.cfg` under `[openrouter]` as `api_key="YOUR_KEY"`. The environment takes priority. The `.local/` directory is ignored by Git and Godot's importer/exporter; keep it private when sharing the project folder. Restart the running game after editing the key. Only the solo process / LAN host makes OpenRouter requests, using **`deepseek/deepseek-v4.1-flash-1017`** with reasoning disabled and a 400-token output ceiling. Provider usage charges apply. Do not embed credentials in source files or exported builds.
 
 Without a key, or on a provider failure, clearly marked **offline** replies keep the trading loop playable. The fallback understands fewer natural-language variations. The game, not the model, owns money, inventory, schedules and transaction validation.
+
+Characters take roughly **2–12 seconds** to reply, with individual pacing. At guide price, a sale's first interested buyer typically arrives after **8–18 game minutes** (about 11–24 real seconds); expensive asks take longer and can get no replies. The Sell screen shows waiting for interest until somebody actually contacts you. Incoming chat bubbles sit on the left, yours on the right, and system notices are centered.
+
+Ask the contacts about their lives: each has a biography, relationships, ambitions and conversation hooks. Gus, Professor Pixel and Brandon prefer a brief personal exchange before bargaining. Every character has interests they take personally: bluntly dismissing those hobbies, directly insulting them or making one extreme lowball can get you blocked immediately. Minor annoyances exhaust their remaining patience quickly too. Blocks cancel your existing deals and stop trading across all that character's listings for the run. Genuine questions, polite redirection and reasonable bargaining remain welcome. Other LAN players keep their own relationships. The prompt and a host text check prevent explicit private-limit explanations such as "above the set minimum" from appearing as valid negotiation dialogue.
 
 ## Controls
 
@@ -63,9 +67,11 @@ Assembly uses clicks, dragging, cable matching, and **R/E/right-click** rotation
 
 ### LuckyFold Duo
 
-**P / Tab** brings up the phone in its current fold state; a fresh run starts folded. The cover screen shows your inbox and lets you read, type, send quick replies, arrange meetings and track appointments. **UNFOLD** opens the wider marketplace with Browse, Messages and Sell. **FOLD** returns to quick messages. Conversations and unsent drafts survive folding, and the last marketplace tab is remembered.
+**P / Tab** always brings the phone out of your pocket folded, even if you put it away unfolded. The cover screen shows your inbox or selected conversation and lets you read, type, send quick replies, arrange meetings and track appointments. **UNFOLD** opens the wider marketplace with Browse, Messages and Sell. **FOLD** returns to quick messages. Conversations and unsent drafts survive pocketing and folding, and the last marketplace tab is remembered when you unfold again.
 
-The cover has **LuckyFold Duo** printed in the free space beneath its display. The unfolded screen has a fixed bright display-fault band in the lower-right, extending from the hinge to the edge with a thin line continuing downward. The fault is cosmetic, ignores input and sits below the interactive content. Hardware notes and the chat appear side by side when unfolded. The device adapts to the available viewport height.
+**Browse** combines search with an All / CPU / GPU / RAM / motherboard / PSU / case / storage filter. Sort by price ascending, price descending or newest; cheapest-first is the default. Filters survive folding and tab changes, and live stock updates preserve search focus. **Sell** shows condition-adjusted value, a suggested asking range and a quick-deal guide. Buttons fill the price; advice updates as you edit. Buyers still haggle and require a physical handoff. Price guides do not reveal their private budgets.
+
+The cover has **LuckyFold Duo** printed in the free space beneath its display. The unfolded screen has a fixed bright display-fault band in the lower-right, extending from the hinge to the edge with a thin line continuing downward. The fault ignores input and overlaps the bottom of marketplace browsing. In conversations, the message box's upper edge sits behind the band, with input and Send text below it and to the right of the vertical stripe. Quick replies stay above the band, and the footer remains clear. Hardware notes and the chat appear side by side when unfolded. The device adapts to the available viewport height.
 
 Only **two** new art files are used for both states: a shared nine-patch casing and a transparent fault overlay. See [`assets/ui/luckyfold/README.md`](assets/ui/luckyfold/README.md) for replacement instructions.
 
@@ -82,9 +88,9 @@ Only **two** new art files are used for both states: a shared nine-patch casing 
 
 ## Clock and appointments
 
-The run starts **Day 1 at 08:00** and ends **Day 4 at 08:00**: three complete days. At two game minutes per real second, a day is about **12 real minutes**, or **36 minutes for the full run**, before intentional solo waits. Day/night tint and local appointments take inspiration from compressed-time life games; this is not an exact reproduction of *Schedule I*.
+The run lasts **one day, 08:00–22:00**. At **0.75 game minutes per real second**, the full clock lasts **18 minutes 40 seconds**, before solo waits, activity time costs or finishing early. The slower clock leaves more reading and negotiation time within each appointment. Market refreshes happen every game hour. Aim to hunt and collect through the day, then bring the parts home around **19:00** for assembly and tuning. Reminders appear with three game hours and one game hour left; you can keep shopping or finish early. The HUD shows the deadline and approximate real time remaining.
 
-Contacts offer a small set of upcoming feasible windows, generally up to 90 game minutes long. Different characters prefer different hours and meeting places. Overlapping appointments cannot place the same person at different locations. NPCs currently appear at meetings rather than simulating a full commute/work/home life.
+Contacts offer a small set of upcoming feasible windows, generally up to 90 game minutes long, all bounded by tonight's deadline. Different characters prefer different hours and meeting places. New listings and buyers use contacts who still have a feasible window; when none remain, posting a sale is refused without taking the part. Overlapping appointments cannot place the same person at different locations. NPCs currently appear at meetings rather than simulating a full commute/work/home life.
 
 ## Multiplayer
 

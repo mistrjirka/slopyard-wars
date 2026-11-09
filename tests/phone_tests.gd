@@ -70,6 +70,16 @@ func run(session: Node, assertion: Callable) -> void:
 	await settle()
 	check.call(phone._log.get_child_count() >= 2, "Unfolded thread contains the same cover conversation and reply")
 	check_layout("Unfolded conversation")
+	var rows: Array = phone._log.get_children()
+	var incoming: Control
+	var outgoing: Control
+	for row: Control in rows:
+		if row.alignment == BoxContainer.ALIGNMENT_BEGIN:
+			incoming = row.get_child(0)
+		elif row.alignment == BoxContainer.ALIGNMENT_END:
+			outgoing = row.get_child(0)
+	check.call(is_instance_valid(incoming) and is_instance_valid(outgoing) and incoming.global_position.x < outgoing.global_position.x,
+		"Incoming bubbles are visibly left of outgoing bubbles")
 	phone.set_unfolded(false)
 	phone._inbox()
 	await settle()
@@ -92,6 +102,21 @@ func run(session: Node, assertion: Callable) -> void:
 	viewport.size = Vector2i(1440, 900)
 	await settle()
 	check.call(phone.size.y == 760 and phone.size.x == 1000, "Device adapts to the larger supported viewport")
+	phone.open_listing(listing.id)
+	await settle()
+	check_layout("Larger unfolded conversation")
+	var relationships = preload("res://src/trading/contact_relationships.gd")
+	relationships.assess(player, listing, "You are an idiot", 0, "warn")
+	relationships.assess(player, listing, "Enough", 0, "block")
+	other.status = "available"
+	other.character_id = listing.character_id
+	other.seller = listing.seller
+	phone.open_listing(other.id)
+	await settle()
+	check.call(not phone._composer.editable and phone._send.disabled, "Unfolded phone locks typing and sending on another listing from a blocked contact")
+	phone.set_unfolded(false)
+	await settle()
+	check.call(not phone._composer.editable and phone._send.disabled, "Cover phone also locks a blocked contact's other listing")
 	viewport.queue_free()
 	await settle()
 
@@ -105,3 +130,23 @@ func check_layout(context: String) -> void:
 	var display: Rect2 = phone._device._display.get_global_rect()
 	check.call(display.encloses(phone._composer.get_global_rect()) and display.encloses(phone._send.get_global_rect()), context + " keeps message controls inside the display")
 	check.call(phone._scroll.size.y >= 90, context + " retains usable message history space")
+	if phone.unfolded:
+		var fault: TextureRect = phone._device._fault
+		var image: Image = fault.texture.get_image()
+		var first_damaged_row := float(image.get_used_rect().position.y) / image.get_height()
+		var damage_top := fault.global_position.y + fault.size.y * first_damaged_row
+		var damage_bottom: float = fault.global_position.y + fault.size.y * phone._device.DISPLAY_FAULT_BAND_BOTTOM
+		var composer: Rect2 = phone._composer.get_global_rect()
+		check.call(composer.position.y >= damage_top and composer.position.y < damage_bottom,
+			context + " tucks the message box's upper edge behind the broken line")
+		for control: Control in [phone._composer, phone._send]:
+			var font: Font = control.get_theme_font("font")
+			var text_top: float = control.global_position.y + (control.size.y - font.get_height(control.get_theme_font_size("font_size"))) * 0.5
+			check.call(text_top > damage_bottom, context + " keeps input and Send text below the damaged rows")
+		check.call(composer.position.x >= phone._device.message_text_left() - 1,
+			context + " keeps typing to the right of the damaged vertical column")
+		var conversation: Control = phone._composer.get_parent().get_parent()
+		check.call(conversation.get_child(-2).get_global_rect().end.y < damage_top,
+			context + " keeps quick replies above the damaged display")
+		check.call(composer.end.y < phone._device._caption.global_position.y,
+			context + " leaves the mood-lighting footer clear")

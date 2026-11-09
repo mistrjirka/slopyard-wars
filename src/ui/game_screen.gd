@@ -3,6 +3,7 @@ extends Control
 signal notice_requested(message: String)
 signal leave_requested
 const K = preload("res://src/ui/ui_kit.gd")
+const Config = preload("res://src/core/game_config.gd")
 const Phone = preload("res://src/trading/phone.gd")
 const Activities = preload("res://src/world/activities.gd")
 const World = preload("res://src/world/world_rules.gd")
@@ -125,7 +126,7 @@ func _toggle_phone() -> void:
 	_map_layer.visible = false
 	_phone_layer.visible = not _phone_layer.visible
 	if _phone_layer.visible:
-		_phone.refresh()
+		_phone.set_unfolded(false)
 	Game.act("move", {"direction": Vector2.ZERO})
 
 
@@ -208,7 +209,7 @@ func _update_world_hud() -> void:
 	if not is_instance_valid(_clock_lbl) or Game.me().is_empty():
 		return
 	var p: Dictionary = Game.me()
-	_clock_lbl.text = Trade.stamp(Game.clock())
+	_clock_lbl.text = Trade.stamp(Game.clock()) + " · ~" + K.real_left(Game.state.remaining) + " left"
 	_cash_lbl.text = "$%d" % int(p.cash)
 	var hint := "Home · E at the door to go outside. Walk to the PC desk for B: assembly / T: tuning."
 	if p.area == "town":
@@ -220,13 +221,15 @@ func _update_world_hud() -> void:
 		hint = "Rig locked. Waiting for the other builders or the deadline."
 	_context_label.text = hint
 	var meetings: Array = Game.active_meetings(p)
-	var line := "Three-day deadline: " + Trade.stamp(Trade.START + 4320) + " · " + str(Game.state.objective) + " objective · P opens your phone."
+	var line := "Tonight's deadline: " + Trade.stamp(Config.DEADLINE) + " · " + str(Game.state.objective) + " objective · P opens your phone."
 	if not meetings.is_empty():
 		var m: Dictionary = meetings[0]
 		for candidate: Dictionary in meetings:
 			if int(candidate.listing_id) == _tracked:
 				m = candidate
 		line = str(m.contact) + " · " + str(m.label) + " · " + str(m.status).to_upper() + " · Space waits in solo; missed? message to reschedule."
+	if float(Game.state.remaining) <= Config.BUILD_REMINDER_MINUTES and not p.ready:
+		line = "BUILD TIME · " + line + " · Leave time to return home, assemble and test."
 	_appointment_label.text = line
 
 

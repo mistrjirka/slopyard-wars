@@ -6,7 +6,13 @@ const DISPLAY_FAULT = preload("res://assets/ui/luckyfold/display_fault.png")
 const CLOSED_WIDTH := 424.0
 const OPEN_WIDTH := 1000.0
 const POCKET_HINT := "P / Esc: pocket · clock keeps running"
+## Top of the damaged pixels in the replaceable 1024x768 overlay's art contract.
+const DISPLAY_FAULT_TOP := 648.0 / 768.0
+const DISPLAY_FAULT_BAND_BOTTOM := 656.0 / 768.0
+const DISPLAY_FAULT_COLUMN_RIGHT := 516.0 / 1024.0
 var unfolded := false
+var _message_layout := false
+var _message_bar_height := 36.0
 var content: VBoxContainer
 var _inset: MarginContainer
 var _display: Panel
@@ -55,9 +61,9 @@ func _init() -> void:
 	_brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	add_child(_brand)
 	_caption = K.lbl("Factory-installed mood lighting.", "Tiny", K.MUTED)
+	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(_caption)
 	_pocket_hint = K.lbl(POCKET_HINT, "Tiny", K.MUTED)
-	_pocket_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_pocket_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_pocket_hint)
 	resized.connect(_layout)
@@ -83,24 +89,47 @@ func _fit() -> void:
 	custom_minimum_size = Vector2(minf(OPEN_WIDTH if unfolded else CLOSED_WIDTH, available.x - 48), clampf(available.y - 48, 560, 760))
 
 
+func set_message_layout(value: bool) -> void:
+	if _message_layout == value:
+		return
+	_message_layout = value
+	_layout()
+
+
+func set_message_bar_height(value: float) -> void:
+	if is_equal_approx(_message_bar_height, value):
+		return
+	_message_bar_height = value
+	_layout()
+
+
+func message_text_left() -> float:
+	return _display.global_position.x + _display.size.x * DISPLAY_FAULT_COLUMN_RIGHT + 8.0
+
+
 func _layout() -> void:
 	if not is_instance_valid(_inset):
 		return
-	# Let the inner app extend behind the failed pixel rows, with room for the caption below.
-	_inset.add_theme_constant_override("margin_bottom", 72 if unfolded else 96)
 	_display.position = Vector2(18, 18)
 	_display.size = Vector2(maxf(0, size.x - 36), maxf(0, size.y - (36 if unfolded else 110)))
 	_fault.position = _display.position
 	_fault.size = _display.size
 	_fault.visible = unfolded
+	# Tuck the message bar's upper border into the stripe, leaving its text below it.
+	var bottom_margin := 72 if unfolded else 96
+	if unfolded and _message_layout:
+		var bar_top := _display.position.y + _display.size.y * DISPLAY_FAULT_BAND_BOTTOM - 3.0
+		bottom_margin = maxi(bottom_margin, roundi(size.y - bar_top - _message_bar_height))
+	_inset.add_theme_constant_override("margin_bottom", bottom_margin)
 	_hinge.position = Vector2(size.x * 0.5 - 1, 20)
 	_hinge.size = Vector2(2, maxf(0, size.y - 40))
 	_hinge.visible = unfolded
 	_brand.position = Vector2(24, size.y - 82)
 	_brand.size = Vector2(maxf(0, size.x - 48), 54)
 	_brand.visible = not unfolded
-	_caption.position = Vector2(32, size.y - 56)
+	_caption.position = Vector2(size.x * 0.5, size.y - 56)
+	_caption.size = Vector2(maxf(0, size.x * 0.5 - 32), _caption.get_combined_minimum_size().y)
 	_caption.visible = unfolded
-	_pocket_hint.position = Vector2(size.x * 0.5, _caption.position.y)
+	_pocket_hint.position = Vector2(32, _caption.position.y)
 	_pocket_hint.size = Vector2(maxf(0, size.x * 0.5 - 32), _caption.get_combined_minimum_size().y)
 	_pocket_hint.visible = unfolded

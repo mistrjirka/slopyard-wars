@@ -1,5 +1,7 @@
 extends RefCounted
 ## Shared palette, fonts, theme and tiny widget builders for the Slopyard Wars UI.
+const Config = preload("res://src/core/game_config.gd")
+const Trade = preload("res://src/trading/trade_rules.gd")
 
 const NAVY0 := Color("050a1a")
 const NAVY1 := Color("0a1330")
@@ -89,14 +91,11 @@ static func geti(d: Dictionary, id: int, default: Variant = null) -> Variant:
 
 
 static func clock_text(remaining: float) -> String:
-	var el: float = clampf(4320.0 - remaining, 0.0, 4320.0)
-	var day: int = mini(int(el / 1440.0) + 1, 3)
-	var tod: int = int(el) % 1440
-	return "DAY %d  %02d:%02d" % [day, floori(tod / 60.0), tod % 60]
+	return Trade.stamp(Config.START_MINUTE + clampf(Config.TOTAL_MINUTES - remaining, 0, Config.TOTAL_MINUTES))
 
 
 static func real_left(remaining: float) -> String:
-	var secs: int = int(maxf(0.0, remaining) / 6.0)
+	var secs: int = ceili(maxf(0.0, remaining) / Config.RATE)
 	return "%d:%02d" % [floori(secs / 60.0), secs % 60]
 
 

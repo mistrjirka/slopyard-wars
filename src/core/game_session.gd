@@ -145,6 +145,7 @@ func _begin(budget: int, objective: String) -> void:
 	movement.motion.clear()
 	movement.motion_age.clear()
 	market.anchors.clear()
+	market.sale_interest.clear()
 	dialogue.pending.clear()
 	dialogue.pending_by.clear()
 	market.next_id = 1
@@ -166,7 +167,7 @@ func _begin(budget: int, objective: String) -> void:
 	for pick in Catalog.initial_picks(rng, state.players.size()):
 		market.add_listing(pick.tpl, pick.anchor)
 	state.phase = "playing"
-	record_event("Day 1 begins. Objective: %s. Budget $%d." % [state.objective, state.budget])
+	record_event("One-day challenge begins. Deadline %s. Objective: %s. Budget $%d." % [Trade.stamp(Config.DEADLINE), state.objective, state.budget])
 	mark_changed()
 
 
@@ -220,12 +221,23 @@ func clock() -> float:
 
 
 func _host_tick(dt: float) -> void:
+	if state.remaining <= 0.0:
+		end_match()
+		return
+	dialogue.tick()
+	market.deliver_interest()
+	for threshold in [60.0, Config.BUILD_REMINDER_MINUTES]:
+		if float(state.remaining) <= threshold and float(state.remaining) + dt > threshold:
+			var message := "Final hour! Finish your build at the workbench before tonight's deadline." if threshold == 60 else "Three game hours left. Time to bring the bargains home: leave room for assembly and stress tests."
+			record_event(message)
+			for pid in state.players:
+				if not state.players[pid].ready:
+					notify_player(pid, message)
+			break
 	_refresh -= dt
 	while _refresh <= 0.0:
 		_refresh += Config.REFRESH_EVERY
 		market.refresh()
-	if state.remaining <= 0.0:
-		end_match()
 
 
 func number(v: Variant, d: float = 0.0) -> float:

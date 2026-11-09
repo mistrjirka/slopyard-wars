@@ -25,6 +25,24 @@ static func stock_fire_chance(item: Dictionary) -> float:
 	return clampf(float(item.get("fire_base_chance", 0)) * (1 + (100 - health) * 0.008), 0, 0.85)
 
 
+## Public guidance uses current condition, never the hidden buyer budget or old purchase price.
+static func sale_guide(item: Dictionary) -> Dictionary:
+	var guide := clampi(reference_price(item), 1, 5000)
+	return {"value": guide, "quick": clampi(roundi(guide * 0.8), 1, 5000),
+		"ask_low": guide, "ask_high": clampi(roundi(guide * 1.15), 1, 5000)}
+
+
+static func sale_advice(item: Dictionary, asking_price: int) -> String:
+	var guide := sale_guide(item)
+	if asking_price < int(guide.quick):
+		return "Below the quick-deal guide. Easy to underprice this part; you may be leaving money behind."
+	if asking_price < int(guide.ask_low):
+		return "A lower ask for an easier negotiation. Buyers may still counter; pickup is still required."
+	if asking_price <= int(guide.ask_high):
+		return "A reasonable starting ask with room to haggle. A buyer's opening offer can be much lower."
+	return "Ambitious ask: above the suggested range. Expect a long wait, a lower counteroffer, or no replies at all."
+
+
 static func has_inherent_risk(item: Dictionary) -> bool:
 	return stock_failure_chance(item) > 0 or stock_fire_chance(item) > 0
 

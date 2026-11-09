@@ -10,6 +10,7 @@ static func for_player(state: Dictionary, pid: int) -> Dictionary:
 			v.players[id].offers = {}
 			v.players[id].counters = {}
 			v.players[id].meeting_proposals = {}
+			v.players[id]["contact_relations"] = {}
 	for listing: Dictionary in v.listings:
 		listing.erase("buyer_max")
 	return v
