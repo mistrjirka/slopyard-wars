@@ -27,6 +27,7 @@ var _device: Control
 var _nav: HBoxContainer
 var _mode_button: Button
 var _heading: Label
+var _cover_hint: Label
 var unfolded: bool:
 	get:
 		return _device.unfolded
@@ -63,7 +64,8 @@ func _init() -> void:
 	_body = K.vbox(8)
 	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	shell.add_child(_body)
-	shell.add_child(K.lbl("P / Esc: pocket · clock keeps running", "Tiny", K.MUTED, true))
+	_cover_hint = K.lbl(Device.POCKET_HINT, "Tiny", K.MUTED, true)
+	shell.add_child(_cover_hint)
 
 
 func _sync_size() -> void:
@@ -78,6 +80,7 @@ func set_unfolded(value: bool) -> void:
 	_save_draft()
 	_device.set_unfolded(value)
 	_nav.visible = value
+	_cover_hint.visible = not value
 	_heading.text = "MARKETPLACE" if value else "QUICK MESSAGES"
 	_mode_button.text = "FOLD" if value else "UNFOLD"
 	_mode_button.tooltip_text = "Use the cover screen for messages" if value else "Open the full marketplace"

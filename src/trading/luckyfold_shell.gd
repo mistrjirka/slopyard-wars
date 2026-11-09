@@ -5,6 +5,7 @@ const FRAME = preload("res://assets/ui/luckyfold/device_frame.png")
 const DISPLAY_FAULT = preload("res://assets/ui/luckyfold/display_fault.png")
 const CLOSED_WIDTH := 424.0
 const OPEN_WIDTH := 1000.0
+const POCKET_HINT := "P / Esc: pocket · clock keeps running"
 var unfolded := false
 var content: VBoxContainer
 var _inset: MarginContainer
@@ -13,6 +14,7 @@ var _fault: TextureRect
 var _hinge: ColorRect
 var _brand: Label
 var _caption: Label
+var _pocket_hint: Label
 
 
 func _init() -> void:
@@ -54,6 +56,10 @@ func _init() -> void:
 	add_child(_brand)
 	_caption = K.lbl("Factory-installed mood lighting.", "Tiny", K.MUTED)
 	add_child(_caption)
+	_pocket_hint = K.lbl(POCKET_HINT, "Tiny", K.MUTED)
+	_pocket_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_pocket_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_pocket_hint)
 	resized.connect(_layout)
 	_layout()
 
@@ -80,7 +86,8 @@ func _fit() -> void:
 func _layout() -> void:
 	if not is_instance_valid(_inset):
 		return
-	_inset.add_theme_constant_override("margin_bottom", 136 if unfolded else 96)
+	# Let the inner app extend behind the failed pixel rows, with room for the caption below.
+	_inset.add_theme_constant_override("margin_bottom", 72 if unfolded else 96)
 	_display.position = Vector2(18, 18)
 	_display.size = Vector2(maxf(0, size.x - 36), maxf(0, size.y - (36 if unfolded else 110)))
 	_fault.position = _display.position
@@ -94,3 +101,6 @@ func _layout() -> void:
 	_brand.visible = not unfolded
 	_caption.position = Vector2(32, size.y - 56)
 	_caption.visible = unfolded
+	_pocket_hint.position = Vector2(size.x * 0.5, _caption.position.y)
+	_pocket_hint.size = Vector2(maxf(0, size.x * 0.5 - 32), _caption.get_combined_minimum_size().y)
+	_pocket_hint.visible = unfolded
