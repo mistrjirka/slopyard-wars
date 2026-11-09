@@ -1,0 +1,1563 @@
+[gd_resource type="Resource" load_steps=78 format=3]
+
+[ext_resource type="Script" path="res://src/data/hardware_catalog.gd" id="1"]
+[ext_resource type="Script" path="res://src/data/part_definition.gd" id="2"]
+
+[sub_resource type="Resource" id="Part_0"]
+script = ExtResource("2")
+resource_name = "Tin Can mATX"
+category = "case"
+display_name = "Tin Can mATX"
+base_price = 12
+stats = {"form": "mATX"}
+model_id = "tin_can_matx"
+buying_notes = "Airflow helps control heat when tuning. Form factor still decides which boards fit."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 28
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Tin"
+
+[sub_resource type="Resource" id="Part_1"]
+script = ExtResource("2")
+resource_name = "Boxcar mATX Mini"
+category = "case"
+display_name = "Boxcar mATX Mini"
+base_price = 15
+stats = {"form": "mATX"}
+model_id = "boxcar_matx_mini"
+buying_notes = "Airflow helps control heat when tuning. Form factor still decides which boards fit."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.97
+support_quality = 38
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Boxcar"
+
+[sub_resource type="Resource" id="Part_2"]
+script = ExtResource("2")
+resource_name = "Boxcar ATX Tower"
+category = "case"
+display_name = "Boxcar ATX Tower"
+base_price = 25
+stats = {"form": "ATX"}
+model_id = "boxcar_atx_tower"
+buying_notes = "Airflow helps control heat when tuning. Form factor still decides which boards fit."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 60
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Boxcar"
+
+[sub_resource type="Resource" id="Part_3"]
+script = ExtResource("2")
+resource_name = "Rackmate ATX"
+category = "case"
+display_name = "Rackmate ATX"
+base_price = 45
+stats = {"form": "ATX"}
+model_id = "rackmate_atx"
+buying_notes = "Airflow helps control heat when tuning. Form factor still decides which boards fit."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.21
+support_quality = 78
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Rackmate"
+
+[sub_resource type="Resource" id="Part_4"]
+script = ExtResource("2")
+resource_name = "Glasshouse ATX RGB"
+category = "case"
+display_name = "Glasshouse ATX RGB"
+base_price = 60
+stats = {"form": "ATX"}
+model_id = "glasshouse_atx_rgb"
+buying_notes = "Airflow helps control heat when tuning. Form factor still decides which boards fit."
+condition_min = 74
+condition_max = 96
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 86
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Glasshouse"
+
+[sub_resource type="Resource" id="Part_5"]
+script = ExtResource("2")
+resource_name = "Ampere 350W"
+category = "psu"
+display_name = "Ampere 350W"
+base_price = 20
+stats = {"capacity": 350}
+model_id = "ampere_350w"
+buying_notes = "Regulation helps overclock stability; capacity must still cover the whole rig."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 30
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Ampere"
+
+[sub_resource type="Resource" id="Part_6"]
+script = ExtResource("2")
+resource_name = "Ampere 450W"
+category = "psu"
+display_name = "Ampere 450W"
+base_price = 30
+stats = {"capacity": 450}
+model_id = "ampere_450w"
+buying_notes = "Regulation helps overclock stability; capacity must still cover the whole rig."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.97
+support_quality = 42
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Ampere"
+
+[sub_resource type="Resource" id="Part_7"]
+script = ExtResource("2")
+resource_name = "Wattson 550W Bronze"
+category = "psu"
+display_name = "Wattson 550W Bronze"
+base_price = 45
+stats = {"capacity": 550}
+model_id = "wattson_550w_bronze"
+buying_notes = "Regulation helps overclock stability; capacity must still cover the whole rig."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 60
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Wattson"
+
+[sub_resource type="Resource" id="Part_8"]
+script = ExtResource("2")
+resource_name = "Wattson 650W Gold"
+category = "psu"
+display_name = "Wattson 650W Gold"
+base_price = 70
+stats = {"capacity": 650}
+model_id = "wattson_650w_gold"
+buying_notes = "Regulation helps overclock stability; capacity must still cover the whole rig."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.21
+support_quality = 76
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Wattson"
+
+[sub_resource type="Resource" id="Part_9"]
+script = ExtResource("2")
+resource_name = "Wattson 750W Gold"
+category = "psu"
+display_name = "Wattson 750W Gold"
+base_price = 95
+stats = {"capacity": 750}
+model_id = "wattson_750w_gold"
+buying_notes = "Regulation helps overclock stability; capacity must still cover the whole rig."
+condition_min = 74
+condition_max = 96
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 84
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Wattson"
+
+[sub_resource type="Resource" id="Part_10"]
+script = ExtResource("2")
+resource_name = "Titanforge 850W"
+category = "psu"
+display_name = "Titanforge 850W"
+base_price = 130
+stats = {"capacity": 850}
+model_id = "titanforge_850w"
+buying_notes = "Regulation helps overclock stability; capacity must still cover the whole rig."
+condition_min = 74
+condition_max = 96
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.97
+support_quality = 89
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Titanforge"
+
+[sub_resource type="Resource" id="Part_11"]
+script = ExtResource("2")
+resource_name = "Titanforge 1000W"
+category = "psu"
+display_name = "Titanforge 1000W"
+base_price = 180
+stats = {"capacity": 1000}
+model_id = "titanforge_1000w"
+buying_notes = "Regulation helps overclock stability; capacity must still cover the whole rig."
+condition_min = 75
+condition_max = 97
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 96
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Titanforge"
+
+[sub_resource type="Resource" id="Part_12"]
+script = ExtResource("2")
+resource_name = "LuckyCore L3-4130"
+category = "cpu"
+display_name = "LuckyCore L3-4130"
+base_price = 28
+stats = {"cpu": 900, "gpu": 150, "socket": "OX3", "watts": 65, "integrated": true}
+model_id = "kestrel_k3_2200"
+buying_notes = "Compare stock score first. High headroom is useful only with a matching board and adequate cooling."
+condition_min = 72
+condition_max = 94
+oc_potential = 0.13
+voltage_limit = 1.25
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 2200
+capacity_gb = 0
+cores = 2
+manufacturer = "LTL"
+product_family = "LuckyCore"
+
+[sub_resource type="Resource" id="Part_13"]
+script = ExtResource("2")
+resource_name = "LuckyCore L5-4570"
+category = "cpu"
+display_name = "LuckyCore L5-4570"
+base_price = 55
+stats = {"cpu": 1500, "gpu": 250, "socket": "OX3", "watts": 84, "integrated": true}
+model_id = "kestrel_k3_3400"
+buying_notes = "Compare stock score first. High headroom is useful only with a matching board and adequate cooling."
+condition_min = 72
+condition_max = 94
+oc_potential = 0.18
+voltage_limit = 1.28
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 3400
+capacity_gb = 0
+cores = 4
+manufacturer = "LTL"
+product_family = "LuckyCore"
+
+[sub_resource type="Resource" id="Part_14"]
+script = ExtResource("2")
+resource_name = "LuckyCore L7-4790L"
+category = "cpu"
+display_name = "LuckyCore L7-4790L"
+base_price = 95
+stats = {"cpu": 2300, "socket": "OX3", "watts": 95}
+model_id = "kestrel_k3_4700x"
+buying_notes = "L means unlocked and Lucky-approved. This older four-core chip has generous clock headroom, but still needs a good board and airflow."
+condition_min = 73
+condition_max = 95
+oc_potential = 0.31
+voltage_limit = 1.36
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 4000
+capacity_gb = 0
+cores = 4
+manufacturer = "LTL"
+product_family = "LuckyCore"
+
+[sub_resource type="Resource" id="Part_15"]
+script = ExtResource("2")
+resource_name = "LuckyZen 3 3200G"
+category = "cpu"
+display_name = "LuckyZen 3 3200G"
+base_price = 60
+stats = {"cpu": 2200, "gpu": 450, "socket": "OX4", "watts": 65, "integrated": true}
+model_id = "nimbus_n4_1200"
+buying_notes = "Compare stock score first. High headroom is useful only with a matching board and adequate cooling."
+condition_min = 73
+condition_max = 95
+oc_potential = 0.21
+voltage_limit = 1.29
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 3200
+capacity_gb = 0
+cores = 4
+manufacturer = "LMD"
+product_family = "LuckyZen"
+
+[sub_resource type="Resource" id="Part_16"]
+script = ExtResource("2")
+resource_name = "LuckyZen 5 3600"
+category = "cpu"
+display_name = "LuckyZen 5 3600"
+base_price = 105
+stats = {"cpu": 3300, "socket": "OX4", "watts": 90}
+model_id = "nimbus_n4_1500"
+buying_notes = "Compare stock score first. High headroom is useful only with a matching board and adequate cooling."
+condition_min = 74
+condition_max = 96
+oc_potential = 0.29
+voltage_limit = 1.32
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 3500
+capacity_gb = 0
+cores = 6
+manufacturer = "LMD"
+product_family = "LuckyZen"
+
+[sub_resource type="Resource" id="Part_17"]
+script = ExtResource("2")
+resource_name = "LuckyZen 7 5800X5D"
+category = "cpu"
+display_name = "LuckyZen 7 5800X5D"
+base_price = 205
+stats = {"cpu": 5200, "socket": "OX4", "watts": 105}
+model_id = "nimbus_n4_2700x"
+buying_notes = "Five-dimensional cache: three dimensions of silicon, two of marketing. Strong stock performance on an older platform, with less voltage tolerance and clock headroom."
+condition_min = 74
+condition_max = 96
+oc_potential = 0.16
+voltage_limit = 1.25
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 3700
+capacity_gb = 0
+cores = 8
+manufacturer = "LMD"
+product_family = "LuckyZen"
+
+[sub_resource type="Resource" id="Part_18"]
+script = ExtResource("2")
+resource_name = "LuckyZen 9 5900X"
+category = "cpu"
+display_name = "LuckyZen 9 5900X"
+base_price = 260
+stats = {"cpu": 6000, "socket": "OX4", "watts": 125}
+model_id = "nimbus_n4_3900"
+buying_notes = "Compare stock score first. High headroom is useful only with a matching board and adequate cooling."
+condition_min = 75
+condition_max = 97
+oc_potential = 0.25
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 3900
+capacity_gb = 0
+cores = 12
+manufacturer = "LMD"
+product_family = "LuckyZen"
+
+[sub_resource type="Resource" id="Part_19"]
+script = ExtResource("2")
+resource_name = "LuckyZen 5 7600"
+category = "cpu"
+display_name = "LuckyZen 5 7600"
+base_price = 210
+stats = {"cpu": 5400, "gpu": 900, "socket": "NX5", "watts": 65, "integrated": true}
+model_id = "helix_h5_5400"
+buying_notes = "Compare stock score first. High headroom is useful only with a matching board and adequate cooling."
+condition_min = 75
+condition_max = 97
+oc_potential = 0.24
+voltage_limit = 1.27
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 3800
+capacity_gb = 0
+cores = 6
+manufacturer = "LMD"
+product_family = "LuckyZen"
+
+[sub_resource type="Resource" id="Part_20"]
+script = ExtResource("2")
+resource_name = "LuckyZen 7 7700"
+category = "cpu"
+display_name = "LuckyZen 7 7700"
+base_price = 330
+stats = {"cpu": 7500, "gpu": 1000, "socket": "NX5", "watts": 105, "integrated": true}
+model_id = "helix_h5_7700"
+buying_notes = "Compare stock score first. High headroom is useful only with a matching board and adequate cooling."
+condition_min = 76
+condition_max = 98
+oc_potential = 0.32
+voltage_limit = 1.32
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 4400
+capacity_gb = 0
+cores = 8
+manufacturer = "LMD"
+product_family = "LuckyZen"
+
+[sub_resource type="Resource" id="Part_21"]
+script = ExtResource("2")
+resource_name = "LuckyZen 9 7950X5D"
+category = "cpu"
+display_name = "LuckyZen 9 7950X5D"
+base_price = 520
+stats = {"cpu": 10200, "socket": "NX5", "watts": 140}
+model_id = "helix_h5_9900x"
+buying_notes = "Sixteen cores and a five-dimensional snack drawer for data. Excellent at stock; the cache stack prefers gentle tuning over heroic voltage. Requires NX5 and matching memory."
+condition_min = 76
+condition_max = 98
+oc_potential = 0.18
+voltage_limit = 1.27
+thermal_load = 1.2
+support_quality = 50
+stock_clock_mhz = 4200
+capacity_gb = 0
+cores = 16
+manufacturer = "LMD"
+product_family = "LuckyZen"
+
+[sub_resource type="Resource" id="Part_22"]
+script = ExtResource("2")
+resource_name = "LuckyBoard H81M (OX3)"
+category = "motherboard"
+display_name = "LuckyBoard H81M (OX3)"
+base_price = 30
+stats = {"socket": "OX3", "memory": "DDR3", "form": "mATX", "watts": 25, "integrated": true}
+model_id = "voltra_v3_a55_matx"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 32
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_23"]
+script = ExtResource("2")
+resource_name = "LuckyBoard Z87 (OX3)"
+category = "motherboard"
+display_name = "LuckyBoard Z87 (OX3)"
+base_price = 55
+stats = {"socket": "OX3", "memory": "DDR3", "form": "ATX", "watts": 30, "integrated": true}
+model_id = "voltra_v3_z77_atx"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.97
+support_quality = 52
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_24"]
+script = ExtResource("2")
+resource_name = "LuckyBoard Z97 Archive (OX3, no video out)"
+category = "motherboard"
+display_name = "LuckyBoard Z97 Archive (OX3, no video out)"
+base_price = 80
+stats = {"socket": "OX3", "memory": "DDR3", "form": "ATX", "watts": 35}
+model_id = "voltra_v3_x79_pro_atx_no_video_out"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 66
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_25"]
+script = ExtResource("2")
+resource_name = "LuckyBoard B350M (OX4)"
+category = "motherboard"
+display_name = "LuckyBoard B350M (OX4)"
+base_price = 60
+stats = {"socket": "OX4", "memory": "DDR4", "form": "mATX", "watts": 25, "integrated": true}
+model_id = "voltra_v4_b250_matx"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.21
+support_quality = 45
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_26"]
+script = ExtResource("2")
+resource_name = "LuckyBoard B450 (OX4)"
+category = "motherboard"
+display_name = "LuckyBoard B450 (OX4)"
+base_price = 95
+stats = {"socket": "OX4", "memory": "DDR4", "form": "ATX", "watts": 30, "integrated": true}
+model_id = "voltra_v4_h370_atx"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 74
+condition_max = 96
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 65
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_27"]
+script = ExtResource("2")
+resource_name = "LuckyBoard X570 Dragon (OX4)"
+category = "motherboard"
+display_name = "LuckyBoard X570 Dragon (OX4)"
+base_price = 150
+stats = {"socket": "OX4", "memory": "DDR4", "form": "ATX", "watts": 35, "integrated": true}
+model_id = "voltra_v4_z390_ultra_atx"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 74
+condition_max = 96
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.97
+support_quality = 84
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_28"]
+script = ExtResource("2")
+resource_name = "LuckyBoard B650M (NX5)"
+category = "motherboard"
+display_name = "LuckyBoard B650M (NX5)"
+base_price = 140
+stats = {"socket": "NX5", "memory": "DDR5", "form": "mATX", "watts": 30, "integrated": true}
+model_id = "voltra_v5_b650_matx"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 75
+condition_max = 97
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 68
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_29"]
+script = ExtResource("2")
+resource_name = "LuckyBoard X670 Dragon Deluxe (NX5)"
+category = "motherboard"
+display_name = "LuckyBoard X670 Dragon Deluxe (NX5)"
+base_price = 260
+stats = {"socket": "NX5", "memory": "DDR5", "form": "ATX", "watts": 40, "integrated": true}
+model_id = "voltra_v5_x670_titan_atx"
+buying_notes = "Better VRMs help sustain a stable overclock. Socket and RAM generation must match."
+condition_min = 75
+condition_max = 97
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.21
+support_quality = 94
+stock_clock_mhz = 0
+capacity_gb = 0
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+
+[sub_resource type="Resource" id="Part_30"]
+script = ExtResource("2")
+resource_name = "Quill 4GB DDR3-1333"
+category = "ram"
+display_name = "Quill 4GB DDR3-1333"
+base_price = 12
+stats = {"ram": 400, "memory": "DDR3", "watts": 5}
+model_id = "quill_4gb_ddr3_1333"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 72
+condition_max = 94
+oc_potential = 0.1
+voltage_limit = 1.2
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 1333
+capacity_gb = 4
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_31"]
+script = ExtResource("2")
+resource_name = "Quill 8GB DDR3-1600"
+category = "ram"
+display_name = "Quill 8GB DDR3-1600"
+base_price = 22
+stats = {"ram": 700, "memory": "DDR3", "watts": 6}
+model_id = "quill_8gb_ddr3_1600"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 72
+condition_max = 94
+oc_potential = 0.16
+voltage_limit = 1.23
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 1600
+capacity_gb = 8
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_32"]
+script = ExtResource("2")
+resource_name = "Quill 16GB DDR3-1866"
+category = "ram"
+display_name = "Quill 16GB DDR3-1866"
+base_price = 40
+stats = {"ram": 1000, "memory": "DDR3", "watts": 7}
+model_id = "quill_16gb_ddr3_1866"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 73
+condition_max = 95
+oc_potential = 0.22
+voltage_limit = 1.28
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 1866
+capacity_gb = 16
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_33"]
+script = ExtResource("2")
+resource_name = "Quill 8GB DDR4-2400"
+category = "ram"
+display_name = "Quill 8GB DDR4-2400"
+base_price = 30
+stats = {"ram": 1400, "memory": "DDR4", "watts": 6}
+model_id = "quill_8gb_ddr4_2400"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 73
+condition_max = 95
+oc_potential = 0.18
+voltage_limit = 1.24
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 2400
+capacity_gb = 8
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_34"]
+script = ExtResource("2")
+resource_name = "Quill 16GB DDR4-3000"
+category = "ram"
+display_name = "Quill 16GB DDR4-3000"
+base_price = 55
+stats = {"ram": 2200, "memory": "DDR4", "watts": 7}
+model_id = "quill_16gb_ddr4_3000"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 74
+condition_max = 96
+oc_potential = 0.25
+voltage_limit = 1.28
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 3000
+capacity_gb = 16
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_35"]
+script = ExtResource("2")
+resource_name = "Quill 32GB DDR4-3600"
+category = "ram"
+display_name = "Quill 32GB DDR4-3600"
+base_price = 100
+stats = {"ram": 3400, "memory": "DDR4", "watts": 8}
+model_id = "quill_32gb_ddr4_3600"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 74
+condition_max = 96
+oc_potential = 0.32
+voltage_limit = 1.33
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 3600
+capacity_gb = 32
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_36"]
+script = ExtResource("2")
+resource_name = "Quill 16GB DDR5-5200"
+category = "ram"
+display_name = "Quill 16GB DDR5-5200"
+base_price = 90
+stats = {"ram": 3800, "memory": "DDR5", "watts": 8}
+model_id = "quill_16gb_ddr5_5200"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 75
+condition_max = 97
+oc_potential = 0.21
+voltage_limit = 1.24
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 5200
+capacity_gb = 16
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_37"]
+script = ExtResource("2")
+resource_name = "Quill 32GB DDR5-6000"
+category = "ram"
+display_name = "Quill 32GB DDR5-6000"
+base_price = 160
+stats = {"ram": 5200, "memory": "DDR5", "watts": 9}
+model_id = "quill_32gb_ddr5_6000"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 75
+condition_max = 97
+oc_potential = 0.3
+voltage_limit = 1.28
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 6000
+capacity_gb = 32
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_38"]
+script = ExtResource("2")
+resource_name = "Quill 32GB DDR5-7200"
+category = "ram"
+display_name = "Quill 32GB DDR5-7200"
+base_price = 230
+stats = {"ram": 6400, "memory": "DDR5", "watts": 10}
+model_id = "quill_32gb_ddr5_7200"
+buying_notes = "Capacity and generation matter. A fast label cannot persuade DDR3 to fit a DDR4 slot."
+condition_min = 76
+condition_max = 98
+oc_potential = 0.36
+voltage_limit = 1.32
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 7200
+capacity_gb = 32
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Quill"
+
+[sub_resource type="Resource" id="Part_39"]
+script = ExtResource("2")
+resource_name = "LuckyForce LGX 750 Li"
+category = "gpu"
+display_name = "LuckyForce LGX 750 Li"
+base_price = 25
+stats = {"gpu": 600, "watts": 40}
+model_id = "pixelon_p210"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 72
+condition_max = 94
+oc_potential = 0.12
+voltage_limit = 1.24
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 650
+capacity_gb = 1
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_40"]
+script = ExtResource("2")
+resource_name = "LuckyForce LGX 960"
+category = "gpu"
+display_name = "LuckyForce LGX 960"
+base_price = 45
+stats = {"gpu": 1100, "watts": 75}
+model_id = "pixelon_p730"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 72
+condition_max = 94
+oc_potential = 0.19
+voltage_limit = 1.27
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 900
+capacity_gb = 2
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_41"]
+script = ExtResource("2")
+resource_name = "Ladeon LDX 470"
+category = "gpu"
+display_name = "Ladeon LDX 470"
+base_price = 80
+stats = {"gpu": 1900, "watts": 110}
+model_id = "arcadia_a470"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 73
+condition_max = 95
+oc_potential = 0.28
+voltage_limit = 1.31
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 1100
+capacity_gb = 4
+cores = 0
+manufacturer = "LMD"
+product_family = "Ladeon"
+
+[sub_resource type="Resource" id="Part_42"]
+script = ExtResource("2")
+resource_name = "Ladeon LDX 580"
+category = "gpu"
+display_name = "Ladeon LDX 580"
+base_price = 120
+stats = {"gpu": 2600, "watts": 130}
+model_id = "arcadia_a580"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 73
+condition_max = 95
+oc_potential = 0.32
+voltage_limit = 1.34
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 1250
+capacity_gb = 8
+cores = 0
+manufacturer = "LMD"
+product_family = "Ladeon"
+
+[sub_resource type="Resource" id="Part_43"]
+script = ExtResource("2")
+resource_name = "LuckyForce LGX 1060 6GB"
+category = "gpu"
+display_name = "LuckyForce LGX 1060 6GB"
+base_price = 190
+stats = {"gpu": 3600, "watts": 150}
+model_id = "arcadia_a1060"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 74
+condition_max = 96
+oc_potential = 0.27
+voltage_limit = 1.29
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 1500
+capacity_gb = 6
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_44"]
+script = ExtResource("2")
+resource_name = "LuckyForce LGX 1660 Plus"
+category = "gpu"
+display_name = "LuckyForce LGX 1660 Plus"
+base_price = 260
+stats = {"gpu": 4600, "watts": 170}
+model_id = "zephyr_z1660"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 74
+condition_max = 96
+oc_potential = 0.36
+voltage_limit = 1.34
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 1650
+capacity_gb = 6
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_45"]
+script = ExtResource("2")
+resource_name = "LuckyForce LTX 2070"
+category = "gpu"
+display_name = "LuckyForce LTX 2070"
+base_price = 380
+stats = {"gpu": 6000, "watts": 215}
+model_id = "zephyr_z2070"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 75
+condition_max = 97
+oc_potential = 0.3
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 1750
+capacity_gb = 8
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_46"]
+script = ExtResource("2")
+resource_name = "LuckyForce LTX 3080"
+category = "gpu"
+display_name = "LuckyForce LTX 3080"
+base_price = 520
+stats = {"gpu": 8000, "watts": 300}
+model_id = "zephyr_z3080"
+buying_notes = "More headroom is not a promise: a hot card in a cramped case can still lose the silicon lottery."
+condition_min = 75
+condition_max = 97
+oc_potential = 0.38
+voltage_limit = 1.36
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 1900
+capacity_gb = 10
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_47"]
+script = ExtResource("2")
+resource_name = "Spindle 500GB HDD"
+category = "storage"
+display_name = "Spindle 500GB HDD"
+base_price = 14
+stats = {"storage": 150, "watts": 6}
+model_id = "spindle_500gb_hdd"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 500
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Spindle"
+
+[sub_resource type="Resource" id="Part_48"]
+script = ExtResource("2")
+resource_name = "Spindle 1TB HDD 7200rpm"
+category = "storage"
+display_name = "Spindle 1TB HDD 7200rpm"
+base_price = 24
+stats = {"storage": 250, "watts": 7}
+model_id = "spindle_1tb_hdd_7200rpm"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 72
+condition_max = 94
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 1000
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Spindle"
+
+[sub_resource type="Resource" id="Part_49"]
+script = ExtResource("2")
+resource_name = "Spindle 2TB HDD"
+category = "storage"
+display_name = "Spindle 2TB HDD"
+base_price = 38
+stats = {"storage": 300, "watts": 8}
+model_id = "spindle_2tb_hdd"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 2000
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Spindle"
+
+[sub_resource type="Resource" id="Part_50"]
+script = ExtResource("2")
+resource_name = "Flashy 120GB SATA SSD"
+category = "storage"
+display_name = "Flashy 120GB SATA SSD"
+base_price = 18
+stats = {"storage": 700, "watts": 3}
+model_id = "flashy_120gb_sata_ssd"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 73
+condition_max = 95
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 120
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Flashy"
+
+[sub_resource type="Resource" id="Part_51"]
+script = ExtResource("2")
+resource_name = "Flashy 480GB SATA SSD"
+category = "storage"
+display_name = "Flashy 480GB SATA SSD"
+base_price = 35
+stats = {"storage": 1100, "watts": 3}
+model_id = "flashy_480gb_sata_ssd"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 74
+condition_max = 96
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 480
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Flashy"
+
+[sub_resource type="Resource" id="Part_52"]
+script = ExtResource("2")
+resource_name = "Flashy 1TB SATA SSD"
+category = "storage"
+display_name = "Flashy 1TB SATA SSD"
+base_price = 60
+stats = {"storage": 1400, "watts": 3}
+model_id = "flashy_1tb_sata_ssd"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 74
+condition_max = 96
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.97
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 1000
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Flashy"
+
+[sub_resource type="Resource" id="Part_53"]
+script = ExtResource("2")
+resource_name = "Bolt 500GB NVMe"
+category = "storage"
+display_name = "Bolt 500GB NVMe"
+base_price = 55
+stats = {"storage": 2400, "watts": 5}
+model_id = "bolt_500gb_nvme"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 75
+condition_max = 97
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.09
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 500
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Bolt"
+
+[sub_resource type="Resource" id="Part_54"]
+script = ExtResource("2")
+resource_name = "Bolt 1TB NVMe Gen4"
+category = "storage"
+display_name = "Bolt 1TB NVMe Gen4"
+base_price = 95
+stats = {"storage": 4200, "watts": 7}
+model_id = "bolt_1tb_nvme_gen4"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 75
+condition_max = 97
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 1.21
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 1000
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Bolt"
+
+[sub_resource type="Resource" id="Part_55"]
+script = ExtResource("2")
+resource_name = "Bolt 2TB NVMe Gen5"
+category = "storage"
+display_name = "Bolt 2TB NVMe Gen5"
+base_price = 180
+stats = {"storage": 6500, "watts": 9}
+model_id = "bolt_2tb_nvme_gen5"
+buying_notes = "Drive score and capacity are the useful upgrades here. Shouting TURBO at a hard disk does not count."
+condition_min = 76
+condition_max = 98
+oc_potential = 0
+voltage_limit = 1.3
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 0
+capacity_gb = 2000
+cores = 0
+manufacturer = "LuckyWorks"
+product_family = "Bolt"
+
+[sub_resource type="Resource" id="Part_56"]
+script = ExtResource("2")
+resource_name = "LuckyForce LTX 5060"
+category = "gpu"
+display_name = "LuckyForce LTX 5060"
+base_price = 340
+stats = {"gpu": 6800, "watts": 115}
+model_id = "luckyforce_ltx_5060"
+buying_notes = "Modern performance, modern power appetite. Compare the price guide and your PSU before buying the largest number. All scores and compatibility are fictional game values."
+condition_min = 82
+condition_max = 100
+oc_potential = 0.18
+voltage_limit = 1.25
+thermal_load = 0.85
+support_quality = 50
+stock_clock_mhz = 2300
+capacity_gb = 8
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_57"]
+script = ExtResource("2")
+resource_name = "LuckyForce LTX 5070"
+category = "gpu"
+display_name = "LuckyForce LTX 5070"
+base_price = 520
+stats = {"gpu": 9300, "watts": 180}
+model_id = "luckyforce_ltx_5070"
+buying_notes = "Modern performance, modern power appetite. Compare the price guide and your PSU before buying the largest number. All scores and compatibility are fictional game values."
+condition_min = 82
+condition_max = 100
+oc_potential = 0.21
+voltage_limit = 1.28
+thermal_load = 1.05
+support_quality = 50
+stock_clock_mhz = 2500
+capacity_gb = 12
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_58"]
+script = ExtResource("2")
+resource_name = "LuckyForce LTX 5080"
+category = "gpu"
+display_name = "LuckyForce LTX 5080"
+base_price = 760
+stats = {"gpu": 12200, "watts": 250}
+model_id = "luckyforce_ltx_5080"
+buying_notes = "Modern performance, modern power appetite. Compare the price guide and your PSU before buying the largest number. All scores and compatibility are fictional game values."
+condition_min = 82
+condition_max = 100
+oc_potential = 0.19
+voltage_limit = 1.27
+thermal_load = 1.2
+support_quality = 50
+stock_clock_mhz = 2600
+capacity_gb = 16
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_59"]
+script = ExtResource("2")
+resource_name = "LuckyForce LTX 5090"
+category = "gpu"
+display_name = "LuckyForce LTX 5090"
+base_price = 1100
+stats = {"gpu": 16000, "watts": 360}
+model_id = "luckyforce_ltx_5090"
+buying_notes = "LVD's flagship space heater. The connector can unlock Dragon Breath mode, permanently destroying the card even at stock. Extra clock and voltage sharply raise fire risk; a better PSU helps under load. The warning is not RGB."
+fire_base_chance = 0.025
+fire_power_sensitivity = 0.14
+condition_min = 82
+condition_max = 100
+oc_potential = 0.23
+voltage_limit = 1.3
+thermal_load = 1.4
+support_quality = 50
+stock_clock_mhz = 2700
+capacity_gb = 32
+cores = 0
+manufacturer = "LVD"
+product_family = "LuckyForce"
+
+[sub_resource type="Resource" id="Part_60"]
+script = ExtResource("2")
+resource_name = "Ladeon LDX 9060"
+category = "gpu"
+display_name = "Ladeon LDX 9060"
+base_price = 300
+stats = {"gpu": 7400, "watts": 130}
+model_id = "luckyzen_ldx_9060"
+buying_notes = "Modern performance, modern power appetite. Compare the price guide and your PSU before buying the largest number. All scores and compatibility are fictional game values."
+condition_min = 82
+condition_max = 100
+oc_potential = 0.24
+voltage_limit = 1.29
+thermal_load = 0.95
+support_quality = 50
+stock_clock_mhz = 2400
+capacity_gb = 16
+cores = 0
+manufacturer = "LMD"
+product_family = "Ladeon"
+
+[sub_resource type="Resource" id="Part_61"]
+script = ExtResource("2")
+resource_name = "Ladeon LDX 9070"
+category = "gpu"
+display_name = "Ladeon LDX 9070"
+base_price = 490
+stats = {"gpu": 10500, "watts": 220}
+model_id = "luckyzen_ldx_9070"
+buying_notes = "Modern performance, modern power appetite. Compare the price guide and your PSU before buying the largest number. All scores and compatibility are fictional game values."
+condition_min = 82
+condition_max = 100
+oc_potential = 0.26
+voltage_limit = 1.31
+thermal_load = 1.15
+support_quality = 50
+stock_clock_mhz = 2600
+capacity_gb = 16
+cores = 0
+manufacturer = "LMD"
+product_family = "Ladeon"
+
+[sub_resource type="Resource" id="Part_62"]
+script = ExtResource("2")
+resource_name = "LuckyCore L3-12100"
+category = "cpu"
+display_name = "LuckyCore L3-12100"
+base_price = 85
+stats = {"cpu": 3500, "gpu": 400, "socket": "LX7", "watts": 60, "integrated": true}
+model_id = "luckycore_l3_12100"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "A sensible LX7 choice. No inherent stock reliability penalty; compare board memory type before buying."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.12
+voltage_limit = 1.25
+thermal_load = 0.8
+stock_failure_chance = 0
+stock_clock_mhz = 3300
+cores = 4
+
+[sub_resource type="Resource" id="Part_63"]
+script = ExtResource("2")
+resource_name = "LuckyCore L5-12400"
+category = "cpu"
+display_name = "LuckyCore L5-12400"
+base_price = 130
+stats = {"cpu": 4900, "gpu": 400, "socket": "LX7", "watts": 65, "integrated": true}
+model_id = "luckycore_l5_12400"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "A sensible LX7 choice. No inherent stock reliability penalty; compare board memory type before buying."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.16
+voltage_limit = 1.26
+thermal_load = 0.88
+stock_failure_chance = 0
+stock_clock_mhz = 2500
+cores = 6
+
+[sub_resource type="Resource" id="Part_64"]
+script = ExtResource("2")
+resource_name = "LuckyCore L7-12700L"
+category = "cpu"
+display_name = "LuckyCore L7-12700L"
+base_price = 210
+stats = {"cpu": 6800, "gpu": 400, "socket": "LX7", "watts": 125, "integrated": true}
+model_id = "luckycore_l7_12700l"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "Older unlocked L-series silicon: generous headroom without the later Haunted Voltage Club's stock reliability flaw. Requires an LX7 board."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.29
+voltage_limit = 1.32
+thermal_load = 1.12
+stock_failure_chance = 0
+stock_clock_mhz = 3600
+cores = 12
+
+[sub_resource type="Resource" id="Part_65"]
+script = ExtResource("2")
+resource_name = "LuckyCore L9-12900L"
+category = "cpu"
+display_name = "LuckyCore L9-12900L"
+base_price = 280
+stats = {"cpu": 8200, "gpu": 400, "socket": "LX7", "watts": 125, "integrated": true}
+model_id = "luckycore_l9_12900l"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "Older unlocked L-series silicon: generous headroom without the later Haunted Voltage Club's stock reliability flaw. Requires an LX7 board."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.31
+voltage_limit = 1.33
+thermal_load = 1.25
+stock_failure_chance = 0
+stock_clock_mhz = 3200
+cores = 16
+
+[sub_resource type="Resource" id="Part_66"]
+script = ExtResource("2")
+resource_name = "LuckyCore L5-13400"
+category = "cpu"
+display_name = "LuckyCore L5-13400"
+base_price = 155
+stats = {"cpu": 5700, "gpu": 400, "socket": "LX7", "watts": 65, "integrated": true}
+model_id = "luckycore_l5_13400"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "A sensible LX7 choice. No inherent stock reliability penalty; compare board memory type before buying."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.17
+voltage_limit = 1.26
+thermal_load = 0.94
+stock_failure_chance = 0
+stock_clock_mhz = 2500
+cores = 10
+
+[sub_resource type="Resource" id="Part_67"]
+script = ExtResource("2")
+resource_name = "LuckyCore L7-13700L"
+category = "cpu"
+display_name = "LuckyCore L7-13700L"
+base_price = 235
+stats = {"cpu": 9000, "gpu": 400, "socket": "LX7", "watts": 125, "integrated": true}
+model_id = "luckycore_l7_13700l"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "From LTL's infamous Haunted Voltage Club. Cheap speed with a model reliability flaw: even stock tests and the final benchmark can permanently kill it. Cleaning cannot cure the flaw; Lucky only reduces the odds."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.3
+voltage_limit = 1.31
+thermal_load = 1.22
+stock_failure_chance = 0.12
+stock_clock_mhz = 3400
+cores = 16
+
+[sub_resource type="Resource" id="Part_68"]
+script = ExtResource("2")
+resource_name = "LuckyCore L9-13900L"
+category = "cpu"
+display_name = "LuckyCore L9-13900L"
+base_price = 320
+stats = {"cpu": 10800, "gpu": 400, "socket": "LX7", "watts": 125, "integrated": true}
+model_id = "luckycore_l9_13900l"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "From LTL's infamous Haunted Voltage Club. Cheap speed with a model reliability flaw: even stock tests and the final benchmark can permanently kill it. Cleaning cannot cure the flaw; Lucky only reduces the odds."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.32
+voltage_limit = 1.32
+thermal_load = 1.4
+stock_failure_chance = 0.18
+stock_clock_mhz = 3000
+cores = 24
+
+[sub_resource type="Resource" id="Part_69"]
+script = ExtResource("2")
+resource_name = "LuckyCore L5-14400"
+category = "cpu"
+display_name = "LuckyCore L5-14400"
+base_price = 175
+stats = {"cpu": 6000, "gpu": 400, "socket": "LX7", "watts": 65, "integrated": true}
+model_id = "luckycore_l5_14400"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "A sensible LX7 choice. No inherent stock reliability penalty; compare board memory type before buying."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.18
+voltage_limit = 1.27
+thermal_load = 0.96
+stock_failure_chance = 0
+stock_clock_mhz = 2500
+cores = 10
+
+[sub_resource type="Resource" id="Part_70"]
+script = ExtResource("2")
+resource_name = "LuckyCore L7-14700L"
+category = "cpu"
+display_name = "LuckyCore L7-14700L"
+base_price = 260
+stats = {"cpu": 9800, "gpu": 400, "socket": "LX7", "watts": 125, "integrated": true}
+model_id = "luckycore_l7_14700l"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "From LTL's infamous Haunted Voltage Club. Cheap speed with a model reliability flaw: even stock tests and the final benchmark can permanently kill it. Cleaning cannot cure the flaw; Lucky only reduces the odds."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.31
+voltage_limit = 1.31
+thermal_load = 1.3
+stock_failure_chance = 0.15
+stock_clock_mhz = 3400
+cores = 20
+
+[sub_resource type="Resource" id="Part_71"]
+script = ExtResource("2")
+resource_name = "LuckyCore L9-14900L"
+category = "cpu"
+display_name = "LuckyCore L9-14900L"
+base_price = 350
+stats = {"cpu": 11600, "gpu": 400, "socket": "LX7", "watts": 125, "integrated": true}
+model_id = "luckycore_l9_14900l"
+manufacturer = "LTL"
+product_family = "LuckyCore"
+buying_notes = "From LTL's infamous Haunted Voltage Club. Cheap speed with a model reliability flaw: even stock tests and the final benchmark can permanently kill it. Cleaning cannot cure the flaw; Lucky only reduces the odds."
+condition_min = 80
+condition_max = 100
+oc_potential = 0.33
+voltage_limit = 1.32
+thermal_load = 1.48
+stock_failure_chance = 0.22
+stock_clock_mhz = 3200
+cores = 24
+
+[sub_resource type="Resource" id="Part_72"]
+script = ExtResource("2")
+resource_name = "LuckyBoard L670M (LX7, DDR4)"
+category = "motherboard"
+display_name = "LuckyBoard L670M (LX7, DDR4)"
+base_price = 120
+stats = {"socket": "LX7", "memory": "DDR4", "form": "mATX", "watts": 35, "integrated": true}
+model_id = "luckyboard_l670m"
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+buying_notes = "Fits LuckyCore 12/13/14-series CPUs. Better VRMs support tuning, but cannot eliminate a CPU's inherent reliability flaw."
+condition_min = 80
+condition_max = 100
+support_quality = 64
+
+[sub_resource type="Resource" id="Part_73"]
+script = ExtResource("2")
+resource_name = "LuckyBoard L790 (LX7, DDR5)"
+category = "motherboard"
+display_name = "LuckyBoard L790 (LX7, DDR5)"
+base_price = 245
+stats = {"socket": "LX7", "memory": "DDR5", "form": "ATX", "watts": 35, "integrated": true}
+model_id = "luckyboard_l790"
+manufacturer = "LuckyWorks"
+product_family = "LuckyBoard"
+buying_notes = "Fits LuckyCore 12/13/14-series CPUs. Better VRMs support tuning, but cannot eliminate a CPU's inherent reliability flaw."
+condition_min = 80
+condition_max = 100
+support_quality = 90
+
+[sub_resource type="Resource" id="Part_74"]
+script = ExtResource("2")
+resource_name = "LuckyForce LTX 4090"
+category = "gpu"
+display_name = "LuckyForce LTX 4090"
+base_price = 820
+stats = {"gpu": 13000, "watts": 300}
+model_id = "luckyforce_ltx_4090"
+manufacturer = "LVD"
+product_family = "LuckyForce"
+buying_notes = "Last generation's flagship, this generation's pocket furnace. Strong stock performance, but a connector fire can permanently destroy it. Extra power and worn hardware raise the risk. Lucky calls this an external combustion engine."
+condition_min = 72
+condition_max = 100
+oc_potential = 0.22
+voltage_limit = 1.3
+thermal_load = 1.3
+fire_base_chance = 0.015
+fire_power_sensitivity = 0.10
+stock_clock_mhz = 2500
+capacity_gb = 24
+
+[resource]
+script = ExtResource("1")
+parts = Array[ExtResource("2")]([SubResource("Part_0"), SubResource("Part_1"), SubResource("Part_2"), SubResource("Part_3"), SubResource("Part_4"), SubResource("Part_5"), SubResource("Part_6"), SubResource("Part_7"), SubResource("Part_8"), SubResource("Part_9"), SubResource("Part_10"), SubResource("Part_11"), SubResource("Part_12"), SubResource("Part_13"), SubResource("Part_14"), SubResource("Part_15"), SubResource("Part_16"), SubResource("Part_17"), SubResource("Part_18"), SubResource("Part_19"), SubResource("Part_20"), SubResource("Part_21"), SubResource("Part_22"), SubResource("Part_23"), SubResource("Part_24"), SubResource("Part_25"), SubResource("Part_26"), SubResource("Part_27"), SubResource("Part_28"), SubResource("Part_29"), SubResource("Part_30"), SubResource("Part_31"), SubResource("Part_32"), SubResource("Part_33"), SubResource("Part_34"), SubResource("Part_35"), SubResource("Part_36"), SubResource("Part_37"), SubResource("Part_38"), SubResource("Part_39"), SubResource("Part_40"), SubResource("Part_41"), SubResource("Part_42"), SubResource("Part_43"), SubResource("Part_44"), SubResource("Part_45"), SubResource("Part_46"), SubResource("Part_47"), SubResource("Part_48"), SubResource("Part_49"), SubResource("Part_50"), SubResource("Part_51"), SubResource("Part_52"), SubResource("Part_53"), SubResource("Part_54"), SubResource("Part_55"), SubResource("Part_56"), SubResource("Part_57"), SubResource("Part_58"), SubResource("Part_59"), SubResource("Part_60"), SubResource("Part_61"), SubResource("Part_62"), SubResource("Part_63"), SubResource("Part_64"), SubResource("Part_65"), SubResource("Part_66"), SubResource("Part_67"), SubResource("Part_68"), SubResource("Part_69"), SubResource("Part_70"), SubResource("Part_71"), SubResource("Part_72"), SubResource("Part_73"), SubResource("Part_74")])

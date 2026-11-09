@@ -1,0 +1,30 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/world/town_view.gd" id="1"]
+[ext_resource type="Script" path="res://src/world/world_backdrop.gd" id="2"]
+
+[node name="TownView" type="Control"]
+texture_filter = 1
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="Viewport" type="SubViewport" parent="."]
+disable_3d = true
+size = Vector2i(480, 300)
+gui_disable_input = true
+render_target_update_mode = 4
+
+[node name="Backdrop" type="Node2D" parent="Viewport"]
+texture_filter = 1
+script = ExtResource("2")
+
+[node name="Actors" type="Node2D" parent="Viewport"]
+texture_filter = 1
+
+[node name="NightTint" type="ColorRect" parent="Viewport"]
+mouse_filter = 2
+color = Color(0, 0, 0, 0)

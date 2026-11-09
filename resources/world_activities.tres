@@ -1,0 +1,90 @@
+[gd_resource type="Resource" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://src/data/world_activity_catalog.gd" id="1"]
+[ext_resource type="Script" path="res://src/data/world_activity_definition.gd" id="2"]
+
+[sub_resource type="Resource" id="Activity_lucky_square"]
+script = ExtResource("2")
+id = "lucky_square"
+display_name = "Lucky's Silicon Shrine"
+map_label = "Lucky Square"
+position = Vector2(390, 430)
+art_key = "lucky_shrine"
+art_size = Vector2(64, 64)
+overlay_art_key = "statue_lucky"
+kind = "lucky"
+description = "Pray to Lucky for scientifically questionable confidence. A $5 offering earns one blessing. Your next risky stress test or final reliability check has 25% less failure chance, including connector fires. Safe tests do not consume the charm; voltage above 1.40x still guarantees destruction. No stacking."
+action_label = "Pray to Lucky"
+cash_cost = 5
+minutes_cost = 5
+uses_per_day = 1
+result_lines = PackedStringArray("May my frames be high, my timings tight, and the magic smoke remain inside. Lucky grants one blessing.", "Lucky hears your prayer. One risky test gets 25% less danger. The dragon politely declines responsibility for the fire extinguisher.")
+
+[sub_resource type="Resource" id="Activity_dubious_bin"]
+script = ExtResource("2")
+id = "dubious_bin"
+display_name = "The Bin of Dubious Destiny"
+map_label = "Salvage Bin"
+position = Vector2(225, 244)
+art_key = "salvage_bin"
+art_size = Vector2(40, 40)
+kind = "salvage"
+description = "Rummage through yesterday's technological ambitions. Find one worn budget component, once per day. Keep it, clean it or sell it. The bin makes no promises about your dignity."
+action_label = "Go dumpster diving"
+cash_cost = 0
+minutes_cost = 25
+uses_per_day = 1
+loot_models = PackedStringArray("tin_can_matx", "quill_4gb_ddr3_1333", "flashy_120gb_sata_ssd")
+result_lines = PackedStringArray("You defeated the final boss: a knot of VGA cables.", "A sticker reads TESTED WORKING, in handwriting suspiciously similar to the bin's.")
+
+[sub_resource type="Resource" id="Activity_dust_busters"]
+script = ExtResource("2")
+id = "dust_busters"
+display_name = "Warranty Void Laundromat"
+map_label = "Dust Clinic"
+position = Vector2(790, 255)
+art_key = "dust_clinic"
+art_size = Vector2(56, 56)
+kind = "clean"
+description = "A professional dust eviction. Restore 12 condition points to one owned part, once per part per run. Better condition improves performance and overclocking resilience. Listed items must be delisted first. No actual washing machines are involved."
+action_label = "Evict the dust"
+cash_cost = 12
+minutes_cost = 15
+strength = 12
+result_lines = PackedStringArray("Dust evicted. It has been referred to a tiny housing association.", "The technician found a whole second heatsink. It was made of lint.")
+
+[sub_resource type="Resource" id="Activity_paste_club"]
+script = ExtResource("2")
+id = "paste_club"
+display_name = "Thermal Paste Appreciation Society"
+map_label = "Paste Club"
+position = Vector2(665, 315)
+art_key = "paste_club"
+art_size = Vector2(64, 64)
+kind = "cooling"
+description = "Buy LuckyGoop Dragon Chill, the society's special thermal paste. The club applies it and leaves enough for every component swap: +12 rig cooling points for this run (100-point cap). Lower temperatures and a little more stable headroom; it cannot cure faulty chips or connectors. Applied immediately, once per run. Definitely not dragon toothpaste."
+action_label = "Buy & apply Dragon Chill"
+reward_name = "LuckyGoop Dragon Chill"
+cash_cost = 18
+minutes_cost = 10
+strength = 12
+once_per_run = true
+result_lines = PackedStringArray("Dragon Chill applied. The first rule of Paste Club is: a pea, not a wedding cake.", "LuckyGoop installed. The committee voted unanimously against mayonnaise.")
+
+[sub_resource type="Resource" id="Activity_confessional"]
+script = ExtResource("2")
+id = "confessional"
+display_name = "Benchmark Confessional"
+map_label = "Advice Board"
+position = Vector2(695, 566)
+art_key = "advice_board"
+art_size = Vector2(48, 48)
+kind = "advice"
+description = "Read a questionable proverb and one practical tip about your current rig. Free advice; the board refuses liability for emotional damage caused by your cable management."
+action_label = "Confess my build"
+cooldown_minutes = 30
+result_lines = PackedStringArray("Forgive me, board, for I have installed RGB before a power supply.", "A wise dragon once said: an incompatible bargain is just expensive shelf decoration.", "The cheapest upgrade is reading the socket label before paying.")
+
+[resource]
+script = ExtResource("1")
+activities = Array[ExtResource("2")]([SubResource("Activity_lucky_square"), SubResource("Activity_dubious_bin"), SubResource("Activity_dust_busters"), SubResource("Activity_paste_club"), SubResource("Activity_confessional")])
