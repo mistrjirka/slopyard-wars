@@ -1,0 +1,49 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ui/phone/browse.svg" id="1"]
+[ext_resource type="Texture2D" path="res://assets/ui/phone/messages.svg" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/phone/sell.svg" id="3"]
+
+[sub_resource type="ButtonGroup" id="NavigationGroup"]
+resource_local_to_scene = true
+
+[node name="Nav" type="HBoxContainer"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Browse" type="Button" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "TabButton"
+toggle_mode = true
+button_group = SubResource("NavigationGroup")
+icon = ExtResource("1")
+text = "Browse"
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="Messages" type="Button" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "TabButton"
+toggle_mode = true
+button_group = SubResource("NavigationGroup")
+icon = ExtResource("2")
+text = "Messages"
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="Sell" type="Button" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "TabButton"
+toggle_mode = true
+button_group = SubResource("NavigationGroup")
+icon = ExtResource("3")
+text = "Sell"
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+vertical_icon_alignment = 0

@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://src/trading/thread_view.gd" id="1"]
+[ext_resource type="PackedScene" path="res://src/trading/phone_navigation.tscn" id="2"]
 
 [node name="ThreadView" type="VBoxContainer"]
 layout_mode = 2
@@ -49,6 +50,9 @@ horizontal_scroll_mode = 0
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
+
+[node name="Nav" parent="Split/Sidebar" instance=ExtResource("2")]
+layout_mode = 2
 
 [node name="Right" type="VBoxContainer" parent="Split"]
 layout_mode = 2

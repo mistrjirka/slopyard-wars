@@ -5,6 +5,9 @@ signal send_text(text: String)
 signal toggle_slots
 signal track_requested
 signal slot_chosen(label: String)
+signal browse_requested
+signal inbox_requested
+signal sell_requested
 
 const Catalog = preload("res://src/data/catalog.gd")
 const Characters = preload("res://src/data/characters.gd")
@@ -16,6 +19,9 @@ const MeetingPanelScene = preload("res://src/trading/meeting_panel.tscn")
 @onready var split: HBoxContainer = $Split
 @onready var sidebar: VBoxContainer = $Split/Sidebar
 @onready var sidebar_list: VBoxContainer = $Split/Sidebar/Scroll/List
+@onready var browse_button: Button = $Split/Sidebar/Nav/Browse
+@onready var inbox_button: Button = $Split/Sidebar/Nav/Messages
+@onready var sell_button: Button = $Split/Sidebar/Nav/Sell
 @onready var gone_label: Label = $Gone
 @onready var gone_back: Button = $GoneBack
 @onready var header: HBoxContainer = $Split/Right/Header
@@ -56,6 +62,10 @@ func _ready() -> void:
 	back_btn.pressed.connect(func() -> void: back_pressed.emit())
 	gone_back.pressed.connect(func() -> void: back_pressed.emit())
 	details_btn.toggled.connect(_show_details)
+	browse_button.pressed.connect(func() -> void: browse_requested.emit())
+	inbox_button.pressed.connect(func() -> void: inbox_requested.emit())
+	sell_button.pressed.connect(func() -> void: sell_requested.emit())
+	inbox_button.button_pressed = true
 	composer.text_changed.connect(func(_text: String) -> void: _update_send())
 	composer.text_submitted.connect(_submit)
 	send_btn.pressed.connect(func() -> void: _submit(composer.text))
@@ -105,6 +115,8 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	var waiting_for_buyer: bool = selling and not listing.get("buyer_contacted", true)
 	var private_thread: bool = int(listing.get("owner", 0)) > 0 and not selling
 	var agreed_price := int(me.offers.get(selected, 0))
+	var proposal: Dictionary = me.get("meeting_proposals", {}).get(selected, {})
+	var live_proposal := not proposal.is_empty() and Game.clock() < float(proposal.end)
 	var buyer_offer := int(me.get("counters", {}).get(selected, 0)) if selling else 0
 	role_label.text = "Buyer" if selling else "Seller"
 	subtitle_label.text = str(listing.name) + (" · Your ask: $%d" if selling else " · $%d") % int(listing.price)
@@ -127,6 +139,8 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 		context_text = ("Meeting: " if has_meeting else "Missed — arrange another time: ") + str(m.label)
 	elif me.offers.has(selected):
 		context_text = "Agreed: $%d · Choose a time and place." % int(me.offers[selected])
+	if agreed_price > 0 and live_proposal:
+		context_text = "Suggested: " + str(proposal.label) + " · Confirm or choose another time."
 	if pending or waiting:
 		context_text = "Waiting for a reply. You can draft your next message."
 	if waiting_for_buyer:
@@ -165,7 +179,7 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	composer.placeholder_text = "Read-only conversation" if terminal else ("Waiting for buyer" if waiting_for_buyer else "Message…")
 	composer.text = str(drafts.get(selected, ""))
 	composer.editable = not terminal and not waiting_for_buyer
-	var terms_ready := int(me.offers.get(selected, 0)) > 0 and has_meeting and not terminal
+	var terms_ready := agreed_price > 0 and live_proposal and not terminal
 	_can_confirm = terms_ready and not _locked
 	_update_send()
 	_quick_a_text = ""

@@ -163,6 +163,16 @@ func _update_world_hud() -> void:
 	_appointment_label.text = line
 
 
+func _input(event: InputEvent) -> void:
+	if _dialogs.visible or not _phone_layer.visible or event is not InputEventKey or not event.pressed:
+		return
+	if event.is_action_pressed("ui_focus_next", true) or event.is_action_pressed("ui_focus_prev", true):
+		# Keep focus traversal inside the phone's separate GUI viewport instead
+		# of letting the host GUI select controls behind the overlay.
+		_phone.move_keyboard_focus(event.is_action_pressed("ui_focus_prev", true))
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is not InputEventKey or not event.pressed or event.echo:
 		return
@@ -179,6 +189,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_phone_layer.hide()
 			_workspace.hide()
 			_map_layer.hide()
+	elif _phone_layer.visible and (event.is_action_pressed("ui_focus_next") or event.is_action_pressed("ui_focus_prev")):
+		pass # Tab navigates the open phone; it must not also pocket it.
 	elif editing_here or _phone.has_text_focus():
 		# Child SubViewport GUI handling does not consume the host's shortcuts.
 		return

@@ -1,13 +1,9 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/trading/phone.gd" id="1"]
 [ext_resource type="PackedScene" path="res://src/trading/luckyfold_shell.tscn" id="2"]
 [ext_resource type="Shader" path="res://src/trading/fold_face.gdshader" id="3"]
-[ext_resource type="Texture2D" path="res://assets/ui/phone/browse.svg" id="4"]
-[ext_resource type="Texture2D" path="res://assets/ui/phone/messages.svg" id="5"]
-[ext_resource type="Texture2D" path="res://assets/ui/phone/sell.svg" id="6"]
-
-[sub_resource type="ButtonGroup" id="NavigationGroup"]
+[ext_resource type="PackedScene" path="res://src/trading/phone_navigation.tscn" id="4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_cover"]
 resource_local_to_scene = true
@@ -119,47 +115,9 @@ visible = false
 layout_mode = 2
 mouse_filter = 2
 
-[node name="Nav" type="HBoxContainer" parent="Screen/Viewport/Device/Inset/Content"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-theme_override_constants/separation = 6
+[node name="Nav" parent="Screen/Viewport/Device/Inset/Content" instance=ExtResource("4")]
 visible = false
-
-[node name="Browse" type="Button" parent="Screen/Viewport/Device/Inset/Content/Nav"]
 layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = "TabButton"
-toggle_mode = true
-button_group = SubResource("NavigationGroup")
-icon = ExtResource("4")
-text = "Browse"
-theme_override_constants/icon_max_width = 18
-icon_alignment = 1
-vertical_icon_alignment = 0
-
-[node name="Messages" type="Button" parent="Screen/Viewport/Device/Inset/Content/Nav"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = "TabButton"
-toggle_mode = true
-button_group = SubResource("NavigationGroup")
-icon = ExtResource("5")
-text = "Messages"
-theme_override_constants/icon_max_width = 18
-icon_alignment = 1
-vertical_icon_alignment = 0
-
-[node name="Sell" type="Button" parent="Screen/Viewport/Device/Inset/Content/Nav"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = "TabButton"
-toggle_mode = true
-button_group = SubResource("NavigationGroup")
-icon = ExtResource("6")
-text = "Sell"
-theme_override_constants/icon_max_width = 18
-icon_alignment = 1
-vertical_icon_alignment = 0
 
 [node name="CoverHint" type="Label" parent="Screen/Viewport/Device/Inset/Content"]
 layout_mode = 2

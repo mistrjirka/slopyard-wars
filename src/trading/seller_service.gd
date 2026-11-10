@@ -289,19 +289,29 @@ func offline_decision(l: Dictionary, text: String, counter: int) -> Dictionary:
 		intent = "offer"
 		if amount == 0:
 			amount = int(l.price)
-	var line := character.greeting
+	var sale_side := bool(l.get("sale_side", false))
+	var line: String = "I'm interested in your part." if sale_side else character.greeting
 	if "socket" in t or "compat" in t or "fit" in t:
 		line = Catalog.spec_text(l) if character.technical_knowledge == 2 else character.technical_reply
 	elif intent != "none":
-		line = Characters.line(character.price_accept, amount)
+		line = "Deal, I'll pay $%d." % amount if sale_side else Characters.line(character.price_accept, amount)
 	elif "lowest" in t or "price" in t:
-		line = "I'm asking $%d." % l.price
+		if sale_side:
+			var agreed := int(l.get("agreed_price", 0))
+			if agreed > 0:
+				line = "We agreed on $%d." % agreed
+			elif counter > 0:
+				line = "I can offer $%d." % counter
+			else:
+				line = "What price did you have in mind?"
+		else:
+			line = "I'm asking $%d." % l.price
 	var action := "accept" if intent != "none" else "none"
 	var counter_price := 0
-	if bool(l.get("sale_side", false)) and amount > int(l.get("buyer_max", l.price)):
+	if sale_side and amount > int(l.get("buyer_max", l.price)):
 		action = "counter"
 		counter_price = int(l.get("buyer_max", l.price))
-		line = Characters.line(character.price_counter, counter_price)
+		line = Characters.line(character.buyer_opening, counter_price)
 	if intent == "none" and not ("available" in t or "price" in t or "socket" in t or "compat" in t or "fit" in t or "meet" in t or "time" in t) and not character.smalltalk.is_empty():
 		line = character.smalltalk[posmod(text.hash(), character.smalltalk.size())]
 	var meeting_action := "none"

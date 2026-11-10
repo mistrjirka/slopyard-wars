@@ -113,7 +113,7 @@ func _ready() -> void:
 		"sell": content.get_node("Nav/Sell"),
 	}
 	(_tabs["browse"] as Button).pressed.connect(_show.bind("browse"))
-	(_tabs["messages"] as Button).pressed.connect(_show.bind("messages"))
+	(_tabs["messages"] as Button).pressed.connect(_open_messages)
 	(_tabs["sell"] as Button).pressed.connect(_show.bind("sell"))
 	_nav.hide()
 	_cover_hint = content.get_node("CoverHint")
@@ -399,6 +399,17 @@ func has_text_focus() -> bool:
 	return is_visible_in_tree() and _focused_text_control() != null
 
 
+func move_keyboard_focus(backwards: bool) -> void:
+	if _folding or not is_visible_in_tree():
+		return
+	var owner := _viewport.gui_get_focus_owner()
+	var target: Control = _mode_button
+	if owner != null:
+		target = owner.find_prev_valid_focus() if backwards else owner.find_next_valid_focus()
+	if target != null:
+		target.grab_focus()
+
+
 func release_text_focus() -> bool:
 	var owner := _focused_text_control()
 	if owner == null:
@@ -441,6 +452,11 @@ func _open_marketplace_animated() -> void:
 	set_unfolded_animated(true)
 
 
+func _open_messages() -> void:
+	_thread_origin = "messages"
+	_show("messages")
+
+
 func _inbox() -> void:
 	_save_draft()
 	_composer = null
@@ -460,7 +476,9 @@ func _back_from_thread() -> void:
 
 func open_listing(id: int) -> void:
 	_save_draft()
-	_thread_origin = page if unfolded else "messages"
+	# Switching contacts inside a thread must not overwrite its entry destination.
+	if page != "messages" or selected < 0:
+		_thread_origin = page if unfolded else "messages"
 	_composer = null
 	selected = id
 	_slots = false
@@ -509,7 +527,7 @@ func refresh() -> void:
 	sig += str(me.get("contact_relations", {}))
 	if active_page == "messages" and selected >= 0:
 		var l := _listing(selected)
-		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.counters.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(l.get("status", "gone")) + str(l.get("buyer_contacted", true)) + str(_slots)
+		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.counters.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(me.get("meeting_proposals", {}).get(selected, {})) + str(l.get("status", "gone")) + str(l.get("buyer_contacted", true)) + str(_slots)
 		if unfolded:
 			# The left display previews every conversation, not just the open thread.
 			sig += str(me.chats).sha256_text()
@@ -517,6 +535,8 @@ func refresh() -> void:
 				sig += str(listing.id) + str(listing.seller) + str(listing.name)
 		if me.meetings.has(selected):
 			sig += str(Game.clock() > float(me.meetings[selected].end))
+		if me.get("meeting_proposals", {}).has(selected):
+			sig += str(Game.clock() >= float(me.meeting_proposals[selected].end))
 	elif active_page == "sell":
 		sig += str(me.inventory) + str(Game.state.listings.filter(func(l): return int(l.get("owner", 0)) == Game.local_id()))
 	else:
@@ -597,6 +617,9 @@ func _thread() -> void:
 	var view: VBoxContainer = ThreadViewScene.instantiate()
 	_body.add_child(view)
 	view.back_pressed.connect(_back_from_thread)
+	view.browse_requested.connect(_show.bind("browse"))
+	view.inbox_requested.connect(_inbox)
+	view.sell_requested.connect(_show.bind("sell"))
 	var back_title := "Marketplace" if unfolded and _thread_origin == "browse" else ("Your listings" if unfolded and _thread_origin == "sell" else "Messages")
 	view.back_btn.text = "‹ " + back_title
 	view.gone_back.text = "‹ " + back_title
