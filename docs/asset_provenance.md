@@ -19,7 +19,8 @@ All three are tinted by the phone theme and displayed at 18 px. Their SVG paths 
 | Resource | Origin | Use |
 | --- | --- | --- |
 | `resources/ui/game_theme.tres` | Serialized from this project's existing `UiKit.make_theme()` using Godot's ResourceSaver | Editor-visible shared UI theme; no external artwork |
-| `src/workshop/assembly.gd` | Original procedural drawing and interaction code | Case tray, schematic motherboard holes, socket/retention mechanism, GPU fan-side view, PSU rear plate, supplied cooler and thermal paste |
+| `resources/ui/assembly_theme.tres` | Original authored Godot theme using the existing Hack Bold font | Neutral grey enabled partial-mounting action; full mounting retains the shared green primary style |
+| `src/workshop/assembly.gd` | Original drawing and interaction code composed with the repository's component textures | Case tray, schematic motherboard holes, PGA retention mechanism, PSU rear plate, supplied cooler and thermal paste; asset-backed LGA socket and fan-side GPU |
 | Feature-local `.tscn` screens and component templates | Authored from the existing scripted UI | Editable layouts, cards, dialogs, buttons and labels |
 | `assets/cover/slopyard-wars-cover-1260x1000.png` | Existing project title artwork, reused without modification | Main-menu centerpiece; aspect ratio preserved with nearest-neighbor sampling |
 | `resources/ui/menu_theme.tres` | Original Godot theme using the project's existing Hack fonts | Main-menu teal surfaces, cream text and gold accents drawn from the cover palette |
@@ -47,6 +48,19 @@ These are sourced font assets, not generated artwork or modified outlines.
 - `assets/interior/`, `assets/tiles/` and other existing world art: reused; desk sizing and floor tiling are rendering changes, not newly generated artwork.
 - `assets/ui/luckyfold/display_fault.png`: existing artwork reused at runtime; its damaged-screen geometry is intentional. `device_frame.png` is preserved as a legacy/reference file, not used by the new procedural casing.
 - `assets/fonts/Hack-Regular.ttf` and `Hack-Bold.ttf`: existing UI fonts, unchanged. World/map labels use the dedicated pixel-font assets above rather than shrinking these fonts.
+
+### Assembly close-ups from the coworker's asset branch
+
+These PNGs were supplied in the repository's `assets` branch and merged in `cb0d31c`; they were not generated or redrawn during this integration. Their existing ownership/terms are unchanged.
+
+| Files | Native size | Assembly use |
+| --- | --- | --- |
+| `assets/computer_parts/cpus/close_up/cpu_closeup.png` | 128×128 | Rotatable CPU; its visible package and gold-corner cue share the placement/picking geometry |
+| `assets/computer_parts/cpus/close_up/socket_open.png`, `socket_closed.png`, `socket_closed_with_cpu.png` | 192×192 each | Open, empty closed and CPU-retained LGA states; lever hit targets follow the artwork. OX4 keeps its distinct PGA lever-only schematic |
+| `assets/computer_parts/graphics_cards/gpu_fan_side_2_fans.png` | 128×72 | Short fan-side GPU variant |
+| `assets/computer_parts/graphics_cards/gpu_fan_side_3_fans.png` | 160×72 | Long fan-side GPU variant |
+
+GPU variants use the existing name-hash visual-variant convention, not invented fan-count performance stats. Both mount to the same case-bracket edge and share the same gold-connector footprint; the PCIe socket/latch follow those pixels. Rendered card dimensions also determine picking and placement outlines. Textures use nearest-neighbour filtering with no generated mipmaps. No source PNG was modified.
 
 ## External references — not shipped as artwork
 

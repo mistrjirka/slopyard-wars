@@ -112,11 +112,12 @@ func open_assembly(item: Dictionary) -> void:
 	rotate_btn.pressed.connect(_assembly.rotate_current)
 	_assembly.stage_changed.connect(func(): rotate_btn.visible = is_instance_valid(_assembly) and _assembly.rotation_available())
 	_assembly.cancelled.connect(close)
-	_assembly.damage_requested.connect(func(strike: int, reason: String):
-		Game.act("assembly_damage", {"item_id": iid, "strike": strike, "reason": reason}))
+	_assembly.damage_requested.connect(func(damaged_id: int, strike: int, reason: String):
+		Game.act("assembly_damage", {"item_id": damaged_id, "assembly_item_id": iid, "strike": strike, "reason": reason}))
 	_assembly.completed.connect(func(result: Dictionary):
 		close()
-		Game.act("install", {"item_id": iid, "mount_quality": result.mount_quality, "paste_amount": result.paste_amount}))
+		Game.act("install", {"item_id": iid, "mount_quality": result.mount_quality, "paste_amount": result.paste_amount,
+			"screws_seated": result.screws_seated, "supports": result.supports}))
 	_assembly.begin(owned, {"installed": me.installed, "modifiers": me.get("workshop_modifiers", {}),
 		"reinstall": reinstall})
 
@@ -140,9 +141,9 @@ func _synchronize_assembly() -> void:
 		return
 	var part := _owned_part(_assembly_id)
 	if not part.is_empty():
-		_assembly.synchronize(part)
+		_assembly.synchronize(part, Game.me().get("installed", {}), Game.me().get("workshop_modifiers", {}))
 	elif _assembly.has_pending_fatal_damage():
-		_assembly.mark_destroyed()
+		_assembly.mark_destroyed("", Game.me().get("workshop_modifiers", {}))
 	else:
 		close()
 

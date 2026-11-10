@@ -3,18 +3,35 @@ extends Control
 ## Physical damage is committed by the host immediately, not deferred until completion.
 signal completed(result: Dictionary)
 signal cancelled
-signal damage_requested(strike: int, reason: String)
+signal damage_requested(item_id: int, strike: int, reason: String)
 signal stage_changed
 
 const K = preload("res://src/ui/ui_kit.gd")
 const PartArt = preload("res://src/ui/part_art.gd")
+const Art = preload("res://src/ui/art_library.gd")
 const Overclock = preload("res://src/workshop/overclock_rules.gd")
+const RigRules = preload("res://src/workshop/rig_rules.gd")
 const W := 780.0
 const H := 540.0
 const CASE_RECT := Rect2(30, 40, 480, 330)
 const BOARD_RECT := Rect2(100, 65, 340, 270)
 const BOARD_TARGET := BOARD_RECT.position + BOARD_RECT.size * 0.5
 const TARGET := Vector2(270, 205)
+const CPU_TARGET := Vector2(270, 230)
+# Anchors refer to the supplied PNG pixels, including their transparent margins.
+const SOCKET_ART_SCALE := 1.5
+const SOCKET_CPU_ANCHOR := Vector2(98, 138)
+const SOCKET_PINS_RECT := Rect2(65, 104, 65, 59)
+const CPU_ART_SCALE := SOCKET_ART_SCALE * 0.75
+const CPU_PACKAGE_SIZE := Vector2(96, 96) * CPU_ART_SCALE
+const CPU_PASTE_RECT := Rect2(CPU_TARGET - Vector2(40, 40), Vector2(80, 80))
+const GPU_ART_SCALE := 2.0
+const GPU_SEATED_ORIGIN := Vector2(76, 178)
+# Both supplied cards share this gold connector, despite their different shroud lengths.
+const GPU_CONNECTOR_RECT := Rect2(25, 62, 54, 6)
+const GPU_SLOT_RECT := Rect2(GPU_SEATED_ORIGIN + GPU_CONNECTOR_RECT.position * GPU_ART_SCALE - Vector2(3, 3),
+	GPU_CONNECTOR_RECT.size * GPU_ART_SCALE + Vector2(6, 6))
+const GPU_LATCH := GPU_SLOT_RECT.position + Vector2(GPU_SLOT_RECT.size.x + 16, GPU_SLOT_RECT.size.y * 0.5)
 const MAX_STRIKES := 5
 const SCREW_RATE := 65.0
 const GPU_SAFE_SPEED := 220.0
@@ -41,11 +58,14 @@ var note := ""
 var note_err := false
 var _context: Dictionary = {}
 var _standoffs: Dictionary = {}
+var _repair_extras: Array[String] = []
 var _strikes := 0
 var _condition := 100
 var _expected_strike := 0
+var _damage_target_id := -1
 var _pending_damage := false
 var _destroyed := false
+var _socket_destroyed := false
 var _done := false
 var _committed := false
 var _board_fault := false
@@ -80,27 +100,47 @@ func begin(part: Dictionary, context: Dictionary = {}) -> void:
 	grab_focus()
 
 
-func synchronize(part: Dictionary) -> void:
+func synchronize(part: Dictionary, installed: Dictionary, modifiers: Dictionary) -> void:
 	item = part.duplicate(true)
+	_context["modifiers"] = modifiers.duplicate(true)
 	_strikes = int(item.get("assembly_strikes", 0))
 	_condition = int(item.get("condition", 100))
-	if _pending_damage and _strikes >= _expected_strike:
+	if cat == "cpu":
+		var previous_board: Dictionary = _context.get("installed", {}).get("motherboard", {})
+		var board: Dictionary = installed.get("motherboard", {})
+		if int(board.get("id", -1)) != int(previous_board.get("id", -1)):
+			if board.is_empty() and _pending_damage and _damage_target_id == int(previous_board.get("id", -1)) and _expected_strike >= MAX_STRIKES:
+				mark_destroyed("motherboard")
+			else:
+				# The original socket is no longer available; never install against a stale board.
+				cancelled.emit()
+			return
+	_context["installed"] = installed.duplicate(true)
+	var damaged_part: Dictionary = item if _damage_target_id == int(item.get("id", -1)) else installed.get("motherboard", {})
+	if _pending_damage and int(damaged_part.get("assembly_strikes", 0)) >= _expected_strike:
 		_pending_damage = false
+		if cat == "cpu" and _damage_target_id != int(item.get("id", -1)):
+			note_err = false
 	_refresh_controls()
 
 
 func has_pending_fatal_damage() -> bool:
-	return _expected_strike >= MAX_STRIKES or _strikes >= MAX_STRIKES
+	return (_damage_target_id == int(item.get("id", -1)) and _expected_strike >= MAX_STRIKES) or _strikes >= MAX_STRIKES
 
 
-func mark_destroyed() -> void:
+func mark_destroyed(category: String = "", modifiers: Dictionary = {}) -> void:
+	if not modifiers.is_empty():
+		_context["modifiers"] = modifiers.duplicate(true)
 	_destroyed = true
 	_pending_damage = false
-	_strikes = MAX_STRIKES
+	_socket_destroyed = category == "motherboard" and cat == "cpu"
+	if not _socket_destroyed:
+		_strikes = MAX_STRIKES
 	_stop_holding()
-	note = "DO: Close installation and replace this destroyed part.\nDON'T: Retry; five damage strikes are permanent."
+	note = "DO: Close installation and replace the destroyed motherboard.\nDON'T: Install the CPU without a working board." if _socket_destroyed else "DO: Close installation and replace this destroyed part.\nDON'T: Retry; five damage strikes are permanent."
 	note_err = true
 	_refresh_controls()
+	stage_changed.emit()
 
 
 func rotation_available() -> bool:
@@ -117,6 +157,7 @@ func _reset_attempt() -> void:
 	_paste_spots.clear()
 	_worst_pressure_spread = 0.0
 	_standoffs.clear()
+	_repair_extras.clear()
 	_stop_holding()
 	steps = _build()
 	_enter()
@@ -160,6 +201,32 @@ func _corner_points(center: Vector2, hx: float, hy: float) -> Array:
 		_clk(center + Vector2(-hx, hy)), _clk(center + Vector2(hx, hy))]
 
 
+func _uses_load_plate() -> bool:
+	# OX4 is the PGA LuckyZen family. OX3 LuckyCore and newer sockets use LGA.
+	return str(item.get("socket", "")) != "OX4"
+
+
+func _cpu_lever_position(open_socket: bool) -> Vector2:
+	if _uses_load_plate():
+		var origin := CPU_TARGET - SOCKET_CPU_ANCHOR * SOCKET_ART_SCALE
+		return origin + (Vector2(180, 54) if open_socket else Vector2(174, 180)) * SOCKET_ART_SCALE
+	return CPU_TARGET + (Vector2(68, -55) if open_socket else Vector2(170, 40))
+
+
+func _socket_pins_rect() -> Rect2:
+	return Rect2(CPU_TARGET - SOCKET_CPU_ANCHOR * SOCKET_ART_SCALE + SOCKET_PINS_RECT.position * SOCKET_ART_SCALE,
+		SOCKET_PINS_RECT.size * SOCKET_ART_SCALE)
+
+
+func _gpu_texture() -> Texture2D:
+	return Art.GPU_FAN_SIDES[posmod(str(item.get("name", "gpu")).hash(), Art.GPU_FAN_SIDES.size())]
+
+
+func _gpu_target() -> Vector2:
+	# Both card lengths mount to the same case edge; don't move the bracket with the fan count.
+	return GPU_SEATED_ORIGIN + _gpu_texture().get_size() * GPU_ART_SCALE * 0.5
+
+
 func _build() -> Array[Dictionary]:
 	match cat:
 		"case":
@@ -168,22 +235,26 @@ func _build() -> Array[Dictionary]:
 		"motherboard":
 			var points: Array = []
 			for id in _hole_ids():
-				points.append(_clk(_hole_pos(id), 1, 11.0))
-			return [{"kind": "standoffs", "title": "1/4  MATCH THE STANDOFFS", "hint": "DO: Match letters; click holes to add/remove supports.\nDON'T: Support solid PCB. Extras outside the PCB are safe."},
+				var point := _clk(_hole_pos(id), 1, 11.0)
+				point["hole"] = id
+				points.append(point)
+			return [{"kind": "standoffs", "title": "1/4  MATCH THE STANDOFFS", "hint": "Match the board's mounting holes with the case tray.\nClick a hole to fit or remove a standoff."},
 				_drag("2/4  LOWER THE MOTHERBOARD", "DO: Match letters; keep blue REAR I/O edges at top.\nDON'T: Put supports under solid PCB; outside extras are safe.", Vector2(645, 220), BOARD_TARGET, 2.6, 0, "board"),
-				{"kind": "board_check", "title": "3/4  CHECK SUPPORTS", "hint": "DO: Lift Board to correct missing or solid-PCB supports.\nDON'T: Force past 50% over extras: damage. Outside PCB is safe."},
-				_clicks("4/4  FASTEN THE BOARD", "DO: Hold left mouse to tighten, right to loosen. Safe: 100–150%.\nDON'T: Force PCB extras past 50%: back out, lift, remove extras.", points)]
+				{"kind": "board_check", "title": "3/4  CHECK SUPPORTS", "hint": "Inspect the board before fastening.\nLift Board to change the supports beneath it."},
+				_clicks("4/4  FASTEN THE BOARD", "Hold left mouse to tighten; right mouse to loosen.\nDon't force a screw that resists.", points)]
 		"cpu":
-			return [_clicks("1/6  RELEASE THE SOCKET", "DO: Click the retention lever to open the socket.\nDON'T: Force the CPU into a locked socket.", [_clk(Vector2(440, 245), 1, 20)], "lever"),
-				_drag("2/6  SEAT THE CPU", "DO: R / right-click to rotate; match the gold corner triangle.\nDON'T: Lock the socket until the CPU is seated flat.", Vector2(650, 230), TARGET, 1.6, 1),
-				_clicks("3/6  LOCK THE SOCKET", "DO: Click the retention lever to secure the seated CPU.\nDON'T: Leave the socket unlocked before fitting the cooler.", [_clk(Vector2(338, 150), 1, 20)], "lever"),
+			var seating_hint := "DO: R / right-click CPU to rotate; match the gold corner.\nDON'T: "
+			seating_hint += "Touch exposed pins: each click damages the board; 5 hits destroy it." if _uses_load_plate() else "Lock the socket until the CPU is seated flat."
+			return [_clicks("1/6  RELEASE THE SOCKET", "DO: Click the retention lever to open the socket.\nDON'T: Force the CPU into a locked socket.", [_clk(_cpu_lever_position(false), 1, 20)], "lever"),
+				_drag("2/6  SEAT THE CPU", seating_hint, Vector2(650, 230), CPU_TARGET, 1.6, 1),
+				_clicks("3/6  LOCK THE SOCKET", "DO: Click the retention lever to secure the seated CPU.\nDON'T: Leave the socket unlocked before fitting the cooler.", [_clk(_cpu_lever_position(true), 1, 20)], "lever"),
 				{"kind": "paste", "title": "4/6  APPLY THERMAL PASTE", "hint": "DO: Hold left mouse on CPU for paste; 100% is enough.\nDON'T: Use too little: up to 50% performance loss. Extra is harmless."},
-				_drag("5/6  PLACE THE COOLER", "DO: Drag the supplied cooler squarely onto the CPU.\nDON'T: Skip paste; the cooler is already bundled with the CPU.", Vector2(650, 230), TARGET, 1.0, 0, "cooler"),
-				_clicks("6/6  TIGHTEN EVENLY", "DO: Hold left mouse to tighten, right to loosen; alternate corners.\nDON'T: Finish one first or exceed 150% (damage). Safe: 100–150%.", _corner_points(TARGET, 88, 88), "cooler")]
+				_drag("5/6  PLACE THE COOLER", "DO: Drag the supplied cooler squarely onto the CPU.\nDON'T: Skip paste; the cooler is already bundled with the CPU.", Vector2(650, 230), CPU_TARGET, 1.0, 0, "cooler"),
+				_clicks("6/6  TIGHTEN EVENLY", "DO: Hold left mouse to tighten, right to loosen; alternate corners.\nDON'T: Finish one first or exceed 150% (damage). Safe: 100–150%.", _corner_points(CPU_TARGET, 88, 88), "cooler")]
 		"gpu":
-			return [_clicks("1/3  OPEN THE PCIe LATCH", "DO: Click the latch at the end of the PCIe slot.\nDON'T: Insert the GPU while the latch is closed.", [_clk(Vector2(458, 310), 1, 18)], "lever"),
-				{"kind": "gpu_drag", "title": "2/3  LOWER THE GRAPHICS CARD GENTLY", "hint": "DO: Align the gold connector with the slot; drag gently down.\nDON'T: Hit the slot fast; impact damages the GPU.", "pos": Vector2(250, 120), "target": Vector2(250, 268), "scale": 2.6, "inc": 0, "rot": 0, "tol": 24.0, "part": "gpu"},
-				_clicks("3/3  SECURE THE CASE BRACKET", "DO: Hold left mouse on bracket screws to reach at least 100%.\nDON'T: Leave the bracket loose. Metal screws cannot cause damage.", [_clk(Vector2(92, 210)), _clk(Vector2(92, 270))])]
+			return [_clicks("1/3  OPEN THE PCIe LATCH", "DO: Click the latch at the end of the PCIe slot.\nDON'T: Insert the GPU while the latch is closed.", [_clk(GPU_LATCH, 1, 18)], "lever"),
+				{"kind": "gpu_drag", "title": "2/3  LOWER THE GRAPHICS CARD GENTLY", "hint": "DO: Align the gold connector with the slot; drag gently down.\nDON'T: Hit the slot fast; impact damages the GPU.", "pos": _gpu_target() - Vector2(0, 148), "target": _gpu_target(), "scale": 2.6, "inc": 0, "rot": 0, "tol": 24.0, "part": "gpu"},
+				_clicks("3/3  SECURE THE CASE BRACKET", "DO: Hold left mouse on bracket screws to reach at least 100%.\nDON'T: Leave the bracket loose. Metal screws cannot cause damage.", [_clk(GPU_SEATED_ORIGIN + Vector2(8, 11) * GPU_ART_SCALE), _clk(GPU_SEATED_ORIGIN + Vector2(8, 55) * GPU_ART_SCALE)])]
 		"ram":
 			return [_clicks("1/3  OPEN THE CLIPS", "DO: Click both DIMM retention clips to open them.\nDON'T: Insert the RAM while the clips are closed.", [_clk(Vector2(118, 313), 1, 18), _clk(Vector2(562, 313), 1, 18)], "lever"),
 				_drag("2/3  ALIGN THE NOTCH", "DO: Match the notch to the slot key; R / right-click flips RAM.\nDON'T: Force the stick in backwards.", Vector2(390, 110), Vector2(340, 263), 3.6, 2),
@@ -232,14 +303,18 @@ func _advance() -> void:
 func _request_damage(reason: String, message: String) -> void:
 	if _pending_damage or _destroyed:
 		return
+	var damaged_part: Dictionary = _context.get("installed", {}).get("motherboard", {}) if reason == "socket_pins" else item
+	if damaged_part.is_empty():
+		return
 	slips += 1
-	_expected_strike = _strikes + 1
+	_damage_target_id = int(damaged_part.get("id", -1))
+	_expected_strike = int(damaged_part.get("assembly_strikes", 0)) + 1
 	_pending_damage = true
 	_flash = 0.5
 	_stop_holding()
 	note = message
 	note_err = true
-	damage_requested.emit(_expected_strike, reason)
+	damage_requested.emit(_damage_target_id, _expected_strike, reason)
 	_refresh_controls()
 
 
@@ -271,6 +346,45 @@ func _all_seated(step: Dictionary) -> bool:
 	return true
 
 
+func _point_supported(point: Dictionary) -> bool:
+	return cat != "motherboard" or bool(_standoffs.get(str(point.get("hole", "")), false))
+
+
+func _support_count() -> int:
+	return _hole_ids().size() - _missing_holes().size()
+
+
+func _seated_screws() -> int:
+	var count := 0
+	for step: Dictionary in steps:
+		if not _screw_style(step) or step.get("style") == "loosen":
+			continue
+		for point: Dictionary in step.pts:
+			if _point_supported(point) and float(point.c) >= 100.0 and (not _sensitive_screws() or float(point.c) <= 150.0):
+				count += 1
+	return count
+
+
+func _can_finish_fastening(step: Dictionary) -> bool:
+	if cat != "motherboard":
+		return _all_seated(step)
+	if _board_fault or not _extra_holes().is_empty() or _support_count() < RigRules.BOARD_MIN_SCREWS or _seated_screws() < RigRules.BOARD_MIN_SCREWS:
+		return false
+	for point: Dictionary in step.pts:
+		if float(point.c) > 150.0:
+			return false
+	return true
+
+
+func _has_overtight_screw(step: Dictionary) -> bool:
+	if not _sensitive_screws():
+		return false
+	for point: Dictionary in step.pts:
+		if float(point.c) > 150.0:
+			return true
+	return false
+
+
 func _all_backed_out(step: Dictionary) -> bool:
 	for point: Dictionary in step.pts:
 		if float(point.c) > 0.0:
@@ -299,18 +413,16 @@ func _primary_pressed() -> void:
 		return
 	if _done:
 		_committed = true
-		completed.emit({"slips": slips, "mount_quality": _mount_quality(), "paste_amount": _paste_amount})
+		completed.emit({"slips": slips, "mount_quality": _mount_quality(), "paste_amount": _paste_amount,
+			"screws_seated": _seated_screws(), "supports": _support_count() if cat == "motherboard" else 0})
 		return
 	var step: Dictionary = steps[si]
 	if step.kind == "board_check":
-		if not _extra_holes().is_empty():
-			_advance()
+		if _support_count() < RigRules.BOARD_MIN_SCREWS:
+			note = "Not enough supports."
+			note_err = false
 			return
-		if not _missing_holes().is_empty():
-			note = "DO: Lift Board and add the missing supports marked red.\nDON'T: Start fastening with unsupported holes."
-			note_err = true
-			return
-	elif _screw_style(step) and (not _all_seated(step) or _board_fault or (cat == "motherboard" and not _missing_holes().is_empty())):
+	elif _screw_style(step) and not _can_finish_fastening(step):
 		return
 	_advance()
 
@@ -334,6 +446,8 @@ func _secondary_pressed() -> void:
 			point.c = 0.0
 			point.damaged = false
 		_enter()
+		if not _repair_extras.is_empty():
+			note = "The suspect support is marked on the tray."
 	_refresh_controls()
 
 
@@ -352,7 +466,21 @@ func _refresh_controls() -> void:
 	_hint.text = note
 	_hint.add_theme_font_override("font", K.body())
 	_hint.add_theme_color_override("font_color", K.DANGER if note_err else K.CREAM)
-	var status := "Damage %d/%d · condition %d/100" % [_strikes, MAX_STRIKES, _condition]
+	var status := "%sdamage %d/%d · %s" % ["CPU " if cat == "cpu" else "", _strikes, MAX_STRIKES,
+		"DESTROYED" if _destroyed and not _socket_destroyed else "condition %d/100" % _condition]
+	var screw_total := int(RigRules.ASSEMBLY_SCREWS.get(cat, 0))
+	var seated := _seated_screws()
+	if screw_total > 0:
+		status += " · screws %d/%d" % [seated, screw_total]
+	status += " · mistakes %d" % int(_context.get("modifiers", {}).get("assembly_mistakes", 0))
+	if cat == "motherboard":
+		status += "\nBuild quality: %d/%d matching supports · %d/%d seated screws" % [_support_count(), _hole_ids().size(), seated, screw_total]
+	var board_strikes := 0
+	if cat == "cpu":
+		var board: Dictionary = _context.get("installed", {}).get("motherboard", {})
+		board_strikes = MAX_STRIKES if _socket_destroyed else int(board.get("assembly_strikes", 0))
+		status += "\nMotherboard damage %d/%d · %s" % [board_strikes, MAX_STRIKES,
+			"DESTROYED" if _socket_destroyed else "condition %d/100" % int(board.get("condition", 100))]
 	var paste_stage_reached := cat == "cpu" and si >= 3
 	if paste_stage_reached:
 		var preview := _preview()
@@ -362,14 +490,19 @@ func _refresh_controls() -> void:
 			var mount_loss := roundi((1.0 - float(preview.mount_headroom_multiplier)) * 100)
 			status += " · mount " + ("has no penalty" if mount_loss == 0 else "−%d%% OC headroom, +%.0f°C" % [mount_loss, float(preview.mount_temperature_penalty)])
 	if _pending_damage:
-		status += " · waiting for host confirmation"
+		status += " · awaiting host"
 	_penalties.text = status
-	var penalty_active := _strikes > 0 or (paste_stage_reached and (_paste_amount < 1.0 or _mount_quality() < 0.999))
+	var penalty_active := _strikes > 0 or board_strikes > 0 or (paste_stage_reached and (_paste_amount < 1.0 or _mount_quality() < 0.999))
 	_penalties.add_theme_color_override("font_color", K.ORANGE if penalty_active else K.MUTED)
 	var blocked := _pending_damage or _destroyed or _committed
 	var primary_visible := _done and not _destroyed
 	var primary_disabled := blocked
 	var primary_text := "APPLY REINSTALLATION" if _context.get("reinstall", false) else "INSTALL"
+	var primary_style: StringName = &"PrimaryButton"
+	if cat == "motherboard" and si >= 3:
+		primary_text += " · %d/%d SCREWS" % [seated, screw_total]
+		if seated < screw_total:
+			primary_style = &"AssemblyPartialButton"
 	var secondary_visible := false
 	var secondary_disabled := blocked
 	var secondary_text := ""
@@ -380,13 +513,14 @@ func _refresh_controls() -> void:
 			primary_text = "LOWER BOARD"
 		elif step.kind == "board_check":
 			primary_text = "START SCREWS"
+			primary_disabled = blocked or _support_count() < RigRules.BOARD_MIN_SCREWS
 		elif step.kind == "paste":
 			primary_text = "FIT COOLER · PASTE %d%%" % roundi(minf(_paste_amount, 1.0) * 100)
 			secondary_visible = true
 			secondary_text = "CLEAR PASTE"
 		elif _screw_style(step):
-			primary_text = "CONTINUE"
-			primary_disabled = blocked or not _all_seated(step) or _board_fault or (cat == "motherboard" and not _missing_holes().is_empty())
+			primary_text = "CONTINUE" + (" · %d/%d SCREWS" % [seated, screw_total] if cat == "motherboard" else "")
+			primary_disabled = blocked or not _can_finish_fastening(step)
 		if cat == "motherboard" and si >= 2:
 			secondary_visible = true
 			secondary_text = "LIFT BOARD"
@@ -395,6 +529,15 @@ func _refresh_controls() -> void:
 	_primary.visible = primary_visible
 	_primary.disabled = primary_disabled
 	_primary.text = primary_text
+	_primary.theme_type_variation = primary_style
+	_primary.tooltip_text = ""
+	if primary_disabled and not blocked and not steps.is_empty():
+		var current: Dictionary = steps[mini(si, steps.size() - 1)]
+		if current.kind == "board_check":
+			_primary.tooltip_text = "Not enough supports."
+		elif _screw_style(current):
+			_primary.tooltip_text = "Correct the screw tension first." if _board_fault or _has_overtight_screw(current) else "Not enough screws."
+	_secondary.tooltip_text = "Back out the started screws before lifting." if secondary_disabled and secondary_text == "LIFT BOARD" else ""
 	_secondary.visible = secondary_visible
 	_secondary.disabled = secondary_disabled
 	_secondary.text = secondary_text
@@ -442,11 +585,23 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _press(step: Dictionary, right: bool) -> void:
+	if cat == "cpu" and si == 1 and _uses_load_plate() and _socket_pins_rect().has_point(_mouse):
+		var cpu_rect := Rect2(Vector2(step.pos) - CPU_PACKAGE_SIZE * 0.5, CPU_PACKAGE_SIZE)
+		if not cpu_rect.has_point(_mouse):
+			_request_damage("socket_pins", "The exposed pins took damage. Handle the CPU by its edges.\nMatch the gold corner, then seat it without touching the pins.")
+			return
 	if _screw_style(step):
 		if cat == "motherboard" and _board_fault and not right:
 			return
 		for i in step.pts.size():
 			if _mouse.distance_to(step.pts[i].p) <= 18.0:
+				if not _point_supported(step.pts[i]):
+					note = "No standoff under this hole."
+					note_err = false
+					return
+				if cat == "motherboard" and not _board_fault:
+					note = str(step.hint)
+					note_err = false
 				_held_screw = i
 				_screw_direction = -1.0 if right else 1.0
 				return
@@ -456,9 +611,14 @@ func _press(step: Dictionary, right: bool) -> void:
 		for id: String in HOLES:
 			if _mouse.distance_to(_hole_pos(id)) <= 9.0:
 				_standoffs[id] = not bool(_standoffs.get(id, false))
+				if not bool(_standoffs[id]) and id in _repair_extras:
+					_repair_extras.erase(id)
+					if _repair_extras.is_empty():
+						note = str(step.hint)
+						note_err = false
 				return
 	elif step.kind == "paste":
-		_held_paste = Rect2(TARGET - Vector2(58, 58), Vector2(116, 116)).has_point(_mouse)
+		_held_paste = CPU_PASTE_RECT.has_point(_mouse)
 	elif step.kind == "clicks":
 		for point: Dictionary in step.pts:
 			if float(point.c) < float(point.n) and _mouse.distance_to(point.p) <= float(point.r) + 4:
@@ -483,7 +643,9 @@ func _part_size(step: Dictionary, at_target: bool = false) -> Vector2:
 	if step.get("part") == "cooler":
 		return Vector2(176, 176)
 	if step.kind == "gpu_drag":
-		return Vector2(310, 120)
+		return _gpu_texture().get_size() * GPU_ART_SCALE
+	if cat == "cpu":
+		return CPU_PACKAGE_SIZE
 	if step.get("part") == "psu":
 		return PSU_SIZE * (1.0 if at_target or Vector2(step.pos).distance_to(PSU_TARGET) < 30 else 0.8)
 	var extent := PartArt.drawing_size(cat, item, float(step.scale))
@@ -538,8 +700,7 @@ func _process(delta: float) -> void:
 		return
 	var step: Dictionary = steps[si]
 	if _held_paste:
-		var cpu_rect := Rect2(TARGET - Vector2(58, 58), Vector2(116, 116))
-		if cpu_rect.has_point(_mouse):
+		if CPU_PASTE_RECT.has_point(_mouse):
 			_paste_amount = minf(3.0, _paste_amount + delta * 0.6)
 			if _paste_spots.size() < 128 and (_paste_spots.is_empty() or _paste_spots[-1].distance_to(_mouse) > 10):
 				_paste_spots.append(_mouse)
@@ -558,10 +719,14 @@ func _process(delta: float) -> void:
 			if next_tightness > 50.0 and not _extra_holes().is_empty():
 				point.c = 50.0
 				_board_fault = true
-				_request_damage("extra_standoff", "DO: Hold right mouse: all screws to 0%; Lift Board, remove red extras.\nDON'T: Tighten past 50% resistance. One permanent damage strike.")
+				_repair_extras = _extra_holes()
+				_request_damage("extra_standoff", "Something is pressing against the board.\nBack out the started screws before lifting it to inspect.")
 				queue_redraw()
 				return
 		point.c = next_tightness
+		if _board_fault and _all_backed_out(step):
+			note = "The screws are released. The board can be lifted."
+			note_err = false
 		if float(point.c) < 145:
 			point.damaged = false
 		if step.style == "cooler":
@@ -596,12 +761,12 @@ func _draw() -> void:
 		return
 	_scene()
 	for i in mini(si + 1, steps.size()):
-		_draw_step(steps[i], i == si and not _done)
+		_draw_step(steps[i], i == si and not _done and not _destroyed)
 	if cat == "motherboard" and si >= 2:
 		_draw_board_errors()
 	var title := "REVIEW INSTALLATION" if _done else str(steps[si].title)
 	if _destroyed:
-		title = "PART DESTROYED"
+		title = "MOTHERBOARD DESTROYED" if _socket_destroyed else "PART DESTROYED"
 	_txt(Vector2(16, 24), title, 18, K.DANGER if _destroyed else K.cat_color(cat), true)
 	draw_rect(Rect2(0, 394, W, H - 394), K.NAVY1)
 	draw_line(Vector2(0, 394), Vector2(W, 394), K.LINE)
@@ -618,34 +783,33 @@ func _scene() -> void:
 		_txt(Vector2(550, 58), "PARTS BENCH", 10, K.FAINT)
 	match cat:
 		"cpu":
-			PartArt.draw_part(self, Transform2D(0, Vector2(2.6, 2.6), 0, TARGET), "motherboard", _context.get("installed", {}).get("motherboard", {}), K.cat_color("motherboard").darkened(0.35), 0.9)
-			var socket_rect := Rect2(TARGET - Vector2(62, 62), Vector2(124, 124))
-			draw_rect(socket_rect, K.NAVY0)
-			draw_rect(socket_rect, K.FAINT, false, 5)
-			for i in 8:
-				for j in 8:
-					draw_circle(TARGET - Vector2(48, 48) + Vector2(i, j) * 13.7, 1.6, Color("c9b176"))
-			if str(item.get("socket", "")).begins_with("OX"):
-				_txt(Vector2(175, 115), "PGA SOCKET · LEVER", 10, K.FAINT)
+			var socket_open := si in [1, 2]
+			if _uses_load_plate():
+				var texture: Texture2D = Art.SOCKET_OPEN if socket_open else (Art.SOCKET_WITH_CPU if si >= 3 else Art.SOCKET_CLOSED)
+				var origin := CPU_TARGET - SOCKET_CPU_ANCHOR * SOCKET_ART_SCALE
+				draw_texture_rect(texture, Rect2(origin, texture.get_size() * SOCKET_ART_SCALE), false)
+				_txt(Vector2(550, 90), "LGA · LOAD PLATE", 11, K.SKY)
 			else:
-				_txt(Vector2(175, 115), "LGA SOCKET · LOAD PLATE", 10, K.FAINT)
-				var plate := socket_rect.grow(12)
-				if si in [1, 2]:
-					plate.position.y -= 95
-					plate.size.y = 55
-				draw_rect(plate, K.CREAM, false, 3)
-			draw_colored_polygon(PackedVector2Array([TARGET + Vector2(-62, -62), TARGET + Vector2(-42, -62), TARGET + Vector2(-62, -42)]), Color("d9b95d"))
-			draw_line(Vector2(338, 245), Vector2(338, 150) if si in [1, 2] else Vector2(440, 245), K.CREAM, 5)
+				PartArt.draw_part(self, Transform2D(0, Vector2(2.6, 2.6), 0, CPU_TARGET), "motherboard", _context.get("installed", {}).get("motherboard", {}), K.cat_color("motherboard").darkened(0.35), 0.9)
+				var socket_rect := Rect2(CPU_TARGET - Vector2(62, 62), Vector2(124, 124))
+				draw_rect(socket_rect, K.NAVY0)
+				draw_rect(socket_rect, K.FAINT, false, 5)
+				for i in 8:
+					for j in 8:
+						draw_circle(CPU_TARGET - Vector2(48, 48) + Vector2(i, j) * 13.7, 1.6, Color("c9b176"))
+				draw_colored_polygon(PackedVector2Array([socket_rect.position, socket_rect.position + Vector2(20, 0), socket_rect.position + Vector2(0, 20)]), Color("d9b95d"))
+				draw_line(CPU_TARGET + Vector2(68, 40), _cpu_lever_position(socket_open), K.CREAM, 5)
+				_txt(Vector2(550, 90), "PGA · RETENTION LEVER", 11, K.SKY)
 		"gpu":
 			draw_rect(Rect2(70, 80, 420, 265), K.LINE, false, 4)
 			draw_rect(Rect2(75, 295, 405, 45), K.cat_color("motherboard").darkened(0.6))
-			draw_rect(Rect2(80, 300, 360, 18), K.NAVY0)
-			draw_rect(Rect2(80, 300, 360, 18), K.LIME, false, 2)
-			_txt(Vector2(320, 359), "PCIe SLOT BELOW", 11, K.FAINT)
+			draw_rect(GPU_SLOT_RECT, K.NAVY0)
+			draw_rect(GPU_SLOT_RECT, K.LIME, false, 2)
+			_txt(Vector2(GPU_SLOT_RECT.position.x, 359), "PCIe SLOT BELOW", 11, K.FAINT)
 			_txt(Vector2(540, 100), "FAN-SIDE VIEW", 11, K.SKY, true)
 			_txt(Vector2(540, 124), "Lower slowly.", 11, K.MUTED)
 			_txt(Vector2(540, 144), "Latch locks on seating.", 11, K.MUTED)
-			draw_rect(Rect2(448, 290 if si < 2 else 302, 20, 14), K.ORANGE if si < 2 else K.LIME_DIM)
+			draw_rect(Rect2(GPU_LATCH - Vector2(10, 7) - (Vector2(0, 12) if si == 1 else Vector2.ZERO), Vector2(20, 14)), K.ORANGE if si < 2 else K.LIME_DIM)
 		"ram":
 			draw_rect(Rect2(130, 300, 420, 26), K.NAVY0)
 			draw_rect(Rect2(130, 300, 420, 26), K.cat_color(cat), false, 2)
@@ -690,7 +854,8 @@ func _draw_rear_edge(rect: Rect2, alpha: float = 1.0) -> void:
 
 func _draw_board_errors() -> void:
 	var pulse := 0.45 + 0.55 * absf(sin(_t * 5))
-	for id in _missing_holes() + _extra_holes():
+	# Only highlight faults discovered through resistance, not optional unfilled holes.
+	for id in _repair_extras:
 		var at := _hole_pos(id)
 		draw_circle(at, 9, Color(K.DANGER, pulse))
 		draw_arc(at, 13, 0, TAU, 20, K.DANGER, 2)
@@ -698,19 +863,18 @@ func _draw_board_errors() -> void:
 
 
 func _draw_gpu(center: Vector2) -> void:
-	draw_rect(Rect2(center - Vector2(150, 55), Vector2(300, 95)), K.PANEL2)
-	draw_rect(Rect2(center - Vector2(150, 55), Vector2(300, 95)), K.SKY, false, 2)
-	for x in [-90, 0, 90]:
-		var at := center + Vector2(x, -8)
-		draw_circle(at, 35, K.NAVY0)
-		for i in 7:
-			var angle := i * TAU / 7
-			draw_line(at, at + Vector2(cos(angle), sin(angle)) * 28, K.FAINT, 7)
-		draw_circle(at, 9, K.LINE)
-	draw_rect(Rect2(center + Vector2(-125, 40), Vector2(245, 12)), Color("d9b95d"))
-	for i in 22:
-		draw_line(center + Vector2(-121 + i * 11, 42), center + Vector2(-121 + i * 11, 52), K.NAVY0)
-	draw_line(center + Vector2(-155, -65), center + Vector2(-155, 38), K.CREAM, 7)
+	var texture := _gpu_texture()
+	var extent := texture.get_size() * GPU_ART_SCALE
+	draw_texture_rect(texture, Rect2(center - extent * 0.5, extent), false)
+
+
+func _draw_cpu(center: Vector2, turns: int) -> void:
+	draw_set_transform_matrix(Transform2D(float(turns) * PI / 2, Vector2.ONE, 0, center))
+	var extent := Art.CPU_CLOSEUP.get_size() * CPU_ART_SCALE
+	draw_texture_rect(Art.CPU_CLOSEUP, Rect2(-extent * 0.5, extent), false)
+	var corner := -CPU_PACKAGE_SIZE * 0.5
+	draw_colored_polygon(PackedVector2Array([corner, corner + Vector2(10, 0), corner + Vector2(0, 10)]), Color("d9b95d"))
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
 func _draw_psu(center: Vector2, scale_factor: float) -> void:
@@ -756,6 +920,8 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 				if bool(_standoffs.get(id, false)):
 					draw_circle(at, 7, Color("d9a441"))
 					draw_circle(at, 3, K.NAVY0)
+					if id in _repair_extras:
+						draw_arc(at, 11, 0, TAU, 24, K.ORANGE, 2)
 				if active:
 					_txt(at + Vector2(-4, -12), id, 10, K.MUTED)
 			if active:
@@ -765,7 +931,7 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 		"paste":
 			if _paste_amount > 0:
 				var radius := 8.0 + 22.0 * sqrt(minf(_paste_amount, 2.0))
-				var at := TARGET if _paste_spots.is_empty() else _paste_spots[0]
+				var at := CPU_TARGET if _paste_spots.is_empty() else _paste_spots[0]
 				draw_circle(at, radius, Color("bfc4d6"))
 				for spot in _paste_spots:
 					draw_circle(spot, minf(10, radius), Color("bfc4d6"))
@@ -777,6 +943,8 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 			for point: Dictionary in step.pts:
 				var at: Vector2 = point.p
 				if _screw_style(step):
+					if not _point_supported(point):
+						continue
 					var value := float(point.c)
 					var color := K.DANGER if _sensitive_screws() and value > 150 else (K.LIME if value >= 100 else K.CREAM)
 					if step.style == "loosen":
@@ -805,14 +973,12 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 				_draw_psu(pos, 1.0 if pos.distance_to(PSU_TARGET) < 30 else 0.8)
 			elif step.kind == "gpu_drag":
 				_draw_gpu(pos)
+			elif cat == "cpu":
+				# The closed LGA texture already includes the seated CPU under its plate.
+				if not _uses_load_plate() or si < 3:
+					_draw_cpu(pos, int(step.rot))
 			else:
 				var transform := Transform2D(float(step.rot) * PI / 2, Vector2(step.scale, step.scale), 0, pos)
 				PartArt.draw_part(self, transform, cat, item, K.cat_color(cat), 1)
-				if cat == "cpu":
-					# Both CPU detail PNGs have a 40x40 package inside a 64x64 canvas.
-					var corner := -PartArt.drawing_size(cat, item) * 0.3125
-					draw_set_transform_matrix(transform)
-					draw_colored_polygon(PackedVector2Array([corner, corner + Vector2(9, 0), corner + Vector2(0, 9)]), Color("d9b95d"))
-					draw_set_transform_matrix(Transform2D.IDENTITY)
 			if active and int(step.inc) > 0:
 				_txt(pos + Vector2(-60, 95), "R / right-click: rotate", 10, K.ORANGE if int(step.rot) % 4 != 0 else K.LIME)

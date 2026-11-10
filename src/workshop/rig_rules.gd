@@ -4,6 +4,9 @@ const Overclock = preload("res://src/workshop/overclock_rules.gd")
 const Stats = preload("res://src/data/hardware_stats.gd")
 const Catalog = preload("res://src/data/catalog.gd")
 const TUNABLE := ["cpu", "gpu", "ram"]
+const BOARD_MIN_SCREWS := 3
+## Cooler screws count with the CPU; case panels and RAM clips need no screws.
+const ASSEMBLY_SCREWS := {"motherboard": 9, "cpu": 4, "gpu": 2, "psu": 4, "storage": 4, "case": 0, "ram": 0}
 const REF := {"cpu": 6000.0, "gpu": 6000.0, "ram": 4000.0, "storage": 4000.0}
 const WEIGHTS := {
 	"Balanced": {"cpu": 0.25, "gpu": 0.25, "ram": 0.25, "storage": 0.25},
@@ -50,6 +53,29 @@ static func compat(item: Dictionary, installed: Dictionary) -> String:
 		_:
 			return "Unknown part category"
 	return ""
+
+
+## Installation coverage belongs to this build, and never follows a tradeable part.
+static func assembly_quality(player: Dictionary) -> Dictionary:
+	var installed: Dictionary = player.get("installed", {})
+	var modifiers: Dictionary = player.get("workshop_modifiers", {})
+	var fasteners: Dictionary = modifiers.get("assembly_fasteners", {})
+	var seated := 0
+	var required := 0
+	var unrecorded := 0
+	for cat in ASSEMBLY_SCREWS:
+		var expected: int = ASSEMBLY_SCREWS[cat]
+		if expected == 0 or not installed.has(cat):
+			continue
+		required += expected
+		var item: Dictionary = installed[cat]
+		var coverage: Dictionary = fasteners.get(cat, {})
+		if not coverage.has("item_id") or coverage.item_id != item.get("id"):
+			unrecorded += 1
+			continue
+		seated += int(coverage.get("seated", 0))
+	return {"seated": seated, "required": required, "unrecorded": unrecorded,
+		"mistakes": int(modifiers.get("assembly_mistakes", 0))}
 
 
 static func igpu_usable(installed: Dictionary) -> bool:

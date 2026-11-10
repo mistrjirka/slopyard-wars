@@ -12,11 +12,13 @@ const ASSEMBLY_WEAR := 5
 ## Error -> the part categories it can physically happen to. PSU/GPU bracket screws are immune by design.
 const ASSEMBLY_REASONS := {
 	"extra_standoff": ["motherboard"],
+	"socket_pins": ["motherboard"],
 	"gpu_impact": ["gpu"],
 	"overtighten": ["motherboard", "cpu", "ram", "storage"],
 }
 const ASSEMBLY_REASON_TEXT := {
 	"extra_standoff": "an extra standoff",
+	"socket_pins": "touching exposed socket pins",
 	"gpu_impact": "forced insertion",
 	"overtighten": "over-tightened screws",
 }
@@ -92,11 +94,34 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 		session.notify_player(pid, "Cannot install: " + why)
 		return
 	var cat: String = item.category
+	var expected: int = RigRules.ASSEMBLY_SCREWS[cat]
+	# Omitted counts preserve direct-install callers; explicitly malformed counts never mutate the build.
+	var raw_seated: float = session.number(d.get("screws_seated", expected), -1)
+	if raw_seated != floorf(raw_seated) or raw_seated < 0.0 or raw_seated > float(expected):
+		session.notify_player(pid, "Invalid seated screw count.")
+		return
+	var seated := int(raw_seated)
+	var supports := expected
+	if cat == "motherboard":
+		var raw_supports: float = session.number(d.get("supports", expected), -1)
+		if raw_supports != floorf(raw_supports) or raw_supports < float(seated) or raw_supports > float(expected) or seated < RigRules.BOARD_MIN_SCREWS:
+			session.notify_player(pid, "Not enough supported screws.")
+			return
+		supports = int(raw_supports)
+	elif seated != expected:
+		session.notify_player(pid, "Not enough screws.")
+		return
 	if not reinstall:
 		p.inventory.remove_at(idx)
 		if p.installed.has(cat):
 			p.inventory.append(p.installed[cat])
 	p.installed[cat] = item
+	var fasteners: Dictionary = p.workshop_modifiers.get("assembly_fasteners", {})
+	var coverage := {"item_id": id, "seated": seated}
+	if cat == "motherboard":
+		coverage["supports"] = supports
+	fasteners[cat] = coverage
+	p.workshop_modifiers["assembly_fasteners"] = fasteners
 	p.tuning.erase(cat)
 	p.busy = Config.INSTALL_MIN
 	var message := ("Reinstalled %s." if reinstall else "Installed %s.") % item.name
@@ -112,7 +137,7 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 	session.notify_player(pid, message + ("" if rest.is_empty() else " Still: " + rest[0]))
 
 
-## Applies one reported assembly mistake to a spare part the player owns. Idempotent per strike count;
+## Applies one reported assembly mistake to a spare or mounted part the player owns. Idempotent per strike count;
 ## the counter lives on the part so it survives cancelling or retrying the minigame and follows the part
 ## through every existing sale path (listings and handoffs duplicate the whole item dictionary).
 func assembly_damage(pid: int, p: Dictionary, d: Dictionary) -> void:
@@ -154,8 +179,25 @@ func assembly_damage(pid: int, p: Dictionary, d: Dictionary) -> void:
 	if strike != current + 1:
 		session.notify_player(pid, "That assembly strike no longer matches this part.")
 		return
+	var assembly_item_id := id
+	if reason == "socket_pins":
+		if mounted_cat != "motherboard":
+			session.notify_player(pid, "Socket-pin damage requires the installed motherboard.")
+			return
+		assembly_item_id = int(session.number(d.get("assembly_item_id"), -1))
+		var cpu: Dictionary = p.installed.get("cpu", {})
+		var cpu_idx := _inventory_index(p, assembly_item_id)
+		if cpu_idx >= 0:
+			cpu = p.inventory[cpu_idx]
+		if cpu.get("category") != "cpu" or int(cpu.get("id", -1)) != assembly_item_id or str(cpu.get("socket", "")) == "OX4":
+			session.notify_player(pid, "Socket-pin damage requires an owned LGA CPU installation.")
+			return
+		var cpu_why := compatibility(cpu, p)
+		if cpu_why != "":
+			session.notify_player(pid, "Cannot assemble: " + cpu_why)
+			return
 	for listing in state.listings:
-		if int(listing.get("owner", 0)) == pid and int(listing.get("item_id", -99999)) == id and listing.status == "available":
+		if int(listing.get("owner", 0)) == pid and int(listing.get("item_id", -99999)) in [id, assembly_item_id] and listing.status == "available":
 			session.notify_player(pid, "Cancel the sale listing before working on this part.")
 			return
 	var why := compatibility(item, p)
@@ -163,6 +205,8 @@ func assembly_damage(pid: int, p: Dictionary, d: Dictionary) -> void:
 		session.notify_player(pid, "Cannot assemble: " + why)
 		return
 	item["assembly_strikes"] = strike
+	# Count accepted reports, including the fatal strike, independently of the part's previous owner.
+	p.workshop_modifiers["assembly_mistakes"] = int(p.workshop_modifiers.get("assembly_mistakes", 0)) + 1
 	var cause: String = ASSEMBLY_REASON_TEXT[reason]
 	if strike >= ASSEMBLY_MAX_STRIKES:
 		if mounted_cat != "":

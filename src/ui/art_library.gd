@@ -1,6 +1,16 @@
 extends RefCounted
 ## Explicit preloads make every art dependency exportable. No runtime directory scans.
 
+## Assembly close-ups supplied alongside the inventory thumbnails.
+const CPU_CLOSEUP = preload("res://assets/computer_parts/cpus/close_up/cpu_closeup.png")
+const SOCKET_OPEN = preload("res://assets/computer_parts/cpus/close_up/socket_open.png")
+const SOCKET_CLOSED = preload("res://assets/computer_parts/cpus/close_up/socket_closed.png")
+const SOCKET_WITH_CPU = preload("res://assets/computer_parts/cpus/close_up/socket_closed_with_cpu.png")
+const GPU_FAN_SIDES: Array[Texture2D] = [
+	preload("res://assets/computer_parts/graphics_cards/gpu_fan_side_2_fans.png"),
+	preload("res://assets/computer_parts/graphics_cards/gpu_fan_side_3_fans.png"),
+]
+
 const PARTS = {
 	"case": [preload("res://assets/computer_parts/cases/case_a.png"), preload("res://assets/computer_parts/cases/case_b.png"), preload("res://assets/computer_parts/cases/case_detail_a.png"), preload("res://assets/computer_parts/cases/case_detail_b.png")],
 	"cpu": [preload("res://assets/computer_parts/cpus/cpu_a.png"), preload("res://assets/computer_parts/cpus/cpu_b.png"), preload("res://assets/computer_parts/cpus/cpu_detail_a.png"), preload("res://assets/computer_parts/cpus/cpu_detail_b.png")],

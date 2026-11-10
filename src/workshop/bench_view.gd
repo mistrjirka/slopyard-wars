@@ -41,6 +41,7 @@ var _install_btns: Array = []
 @onready var _finish_btn: Button = $CheckColumn/CheckScroll/CheckHolder/FinishButton
 @onready var _score_lbl: Label = $CheckColumn/CheckScroll/CheckHolder/ScorePanel/ScoreBox/ScoreLabel
 @onready var _tuning_button: Button = $CheckColumn/CheckScroll/CheckHolder/TuningButton
+@onready var _quality_label: Label = $CheckColumn/CheckScroll/CheckHolder/ScorePanel/ScoreBox/QualityLabel
 
 
 func _ready() -> void:
@@ -130,6 +131,7 @@ func _rebuild(me: Dictionary) -> void:
 			if why != "":
 				card.penalty_label.text += ("\n" if card.penalty_label.text != "" else "") + why
 			card.penalty_label.visible = card.penalty_label.text != ""
+			card.penalty_label.add_theme_color_override("font_color", K.MUTED if c == "motherboard" and int(it.get("assembly_strikes", 0)) == 0 and why == "" else K.ORANGE)
 		else:
 			card.art.show_item({"category": c, "name": ""}, true)
 			card.name_label.text = "EMPTY"
@@ -181,6 +183,12 @@ func _rebuild(me: Dictionary) -> void:
 	_tuning_button.visible = RigRules.TUNABLE.any(func(category: String): return inst.has(category))
 	var sc: Dictionary = Game.preview_score(me)
 	_score_lbl.text = "CPU      %5d\nGPU      %5d\nRAM      %5d\nSTORAGE  %5d\nTOTAL    %5d%s" % [sc.cpu, sc.gpu, sc.ram, sc.storage, sc.total, "" if sc.valid else "  (rig invalid = 0)"]
+	var quality := RigRules.assembly_quality(me)
+	var coverage := "Screws %d/%d" % [quality.seated, quality.required] if int(quality.required) > 0 else "No screw mounts yet"
+	_quality_label.text = "%s · run mistakes %d" % [coverage, quality.mistakes]
+	if int(quality.unrecorded) > 0:
+		_quality_label.text += "\nUnrecorded installs: %d" % int(quality.unrecorded)
+	_quality_label.add_theme_color_override("font_color", K.MUTED)
 	_finish_btn.disabled = bool(me.get("ready", false))
 	_finish_btn.text = "RIG LOCKED" if bool(me.get("ready", false)) else ("FINISH & RUN BENCHMARK" if issues.is_empty() else "FINISH ANYWAY (SCORE 0)")
 
@@ -250,6 +258,12 @@ func _installation_penalties(part: Dictionary, player: Dictionary) -> String:
 	var strikes := int(part.get("assembly_strikes", 0))
 	if strikes > 0:
 		lines.append("Damage %d/5 · condition %d/100" % [strikes, part.get("condition", 100)])
+	if part.get("category") == "motherboard":
+		var fasteners: Dictionary = player.get("workshop_modifiers", {}).get("assembly_fasteners", {})
+		var record: Dictionary = fasteners.get("motherboard", {})
+		if int(record.get("item_id", -1)) == int(part.get("id", -2)):
+			var total := int(RigRules.ASSEMBLY_SCREWS.motherboard)
+			lines.append("Mounting: %d/%d supports · %d/%d screws" % [int(record.get("supports", 0)), total, int(record.get("seated", 0)), total])
 	if part.get("category") == "cpu":
 		var assessment := Overclock.evaluate(part, 1.0, 1.0, player.installed, player.get("workshop_modifiers", {}))
 		var paste_loss := roundi((1.0 - float(assessment.paste_multiplier)) * 100)

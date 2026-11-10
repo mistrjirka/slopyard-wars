@@ -68,6 +68,8 @@ Assembly uses clicks, dragging and **R/right-click** rotation where instructed. 
 
 Install a case before a motherboard; CPU, RAM, graphics and storage need their compatible board first. The PSU needs only the case. Match the motherboard's standoff holes, lower graphics cards gently, and seat susceptible screws at 100–150% tightness. An unwanted standoff beneath solid PCB causes a damage strike and stops tightening when a screw would pass 50%; back the screw out, lift the board and remove the support. Extra standoffs outside the PCB are harmless. Fast GPU impacts and overtightening can also cause permanent damage: five strikes destroy the part, and retrying or cancelling does not erase damage. Metal case/PSU/GPU-bracket screws do not cause overtightening damage in this game.
 
+Clicking exposed LGA socket pins during CPU placement damages the motherboard, not the CPU. The workbench shows screw coverage and your assembly mistakes for the run; these quality counts add no extra performance penalty.
+
 CPUs include a cooler as a minigame prop, not a separate marketplace item. Too little thermal paste reduces CPU performance by up to 50%; excess paste has no penalty. Tighten opposite cooler corners gradually to preserve cooling and overclocking headroom. Current damage and installation penalties are shown on the bench; **Reinstall** lets you correct paste or mounting, but not physical damage.
 
 ### LuckyFold Duo

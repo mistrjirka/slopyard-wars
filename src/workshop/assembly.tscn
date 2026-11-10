@@ -1,12 +1,14 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://src/workshop/assembly.gd" id="1"]
+[ext_resource type="Theme" path="res://resources/ui/assembly_theme.tres" id="2"]
 
 [node name="Assembly" type="Control"]
 custom_minimum_size = Vector2(780, 540)
 texture_filter = 1
 clip_contents = true
 focus_mode = 2
+theme = ExtResource("2")
 script = ExtResource("1")
 
 [node name="Hint" type="Label" parent="."]

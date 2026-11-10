@@ -1,0 +1,64 @@
+[gd_resource type="Theme" load_steps=5 format=3]
+
+[ext_resource type="FontFile" path="res://assets/fonts/Hack-Bold.ttf" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="PartialNormal"]
+content_margin_left = 12.0
+content_margin_top = 7.0
+content_margin_right = 12.0
+content_margin_bottom = 7.0
+bg_color = Color(0.16, 0.18, 0.21, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.43, 0.47, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="PartialHover"]
+content_margin_left = 12.0
+content_margin_top = 7.0
+content_margin_right = 12.0
+content_margin_bottom = 7.0
+bg_color = Color(0.23, 0.25, 0.28, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.65, 0.68, 0.72, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="PartialDisabled"]
+content_margin_left = 12.0
+content_margin_top = 7.0
+content_margin_right = 12.0
+content_margin_bottom = 7.0
+bg_color = Color(0.09, 0.11, 0.14, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2, 0.23, 0.27, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[resource]
+AssemblyPartialButton/base_type = &"Button"
+AssemblyPartialButton/colors/font_color = Color(0.956863, 0.92549, 0.847059, 1)
+AssemblyPartialButton/colors/font_hover_color = Color(1, 1, 1, 1)
+AssemblyPartialButton/colors/font_pressed_color = Color(0.956863, 0.92549, 0.847059, 1)
+AssemblyPartialButton/colors/font_disabled_color = Color(0.4, 0.43, 0.47, 1)
+AssemblyPartialButton/font_sizes/font_size = 12
+AssemblyPartialButton/fonts/font = ExtResource("1")
+AssemblyPartialButton/styles/normal = SubResource("PartialNormal")
+AssemblyPartialButton/styles/hover = SubResource("PartialHover")
+AssemblyPartialButton/styles/pressed = SubResource("PartialNormal")
+AssemblyPartialButton/styles/disabled = SubResource("PartialDisabled")

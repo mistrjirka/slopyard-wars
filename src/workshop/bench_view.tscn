@@ -158,6 +158,19 @@ autowrap_mode = 3
 custom_minimum_size = Vector2(40, 0)
 size_flags_horizontal = 3
 
+[node name="QualityHeading" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/ScorePanel/ScoreBox"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "BUILD QUALITY"
+
+[node name="QualityLabel" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/ScorePanel/ScoreBox"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+tooltip_text = "Assembly workmanship only. Existing damage, paste and mounting penalties are shown on the part cards; these counts add no extra performance penalty."
+
 [node name="BusyLabel" type="Label" parent="CheckColumn/CheckScroll/CheckHolder" unique_id=717033483]
 layout_mode = 2
 theme_type_variation = &"Tiny"
