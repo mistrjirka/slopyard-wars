@@ -122,7 +122,7 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	var terminal: bool = blocked or listing.status != "available" or bool(me.ready) or private_thread
 	_locked = pending or waiting or terminal or waiting_for_buyer
 	var has_meeting := false
-	var context_text := "No agreed price. Reply to the buyer to negotiate." if selling else "No agreed price. Ask or make an offer."
+	var context_text := "No deal yet."
 	if selling and buyer_offer > 0 and agreed_price <= 0:
 		context_text = "Buyer offers $%d · Accept or negotiate." % buyer_offer
 	if me.meetings.has(selected):
@@ -134,9 +134,9 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	if agreed_price > 0 and live_proposal:
 		context_text = "Suggested: " + str(proposal.label) + " · Confirm or choose another time."
 	if pending or waiting:
-		context_text = "Waiting for a reply. You can draft your next message."
+		context_text = "Waiting for reply."
 	if waiting_for_buyer:
-		context_text = "Waiting for buyer. No one has contacted you yet."
+		context_text = "Waiting for buyer."
 	if private_thread:
 		context_text = "Another player's private buyer conversation."
 	if bool(me.ready):
@@ -163,7 +163,7 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 		c.queue_free()
 	var messages: Array = me.chats.get(selected, [])
 	empty_log.visible = messages.is_empty()
-	empty_log.text = "Waiting for buyer. No one has contacted you yet." if waiting_for_buyer else ("Reply to the buyer about your listing." if selling else "Say hello. People won't always know the specs, and they have lives outside the marketplace.")
+	empty_log.text = "Waiting for buyer." if waiting_for_buyer else ("Reply to the buyer." if selling else "Say hello.")
 	for msg: Dictionary in messages:
 		var row: HBoxContainer = MessageRowScene.instantiate()
 		log.add_child(row)

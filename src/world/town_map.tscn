@@ -1,0 +1,21 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/world/town_map.gd" id="1"]
+[ext_resource type="Script" path="res://src/world/world_backdrop.gd" id="2"]
+
+[node name="TownMap" type="Control"]
+custom_minimum_size = Vector2(480, 400)
+texture_filter = 1
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="MapViewport" type="SubViewport" parent="."]
+disable_3d = true
+size = Vector2i(1024, 640)
+gui_disable_input = true
+render_target_update_mode = 1
+
+[node name="Backdrop" type="Node2D" parent="MapViewport"]
+texture_filter = 1
+script = ExtResource("2")
+show_labels = false

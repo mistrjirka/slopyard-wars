@@ -15,7 +15,7 @@ text = "Your spare parts"
 [node name="Intro" type="Label" parent="."]
 layout_mode = 2
 theme_type_variation = "Muted"
-text = "Listing isn't instant payment. Negotiate in Messages and get paid at the meeting. Cancel a listing before installing its part."
+text = "Paid at the meeting. Cancel a listing before installing its part."
 autowrap_mode = 3
 
 [node name="Scroll" type="ScrollContainer" parent="."]
@@ -33,5 +33,5 @@ theme_override_constants/separation = 10
 visible = false
 layout_mode = 2
 theme_type_variation = "Muted"
-text = "No spare parts. Installed components must be replaced at the workbench before selling."
+text = "No spare parts."
 autowrap_mode = 3

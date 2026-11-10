@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://src/ui/game_screen.gd" id="1"]
 [ext_resource type="PackedScene" path="res://src/world/town_view.tscn" id="2"]
@@ -6,8 +6,9 @@
 [ext_resource type="PackedScene" path="res://src/workshop/bench_view.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://src/workshop/tune_view.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://src/ui/dialog_layer.tscn" id="6"]
-[ext_resource type="Script" path="res://src/world/town_map.gd" id="7"]
+[ext_resource type="PackedScene" path="res://src/world/town_map.tscn" id="7"]
 [ext_resource type="Theme" path="res://resources/ui/game_theme.tres" id="8"]
+[ext_resource type="PackedScene" path="res://src/world/minimap.tscn" id="9"]
 
 [node name="GameScreen" type="Control"]
 layout_mode = 3
@@ -24,8 +25,21 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = 54.0
+offset_bottom = -90.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="Minimap" parent="." instance=ExtResource("9")]
+visible = false
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -304.0
+offset_top = 68.0
+offset_right = -24.0
+offset_bottom = 272.0
+grow_horizontal = 0
 
 [node name="Topbar" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -190,6 +204,7 @@ horizontal_scroll_mode = 0
 [node name="Content" type="VBoxContainer" parent="MapLayer/Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 
 [node name="Header" type="HBoxContainer" parent="MapLayer/Scroll/Content"]
 layout_mode = 2
@@ -210,12 +225,9 @@ mouse_default_cursor_shape = 2
 theme_type_variation = &"GhostButton"
 text = "Close [M/Esc]"
 
-[node name="Map" type="Control" parent="MapLayer/Scroll/Content"]
-custom_minimum_size = Vector2(480, 400)
+[node name="Map" parent="MapLayer/Scroll/Content" instance=ExtResource("7")]
 layout_mode = 2
 size_flags_vertical = 3
-mouse_filter = 2
-script = ExtResource("7")
 
 [node name="Help" type="Label" parent="MapLayer/Scroll/Content"]
 layout_mode = 2

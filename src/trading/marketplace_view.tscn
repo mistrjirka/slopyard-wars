@@ -44,7 +44,7 @@ autowrap_mode = 3
 [node name="Empty" type="Label" parent="."]
 layout_mode = 2
 theme_type_variation = "Muted"
-text = "No matching parts. Try another type or reset your filters."
+text = "No matching parts."
 autowrap_mode = 3
 
 [node name="Scroll" type="ScrollContainer" parent="."]

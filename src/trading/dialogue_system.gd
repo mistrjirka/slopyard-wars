@@ -116,7 +116,7 @@ func receive_reply(req: int, ok: bool, decision: Dictionary, error: String) -> v
 	var fallback: Dictionary = session.seller.offline_decision(offline_context, job.text, counter)
 	if not ok:
 		if error != "":
-			say(p, job.lid, "system", "Seller AI error: %s. Using offline reply." % error)
+			say(p, job.lid, "system", "Offline reply used.")
 		decision = fallback
 	var intent: String = str(decision.get("intent", "none"))
 	var amount: int = int(decision.get("amount", 0))
@@ -150,7 +150,7 @@ func receive_reply(req: int, ok: bool, decision: Dictionary, error: String) -> v
 		var authored_refusal: String = str(character.refusal_by_reason.get(relationship.reason, character.refusal_line))
 		var refusal: String = line if ok and decision.get("contact_action", "none") == "block" and action == "none" else authored_refusal
 		say(p, job.lid, l.seller, public_reply(refusal, l, p, job.lid))
-		say(p, job.lid, "system", "Contact blocked you for this run. Their other listings and existing meetings are also unavailable to you.")
+		say(p, job.lid, "system", "Blocked for this run. Their listings and meetings are unavailable.")
 		session.mark_changed()
 		return
 	if relationship.warning:
@@ -185,7 +185,7 @@ func receive_reply(req: int, ok: bool, decision: Dictionary, error: String) -> v
 	if intent in ["offer", "accept_counter"] and action == "accept" and amount >= floor_price and amount <= ceiling and not ("confirm" in line.to_lower() or "if you" in line.to_lower()):
 		p.offers[job.lid] = amount
 		p.counters.erase(job.lid)
-		session.notify_player(job.pid, "Contact agreed to $%d. Pickup is not reserved; first arrival wins." % amount)
+		session.notify_player(job.pid, "Agreed $%d. First arrival wins." % amount)
 	elif action == "counter" and proposal >= floor_price and proposal <= ceiling:
 		p.counters[job.lid] = proposal
 	elif not ok and intent == "offer" and amount < floor_price:
@@ -196,7 +196,7 @@ func receive_reply(req: int, ok: bool, decision: Dictionary, error: String) -> v
 		line = Characters.line(character.price_counter, proposal)
 	elif action in ["accept", "counter"]:
 		# Never present an invalid or ungrounded proposed transaction as confirmed.
-		say(p, job.lid, "system", "Seller response could not be validated; please clarify your offer.")
+		say(p, job.lid, "system", "Unclear reply. Clarify your offer.")
 		line = "Could you clarify what you have in mind?"
 	line = public_reply(line, l, p, job.lid)
 	say(p, job.lid, l.seller, ("" if ok else "[offline] ") + line)

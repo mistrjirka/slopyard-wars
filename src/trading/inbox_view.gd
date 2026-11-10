@@ -3,7 +3,6 @@ extends VBoxContainer
 signal unfold_requested
 
 @onready var title_label: Label = $Title
-@onready var hint_label: Label = $Hint
 @onready var appointment_label: Label = $Appointment
 @onready var scroll: ScrollContainer = $Scroll
 @onready var box: VBoxContainer = $Scroll/Box
@@ -17,7 +16,6 @@ func _ready() -> void:
 
 
 func set_cover_mode(unfolded: bool) -> void:
-	hint_label.visible = not unfolded
 	unfold_btn.visible = not unfolded
 
 
@@ -28,3 +26,4 @@ func set_appointment(text: String) -> void:
 
 func set_empty_visible(value: bool) -> void:
 	empty_label.visible = value
+	title_label.visible = not value

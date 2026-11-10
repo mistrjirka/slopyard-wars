@@ -12,12 +12,6 @@ layout_mode = 2
 theme_type_variation = "Eyebrow"
 text = "Recent conversations"
 
-[node name="Hint" type="Label" parent="."]
-layout_mode = 2
-theme_type_variation = "Muted"
-text = "Reply on the cover. Unfold to browse parts or sell a spare."
-autowrap_mode = 3
-
 [node name="Appointment" type="Label" parent="."]
 visible = false
 layout_mode = 2
@@ -33,12 +27,17 @@ horizontal_scroll_mode = 0
 [node name="Box" type="VBoxContainer" parent="Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 theme_override_constants/separation = 8
 
 [node name="Empty" type="Label" parent="Scroll/Box"]
 layout_mode = 2
-theme_type_variation = "Muted"
-text = "Your conversations will appear here. Browse parts to message a seller."
+size_flags_vertical = 3
+theme_type_variation = "H2"
+theme_override_font_sizes/font_size = 24
+text = "No messages left"
+horizontal_alignment = 1
+vertical_alignment = 1
 autowrap_mode = 3
 
 [node name="UnfoldBtn" type="Button" parent="."]

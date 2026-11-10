@@ -5,6 +5,7 @@ const Art = preload("res://src/ui/art_library.gd")
 const World = preload("res://src/world/world_rules.gd")
 const Catalog = preload("res://src/data/catalog.gd")
 const K = preload("res://src/ui/ui_kit.gd")
+@export var show_labels := true
 var has_rig := false:
 	set(value):
 		if has_rig != value:
@@ -40,7 +41,14 @@ func _tiles(key: String, rect: Rect2) -> void:
 
 
 func _label(at: Vector2, text: String, color: Color = Color("30474e")) -> void:
+	if not show_labels:
+		return
 	draw_string(K.world_font(), at.round(), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, color)
+
+
+func _centered_label(at: Vector2, text: String, color: Color = Color("30474e")) -> void:
+	var width := K.world_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	_label(at - Vector2(width * 0.5, 0), text, color)
 
 
 func _house() -> void:
@@ -101,7 +109,7 @@ func _town() -> void:
 	for i in World.BUILDINGS.size():
 		_building(World.BUILDINGS[i], buildings[i])
 	_building(World.HOME_BUILDING, "house_blue")
-	_label(Vector2(468, 198), "YOUR HOME")
+	_centered_label(Vector2(World.HOME_BUILDING.get_center().x, 254), "YOUR HOME")
 	_tiles("floor_tile_beige", Rect2(472, 306, 48, 30))
 	for i in 60:
 		var at := Vector2(25 + (i * 97) % 974, 36 + (i * 173) % 570)
@@ -121,9 +129,12 @@ func _town() -> void:
 		_art(key, Rect2(at - Vector2(extent.x / 2, extent.y), extent))
 	for place: String in Catalog.LOCATIONS:
 		var at: Vector2 = Catalog.LOCATIONS[place]
-		draw_rect(Rect2(at + Vector2(-2, -9), Vector2(4, 13)), Color("75676a"))
-		draw_rect(Rect2(at + Vector2(-13, -14), Vector2(26, 8)), Color("f0dfac"))
-		_label(at + Vector2(-25, 17), place.replace(" Market", "").replace(" Storage", "").replace(" Cul-de-sac", "").replace(" Garage", ""))
+		var text := place.replace(" Market", "").replace(" Storage", "").replace(" Cul-de-sac", "").replace(" Garage", "")
+		var width := K.world_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x + 8
+		# The board sits above visitors' heads; its full footprint stays off the pavement.
+		draw_rect(Rect2(at + Vector2(-2, -38), Vector2(4, 42)), Color("75676a"))
+		draw_rect(Rect2(at + Vector2(-width * 0.5, -50), Vector2(width, 12)), Color("f0dfac"))
+		_centered_label(at + Vector2(0, -41), text)
 	for x in range(8, 1024, 16):
 		draw_rect(Rect2(x, 12, 3, 12), Color("7c7468"))
 		draw_rect(Rect2(x, 620, 3, 12), Color("7c7468"))
@@ -158,4 +169,4 @@ func _draw_activities() -> void:
 		if activity.overlay_art_key != "":
 			var overlay: Vector2 = activity.overlay_art_size
 			_art(activity.overlay_art_key, Rect2(at - Vector2(overlay.x / 2, overlay.y - 4), overlay))
-		_label(at + Vector2(-24, 16), activity.map_label)
+		_centered_label(at + Vector2(0, 16), activity.map_label)

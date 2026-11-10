@@ -10,10 +10,10 @@ const CATEGORIES := ["case", "psu", "cpu", "motherboard", "gpu", "ram", "storage
 const PARTS: Array = preload("res://resources/hardware.tres").parts
 
 const LOCATIONS := {
-	"Harbor Flea Market": Vector2(170, 440), "Grease Alley": Vector2(330, 170),
-	"Old Mill Garage": Vector2(780, 130), "Suburb Cul-de-sac": Vector2(850, 420),
-	"Uni Dorm Row": Vector2(600, 520), "Scrapyard Gate": Vector2(120, 120),
-	"Lakeside Storage": Vector2(930, 260),
+	"Harbor Flea Market": Vector2(220, 438), "Grease Alley": Vector2(276, 220),
+	"Old Mill Garage": Vector2(718, 224), "Suburb Cul-de-sac": Vector2(790, 432),
+	"Uni Dorm Row": Vector2(790, 590), "Scrapyard Gate": Vector2(84, 288),
+	"Lakeside Storage": Vector2(930, 302),
 }
 
 const CONDITIONS := ["Lightly used.", "Used, well loved.", "Dusty but works.", "Pulled from a working office PC.", "Slightly scuffed, tested OK.", "Garage find, cleaned."]

@@ -24,6 +24,8 @@ const MeetingButton = preload("res://src/ui/map_meeting_button.tscn")
 @onready var _phone_shade: ColorRect = $PhoneLayer/Shade
 @onready var _workspace: Control = $Workspace
 @onready var _map_layer: Control = $MapLayer
+@onready var _minimap: Control = $Minimap
+@onready var _mini_map_view: Control = $Minimap/Box/Map
 
 var _move_t := 0.0
 var _tracked := -1
@@ -54,6 +56,7 @@ func _ready() -> void:
 	_phone.track_requested.connect(func(id: int):
 		_tracked = id
 		_world.tracked = id
+		_mini_map_view.tracked = id
 		_close_phone()
 		notice_requested.emit("Meeting tracked. M shows the whole town; follow the yellow marker. Park and E at the contact."))
 	_phone_layer.visible = false
@@ -184,6 +187,7 @@ func _toggle_map() -> void:
 func _track_meeting(listing_id: int) -> void:
 	_tracked = listing_id
 	_world.tracked = listing_id
+	_mini_map_view.tracked = listing_id
 	_map_layer.hide()
 
 
@@ -240,6 +244,7 @@ func _update_world_hud() -> void:
 	if not is_instance_valid(_clock_lbl) or Game.me().is_empty():
 		return
 	var p: Dictionary = Game.me()
+	_minimap.visible = p.area == "town" and not _overlay_open()
 	_clock_lbl.text = Trade.stamp(Game.clock()) + " · ~" + K.real_left(Game.state.remaining) + " left"
 	_cash_lbl.text = "$%d" % int(p.cash)
 	var hint := "Home · E at the door to go outside. Walk to the PC desk for B: assembly / T: tuning."

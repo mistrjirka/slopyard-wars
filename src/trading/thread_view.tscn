@@ -132,7 +132,7 @@ theme_override_constants/separation = 6
 [node name="EmptyLog" type="Label" parent="Split/Right/Panes/Conversation/HistoryScroll/HistoryContent"]
 layout_mode = 2
 theme_type_variation = "Muted"
-text = "Say hello. People won't always know the specs, and they have lives outside the marketplace."
+text = "Say hello."
 autowrap_mode = 3
 
 [node name="Log" type="VBoxContainer" parent="Split/Right/Panes/Conversation/HistoryScroll/HistoryContent"]

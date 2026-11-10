@@ -41,6 +41,10 @@ func _ready() -> void:
 	_back_btn.pressed.connect(func(): menu.emit())
 
 
+func _process(delta: float) -> void:
+	tick(delta)
+
+
 func refresh() -> void:
 	var st: Dictionary = Game.state
 	var ids: Array = st.get("ranking", [])
