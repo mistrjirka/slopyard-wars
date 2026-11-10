@@ -12,13 +12,13 @@ layout_mode = 2
 theme_override_constants/separation = 6
 
 [node name="ToggleBtn" type="Button" parent="ToggleRow"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 theme_type_variation = "GhostButton"
 text = "Meeting times"
 
 [node name="TrackBtn" type="Button" parent="ToggleRow"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 visible = false
 layout_mode = 2
 theme_type_variation = "PrimaryButton"

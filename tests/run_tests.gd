@@ -60,6 +60,25 @@ func _run() -> void:
 	quit(0 if failures.is_empty() else 1)
 
 
+func _wait_phone_motion(screen: Control, motion: String) -> void:
+	var deadline := Time.get_ticks_msec() + 4000
+	while screen._phone_motion != motion and Time.get_ticks_msec() < deadline:
+		await process_frame
+	expect(screen._phone_motion == motion, "Phone transition reaches " + motion)
+
+
+func _type_key(text: String) -> void:
+	var event := InputEventKey.new()
+	event.pressed = true
+	event.keycode = text.to_upper().unicode_at(0)
+	event.physical_keycode = event.keycode
+	event.unicode = text.unicode_at(0)
+	root.push_input(event)
+	event = event.duplicate()
+	event.pressed = false
+	root.push_input(event)
+
+
 func _test_data_and_rules() -> void:
 	expect(Catalog.PARTS.size() == 75, "Hardware roster includes older and current fictional models")
 	var bindings := {"move_left": KEY_LEFT, "move_right": KEY_RIGHT, "move_up": KEY_UP, "move_down": KEY_DOWN}
@@ -271,6 +290,13 @@ func _test_screens() -> void:
 	var screen: Control = shell.get_node("Screens").get_child(0)
 	expect(screen.has_method("_toggle_phone"), "Solo transition mounts game screen")
 	screen._toggle_phone()
+	expect(screen._phone_motion == "opening" and screen._phone_slide == 1.0, "Phone starts below the viewport")
+	expect(screen._phone._viewport.gui_disable_input, "Phone input is locked during entry")
+	expect(screen._phone._viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS,
+		"Off-screen cover renders before entry rather than waiting for texture visibility")
+	await create_timer(0.12).timeout
+	expect(screen._phone_slide < 0.7 and screen._phone_slide > 0.0, "Phone entry eases out rather than moving linearly")
+	await _wait_phone_motion(screen, "open")
 	for frame in 3:
 		await process_frame
 	expect(screen._phone_layer.visible, "Phone opens after solo start")
@@ -290,6 +316,7 @@ func _test_screens() -> void:
 	screen._phone.set_unfolded(true)
 	screen._toggle_phone()
 	screen._toggle_phone()
+	await _wait_phone_motion(screen, "open")
 	for frame in 3:
 		await process_frame
 	expect(not screen._phone.unfolded and screen._phone.size.x < 500 and not device._fault.visible,
@@ -297,14 +324,58 @@ func _test_screens() -> void:
 	screen._phone.set_unfolded(true)
 	var listing_id: int = game.state.listings[0].id
 	screen._phone.open_listing(listing_id)
+	for unfolded in [false, true]:
+		screen._phone.set_unfolded(unfolded)
+		await process_frame
+		root.gui_release_focus()
+		screen._phone._composer.grab_focus()
+		screen._phone._composer.text = ""
+		for letter in "tmbpewasd":
+			_type_key(letter)
+		expect(screen._phone._composer.text == "tmbpewasd", "Phone typing receives shortcut letters once in mode " + str(unfolded))
+		expect(screen._phone_motion == "open" and not screen._workspace.visible and not screen._map_layer.visible,
+			"Typing does not activate world shortcuts")
 	screen._phone._composer.text = "Keep this message in my pocket"
 	screen._phone.close_requested.emit()
 	screen._toggle_phone()
+	await _wait_phone_motion(screen, "open")
 	for frame in 3:
 		await process_frame
 	expect(not screen._phone.unfolded and screen._phone.selected == listing_id and screen._phone._composer.text == "Keep this message in my pocket",
 		"Closing and reopening folds the phone without losing the conversation or draft")
+	expect(screen._phone._viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS and screen._phone._screen.modulate.a == 1.0,
+		"Reopened cover restores live rendering and opacity")
+	# Simulate a fold still in flight without requiring GPU snapshots in headless CI.
+	screen._phone.set_unfolded(true)
+	screen._phone._folding = true
+	screen._phone.close_requested.emit()
+	expect(screen._phone_motion == "closing_fold" and screen._phone_layer.visible,
+		"Pocketing waits for an in-flight fold")
+	await create_timer(0.05).timeout
+	expect(is_zero_approx(screen._phone_slide), "Phone stays on screen until folding finishes")
+	screen._phone._finish_fold()
+	await process_frame
+	expect(not screen._phone.unfolded, "Phone folds shut before sliding out")
+	expect(screen._phone._viewport.gui_disable_input, "Finishing a fold keeps input locked while pocketing")
+	await _wait_phone_motion(screen, "hidden")
+	expect(not screen._phone_layer.visible and is_equal_approx(screen._phone_slide, 1.0), "Phone hides only after reaching the pocket")
+	await process_frame
+	expect(screen._phone._viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED, "Pocketed phone stops rendering")
+	# Cancel before the render-preparation await finishes; stale entry work must not restart it.
+	screen._toggle_phone()
+	screen._close_phone()
+	await _wait_phone_motion(screen, "hidden")
+	expect(not screen._phone_layer.visible, "Closing before the first render cancels the pending reveal")
+	screen._toggle_phone()
+	await create_timer(0.08).timeout
+	screen._close_phone()
+	await _wait_phone_motion(screen, "hidden")
+	expect(not screen._phone_layer.visible, "Closing during entry cancels the old entry tween")
+	screen._toggle_phone()
+	await _wait_phone_motion(screen, "open")
+	expect(is_zero_approx(screen._phone_slide) and not screen._phone._viewport.gui_disable_input, "Reopening restores position and input")
 	screen._toggle_map()
+	await _wait_phone_motion(screen, "hidden")
 	await process_frame
 	expect(screen._map_layer.visible and not screen._phone_layer.visible, "Map and phone overlays exclude each other")
 	player.pos = World.BENCH + Vector2(0, 30)

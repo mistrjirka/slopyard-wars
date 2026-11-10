@@ -21,11 +21,10 @@ const OUTER_Z := -0.27463 / MODEL_LEAF
 const AXIS_Z := 0.275454 / MODEL_LEAF
 const CHASSIS_BEVEL := 0.006
 signal close_requested
+signal fold_finished
 signal track_requested(listing_id: int)
 var page := "browse"
 var selected := -1
-var _thread_origin := "messages"
-var _thread_details: Dictionary[int, bool] = {}
 var _body: VBoxContainer
 var _clock: Label
 var _tabs := {}
@@ -42,11 +41,9 @@ var _slots := false
 var _drafts := {}
 var _device: Control
 var _nav: HBoxContainer
-var _nav_separator: HSeparator
-var _content: VBoxContainer
 var _mode_button: Button
 var _heading: Label
-var _cover_hint: Label
+var _cover_footer_space: Control
 var _screen: SubViewportContainer
 var _viewport: SubViewport
 var _fold: Control
@@ -55,6 +52,7 @@ var _moving_chassis: Polygon2D
 var _fixed_chassis: Polygon2D
 var _hinge_spine: Polygon2D
 var _folding := false
+var _pocket_transition := false
 var _fold_generation := 0
 var _fold_opening := false
 var _fold_progress := 0.0
@@ -92,7 +90,6 @@ func _ready() -> void:
 	resized.connect(_on_resized)
 	visibility_changed.connect(_on_visibility_changed)
 	var content: VBoxContainer = _device.get_node("Inset/Content")
-	_content = content
 	_clock = content.get_node("Status/Row/Clock")
 	_clock.text = ""
 	_clock.theme_type_variation = "Tiny"
@@ -102,38 +99,79 @@ func _ready() -> void:
 	_heading.text = "Messages"
 	_heading.theme_type_variation = "H2"
 	_mode_button = content.get_node("Status/Row/Actions/ModeButton")
+	content.get_node("Status").resized.connect(_layout_heading)
 	_mode_button.text = "Unfold"
 	_mode_button.pressed.connect(_toggle_fold)
-	_nav = content.get_node("Nav")
-	_nav_separator = content.get_node("NavSeparator")
+	_nav = _device.get_node("Nav")
 	_body = content.get_node("Body")
 	_tabs = {
-		"browse": content.get_node("Nav/Browse"),
-		"messages": content.get_node("Nav/Messages"),
-		"sell": content.get_node("Nav/Sell"),
+		"browse": _nav.get_node("Browse"),
+		"messages": _nav.get_node("Messages"),
+		"sell": _nav.get_node("Sell"),
 	}
 	(_tabs["browse"] as Button).pressed.connect(_show.bind("browse"))
 	(_tabs["messages"] as Button).pressed.connect(_open_messages)
 	(_tabs["sell"] as Button).pressed.connect(_show.bind("sell"))
 	_nav.hide()
-	_cover_hint = content.get_node("CoverHint")
-	_cover_hint.text = Device.POCKET_HINT
-	_cover_hint.theme_type_variation = "Tiny"
-	_cover_hint.add_theme_color_override("font_color", K.MUTED)
-	_cover_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cover_footer_space = content.get_node("CoverFooterSpace")
+	# Preserve the existing content bounds after removing the pocket caption.
+	_cover_footer_space.custom_minimum_size.y = ceilf(content.get_theme_font("font", "Tiny").get_height(content.get_theme_font_size("font_size", "Tiny")))
 
 
 func _sync_size() -> void:
 	custom_minimum_size = _device.get_combined_minimum_size()
 
 
+func _layout_heading() -> void:
+	# Equal side reserves keep the title centered on the phone, clear of the
+	# clock and Fold/X controls. Use smaller text on the narrow cover screen.
+	var actions := _mode_button.get_parent() as Control
+	var clock_width := _clock.get_theme_font("font").get_string_size(_clock.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _clock.get_theme_font_size("font_size")).x
+	var side := maxf(clock_width, actions.get_combined_minimum_size().x) + 8.0
+	_heading.offset_left = side
+	_heading.offset_right = -side
+	_heading.add_theme_font_size_override("font_size", 18 if unfolded else 13)
+
+
 func _toggle_fold() -> void:
 	set_unfolded_animated(not unfolded)
+
+
+func set_pocket_transition(active: bool) -> void:
+	_pocket_transition = active
+	_viewport.gui_disable_input = active or _folding
+
+
+func is_folding() -> bool:
+	return _folding
+
+
+func _update_render_mode() -> void:
+	if not is_instance_valid(_viewport):
+		return
+	# Visibility-based texture updates can miss a cover that starts off screen.
+	# Freeze only after the fold's target snapshot is ready, never before layout.
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED if not is_visible_in_tree() or (_folding and _fold_new != null) else SubViewport.UPDATE_ALWAYS
+
+
+func prepare_for_reveal() -> void:
+	_screen.modulate = Color.WHITE
+	_update_render_mode()
+	# Container sizing and the replacement cover UI must settle before rendering.
+	await get_tree().process_frame
+	_device.fit_content()
+	await get_tree().process_frame
+	if DisplayServer.get_name() != "headless":
+		await RenderingServer.frame_post_draw
 
 
 ## Animated unfold/fold for player input. The functional state still changes immediately,
 ## so drafts, focus and the fault bounds are already final while the panels move.
 func set_unfolded_animated(value: bool) -> void:
+	# The dummy headless renderer has no display snapshots to animate.
+	if DisplayServer.get_name() == "headless":
+		set_unfolded(value)
+		return
 	if value == unfolded:
 		if _folding:
 			_finish_fold()
@@ -158,7 +196,7 @@ func set_unfolded(value: bool) -> void:
 
 
 func _capture_device() -> Image:
-	if not is_instance_valid(_viewport):
+	if not is_instance_valid(_viewport) or DisplayServer.get_name() == "headless":
 		return null
 	return _viewport.get_texture().get_image()
 
@@ -190,7 +228,7 @@ func _begin_fold(old_image: Image, value: bool, target_size: Vector2, old_screen
 	_assign_fold_textures()
 	_screen.modulate = Color(1, 1, 1, 0)
 	_viewport.gui_disable_input = true
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_update_render_mode()
 	_fold.mouse_filter = Control.MOUSE_FILTER_STOP
 	_fold.visible = true
 	_apply_fold(0.0)
@@ -201,6 +239,7 @@ func _begin_fold(old_image: Image, value: bool, target_size: Vector2, old_screen
 ## continuation cannot assign textures to or start a tween for the fold now in flight.
 func _capture_fold_target(generation: int) -> void:
 	# The hidden live device renders the target state once before it is cached.
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	if not _folding or generation != _fold_generation:
 		return
@@ -210,6 +249,7 @@ func _capture_fold_target(generation: int) -> void:
 		_finish_fold()
 		return
 	_fold_new = ImageTexture.create_from_image(image)
+	_update_render_mode()
 	if _fold_opening:
 		_fold_inner_screen = _device_screen_rect()
 	else:
@@ -356,6 +396,7 @@ func _update_hinge(panel: Vector2, hinge: float) -> void:
 
 
 func _finish_fold() -> void:
+	var was_folding := _folding
 	if _fold_tween != null and _fold_tween.is_valid():
 		_fold_tween.kill()
 	_fold_tween = null
@@ -372,8 +413,10 @@ func _finish_fold() -> void:
 	if is_instance_valid(_screen):
 		_screen.modulate = Color(1, 1, 1, 1)
 	if is_instance_valid(_viewport):
-		_viewport.gui_disable_input = false
-		_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
+		_viewport.gui_disable_input = _pocket_transition
+		_update_render_mode()
+	if was_folding:
+		fold_finished.emit()
 
 
 func _on_resized() -> void:
@@ -400,7 +443,7 @@ func has_text_focus() -> bool:
 
 
 func move_keyboard_focus(backwards: bool) -> void:
-	if _folding or not is_visible_in_tree():
+	if _folding or _pocket_transition or not is_visible_in_tree():
 		return
 	var owner := _viewport.gui_get_focus_owner()
 	var target: Control = _mode_button
@@ -438,6 +481,8 @@ func _on_visibility_changed() -> void:
 		release_text_focus()
 		if _folding:
 			_finish_fold()
+	# Apply after the capture container updates its own visibility.
+	_update_render_mode.call_deferred()
 
 
 func _open_marketplace() -> void:
@@ -453,8 +498,7 @@ func _open_marketplace_animated() -> void:
 
 
 func _open_messages() -> void:
-	_thread_origin = "messages"
-	_show("messages")
+	_inbox()
 
 
 func _inbox() -> void:
@@ -464,21 +508,8 @@ func _inbox() -> void:
 	_show("messages")
 
 
-func _back_from_thread() -> void:
-	if not unfolded or _thread_origin == "messages":
-		_inbox()
-		return
-	_save_draft()
-	_composer = null
-	selected = -1
-	_show(_thread_origin)
-
-
 func open_listing(id: int) -> void:
 	_save_draft()
-	# Switching contacts inside a thread must not overwrite its entry destination.
-	if page != "messages" or selected < 0:
-		_thread_origin = page if unfolded else "messages"
 	_composer = null
 	selected = id
 	_slots = false
@@ -514,25 +545,18 @@ func refresh() -> void:
 	var me: Dictionary = Game.me()
 	var active_page := page if unfolded else "messages"
 	var in_thread := active_page == "messages" and selected >= 0
-	_heading.text = {"browse": "Marketplace", "messages": "Messages", "sell": "Your listings"}.get(active_page, "Marketplace")
-	_heading.visible = unfolded and not in_thread
-	_cover_hint.visible = not unfolded and not in_thread
-	_nav.visible = unfolded and not in_thread
-	_nav_separator.visible = _nav.visible
-	var navigation_height := _nav.get_combined_minimum_size().y + _nav_separator.get_combined_minimum_size().y + 2.0 * _content.get_theme_constant("separation") if _nav.visible else 0.0
-	_device.set_navigation_height(navigation_height)
-	_device.set_message_layout(in_thread)
+	_heading.text = {"browse": "Marketplace", "messages": "Messages", "sell": "Sell"}.get(active_page, "Messages")
+	_heading.tooltip_text = _heading.text
+	_layout_heading()
+	_cover_footer_space.visible = not unfolded
+	_nav.visible = unfolded
+	_device.set_page_layout(active_page, in_thread)
 	var sig := str(unfolded) + active_page + str(selected)
 	sig += str(_waiting_for_reply()) + str(me.ready)
 	sig += str(me.get("contact_relations", {}))
 	if active_page == "messages" and selected >= 0:
 		var l := _listing(selected)
 		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.counters.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(me.get("meeting_proposals", {}).get(selected, {})) + str(l.get("status", "gone")) + str(l.get("buyer_contacted", true)) + str(_slots)
-		if unfolded:
-			# The left display previews every conversation, not just the open thread.
-			sig += str(me.chats).sha256_text()
-			for listing: Dictionary in Game.state.listings:
-				sig += str(listing.id) + str(listing.seller) + str(listing.name)
 		if me.meetings.has(selected):
 			sig += str(Game.clock() > float(me.meetings[selected].end))
 		if me.get("meeting_proposals", {}).has(selected):
@@ -616,13 +640,10 @@ func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 func _thread() -> void:
 	var view: VBoxContainer = ThreadViewScene.instantiate()
 	_body.add_child(view)
-	view.back_pressed.connect(_back_from_thread)
-	view.browse_requested.connect(_show.bind("browse"))
-	view.inbox_requested.connect(_inbox)
-	view.sell_requested.connect(_show.bind("sell"))
-	var back_title := "Marketplace" if unfolded and _thread_origin == "browse" else ("Your listings" if unfolded and _thread_origin == "sell" else "Messages")
-	view.back_btn.text = "‹ " + back_title
-	view.gone_back.text = "‹ " + back_title
+	view.back_pressed.connect(_inbox)
+	view.back_btn.text = "‹"
+	view.back_btn.tooltip_text = "All messages"
+	view.gone_back.text = "All messages"
 	view.send_text.connect(_send_text)
 	view.toggle_slots.connect(_on_toggle_slots)
 	view.track_requested.connect(func(): track_requested.emit(selected))
@@ -636,13 +657,6 @@ func _thread() -> void:
 	for msg: Dictionary in me.chats.get(selected, []):
 		pending = pending or bool(msg.get("pending", false))
 	view.setup(l, me, selected, _drafts, pending, _waiting_for_reply(), _slots, unfolded)
-	if unfolded:
-		_populate_threads(view.sidebar_list, selected)
-	var thread_id := selected
-	var details_open := unfolded and bool(_thread_details.get(thread_id, false))
-	view.details_btn.set_pressed_no_signal(details_open)
-	view._show_details(details_open)
-	view.details_btn.toggled.connect(func(value: bool): _thread_details[thread_id] = value)
 	_composer = view.composer
 	_send = view.send_btn
 	_log = view.log

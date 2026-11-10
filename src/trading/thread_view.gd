@@ -1,13 +1,10 @@
 extends VBoxContainer
-## Conversation and optional listing details share the same phone page.
+## Listing details and chat share the unfolded display; the cover shows chat alone.
 signal back_pressed
 signal send_text(text: String)
 signal toggle_slots
 signal track_requested
 signal slot_chosen(label: String)
-signal browse_requested
-signal inbox_requested
-signal sell_requested
 
 const Catalog = preload("res://src/data/catalog.gd")
 const Characters = preload("res://src/data/characters.gd")
@@ -17,19 +14,13 @@ const MessageRowScene = preload("res://src/trading/message_row.tscn")
 const MeetingPanelScene = preload("res://src/trading/meeting_panel.tscn")
 
 @onready var split: HBoxContainer = $Split
-@onready var sidebar: VBoxContainer = $Split/Sidebar
-@onready var sidebar_list: VBoxContainer = $Split/Sidebar/Scroll/List
-@onready var browse_button: Button = $Split/Sidebar/Nav/Browse
-@onready var inbox_button: Button = $Split/Sidebar/Nav/Messages
-@onready var sell_button: Button = $Split/Sidebar/Nav/Sell
 @onready var gone_label: Label = $Gone
 @onready var gone_back: Button = $GoneBack
-@onready var header: HBoxContainer = $Split/Right/Header
-@onready var back_btn: Button = $Split/Right/Header/Back
-@onready var contact_label: Label = $Split/Right/Header/Contact
-@onready var role_label: Label = $Split/Right/Header/Role
-@onready var details_btn: Button = $Split/Right/Header/Details
-@onready var subtitle_label: Label = $Split/Right/Subtitle
+@onready var header: HBoxContainer = $Header
+@onready var back_btn: Button = $Header/Back
+@onready var contact_label: Label = $Header/Contact
+@onready var role_label: Label = $Header/Role
+@onready var subtitle_label: Label = $Subtitle
 @onready var panes: HBoxContainer = $Split/Right/Panes
 @onready var specs: ScrollContainer = $Split/Right/Panes/Specs
 @onready var tagline_label: Label = $Split/Right/Panes/Specs/Details/Tagline
@@ -52,7 +43,6 @@ const MeetingPanelScene = preload("res://src/trading/meeting_panel.tscn")
 
 var _meeting_panel: Control = null
 var _locked := true
-var _details_open := false
 var _can_confirm := false
 var _quick_a_text := ""
 
@@ -61,11 +51,6 @@ func _ready() -> void:
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	back_btn.pressed.connect(func() -> void: back_pressed.emit())
 	gone_back.pressed.connect(func() -> void: back_pressed.emit())
-	details_btn.toggled.connect(_show_details)
-	browse_button.pressed.connect(func() -> void: browse_requested.emit())
-	inbox_button.pressed.connect(func() -> void: inbox_requested.emit())
-	sell_button.pressed.connect(func() -> void: sell_requested.emit())
-	inbox_button.button_pressed = true
 	composer.text_changed.connect(func(_text: String) -> void: _update_send())
 	composer.text_submitted.connect(_submit)
 	send_btn.pressed.connect(func() -> void: _submit(composer.text))
@@ -84,13 +69,6 @@ func _submit(text: String) -> void:
 		send_text.emit(text)
 
 
-func _show_details(open: bool) -> void:
-	_details_open = open
-	specs.visible = open
-	conversation.visible = not open
-	details_btn.text = "Chat" if open else "Details"
-
-
 func setup_gone() -> void:
 	_locked = true
 	gone_label.visible = true
@@ -105,10 +83,23 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	gone_label.visible = false
 	gone_back.visible = false
 	split.visible = true
-	sidebar.visible = unfolded
 	header.visible = true
 	subtitle_label.visible = unfolded or not slots
 	panes.visible = true
+	# On the inner display, keep listing identity with its details so the chat
+	# can start at the top of the right column. The cover keeps its stacked header.
+	if unfolded:
+		var details := specs.get_node("Details")
+		if header.get_parent() != details:
+			header.reparent(details)
+			subtitle_label.reparent(details)
+		details.move_child(header, 0)
+		details.move_child(subtitle_label, 1)
+	elif header.get_parent() != self:
+		header.reparent(self)
+		subtitle_label.reparent(self)
+		move_child(header, split.get_index())
+		move_child(subtitle_label, split.get_index())
 	contact_label.text = str(listing.seller)
 	contact_label.tooltip_text = str(listing.seller)
 	var selling: bool = int(listing.get("owner", 0)) == Game.local_id()
@@ -125,7 +116,8 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	spec_text.text = Catalog.spec_text(listing)
 	var schedule := Trade.profile(listing.seller, listing.location)
 	schedule_label.text = str(schedule.note) + " Meets: " + ", ".join(schedule.places)
-	_show_details(_details_open)
+	specs.visible = unfolded
+	conversation.visible = true
 	var blocked := Relationships.blocked(me, listing)
 	var terminal: bool = blocked or listing.status != "available" or bool(me.ready) or private_thread
 	_locked = pending or waiting or terminal or waiting_for_buyer
@@ -154,8 +146,8 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	if blocked:
 		context_text = "Contact blocked trading. Try another buyer." if selling else "Contact blocked trading. Try another seller."
 	context_label.text = context_text
-	meeting_host_cover.visible = not terminal and not waiting_for_buyer
-	meeting_host_specs.visible = false
+	meeting_host_cover.visible = not unfolded and not terminal and not waiting_for_buyer
+	meeting_host_specs.visible = unfolded and not terminal and not waiting_for_buyer
 	for host in [meeting_host_specs, meeting_host_cover]:
 		for c in host.get_children():
 			host.remove_child(c)
@@ -164,8 +156,8 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	_meeting_panel.toggle_requested.connect(func() -> void: toggle_slots.emit())
 	_meeting_panel.track_requested.connect(func() -> void: track_requested.emit())
 	_meeting_panel.slot_chosen.connect(func(label: String) -> void: slot_chosen.emit(label))
-	meeting_host_cover.add_child(_meeting_panel)
-	_meeting_panel.setup(Game.contact_options(listing), has_meeting and not terminal, slots, true, not _locked)
+	(meeting_host_specs if unfolded else meeting_host_cover).add_child(_meeting_panel)
+	_meeting_panel.setup(Game.contact_options(listing), has_meeting and not terminal, slots, not unfolded, not _locked)
 	for c in log.get_children():
 		log.remove_child(c)
 		c.queue_free()
@@ -197,8 +189,9 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	quick_a.disabled = _locked
 	quick_b.visible = terms_ready and not waiting_for_buyer
 	quick_b.disabled = not _can_confirm
-	# In the compact cover, the open time picker replaces the quick shortcuts.
 	quick_row.visible = (quick_a.visible or quick_b.visible) and (unfolded or not slots)
+	conversation.move_child(composer_row if unfolded else quick_row, conversation.get_child_count() - 1)
+	fault_clearance.visible = unfolded
 	fault_clearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 

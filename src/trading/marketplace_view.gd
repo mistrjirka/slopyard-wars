@@ -45,9 +45,6 @@ func setup(saved_filters: Dictionary, listings: Array, player: Dictionary) -> vo
 	_order.select(maxi(0, SORTS.find(str(filters.sort))))
 	if not _reset_button.pressed.is_connected(_reset):
 		_reset_button.pressed.connect(_reset)
-	if not _scroll.resized.is_connected(_fit_columns):
-		_scroll.resized.connect(_fit_columns)
-	_fit_columns()
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not _search.text_changed.is_connected(_on_search_changed):
 		_search.text_changed.connect(_on_search_changed)
@@ -56,10 +53,6 @@ func setup(saved_filters: Dictionary, listings: Array, player: Dictionary) -> vo
 	if not _order.item_selected.is_connected(_on_order_selected):
 		_order.item_selected.connect(_on_order_selected)
 	update_listings(listings, player)
-
-
-func _fit_columns() -> void:
-	_grid.columns = 2 if _scroll.size.x >= 800.0 else 1
 
 
 func _on_search_changed(value: String) -> void:

@@ -1,5 +1,5 @@
 extends HBoxContainer
-## Contact identity is in the thread header; system and pending rows remain explicit.
+## Sender names and aligned bubbles keep each side of the conversation clear.
 @onready var bubble: PanelContainer = $Bubble
 @onready var label: Label = $Bubble/Label
 
@@ -10,7 +10,7 @@ func setup(msg: Dictionary, me_name: String) -> void:
 	var system := speaker == "system"
 	var pending := bool(msg.get("pending", false))
 	bubble.theme_type_variation = "BubblePending" if pending or system else ("BubbleMe" if mine else "BubbleThem")
-	var prefix := "System\n" if system and not pending else ""
+	var prefix := speaker + "\n"
 	label.text = prefix + str(msg.get("text", "")) + ("\nSending…" if pending and mine else "")
 	label.add_theme_color_override("font_color", Color.WHITE if mine and not pending else Color("e6edf5"))
 	alignment = BoxContainer.ALIGNMENT_END if mine else BoxContainer.ALIGNMENT_BEGIN

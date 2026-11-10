@@ -30,11 +30,12 @@ func run(session: Node, assertion: Callable) -> void:
 	check.call(not phone._device._fault.visible, "Healthy cover display hides the inner-screen fault")
 	check.call(phone._device._fault.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Display fault cannot steal clicks")
 	check.call(phone.size.x < 500 and phone.size.y <= viewport.size.y, "Cover fits a 1280x720 viewport")
+	var cover_size: Vector2 = phone.size
 	phone._open_marketplace()
 	await settle()
 	check.call(phone.unfolded and phone.page == "browse" and phone._nav.visible, "Unfolding exposes the full marketplace")
 	check.call(phone._device._fault.visible and not phone._device._brand.visible, "Inner display shows its fault without the cover label")
-	check.call(phone.size.x > 900 and phone.size.x <= viewport.size.x, "Unfolded device uses the wider screen")
+	check.call(is_equal_approx(phone.size.x, cover_size.x * 2.0) and is_equal_approx(phone.size.y, cover_size.y), "Unfolded device keeps two equal leaves at the cover's physical scale")
 	var listing: Dictionary = game.state.listings[0]
 	phone.open_listing(listing.id)
 	await settle()
@@ -101,7 +102,8 @@ func run(session: Node, assertion: Callable) -> void:
 	check.call(phone.page == "sell", "Folding restores the last marketplace tab")
 	viewport.size = Vector2i(1440, 900)
 	await settle()
-	check.call(phone.size.y == 760 and phone.size.x == 1000, "Device adapts to the larger supported viewport")
+	check.call(phone.size.y > cover_size.y and phone.size.x <= viewport.size.x and phone.size.y * phone._device.PERSPECTIVE_CLEARANCE <= viewport.size.y - 48,
+		"Larger viewport grows the device while preserving clearance for the fold animation")
 	phone.open_listing(listing.id)
 	await settle()
 	check_layout("Larger unfolded conversation")
@@ -117,6 +119,21 @@ func run(session: Node, assertion: Callable) -> void:
 	phone.set_unfolded(false)
 	await settle()
 	check.call(not phone._composer.editable and phone._send.disabled, "Cover phone also locks a blocked contact's other listing")
+	phone._device._inset.custom_minimum_size.y = 1100
+	await settle()
+	phone._device._inset.custom_minimum_size.y = 0
+	await settle()
+	check.call(phone._device._inset.get_rect().is_equal_approx(Rect2(Vector2.ZERO, phone._device.size)),
+		"Cover recovers from temporary oversized content without retaining displaced offsets")
+	check_layout("Cover after temporary layout growth")
+	# Rapid pocket/reveal can leave grown offsets after the minimum-size signal
+	# has already fired. Recover without another resize or fold from the player.
+	phone._device._inset.offset_top = -329
+	phone._device._inset.offset_bottom = 329
+	await settle()
+	check.call(phone._device._inset.get_rect().is_equal_approx(Rect2(Vector2.ZERO, phone._device.size)),
+		"Cover repairs displaced bounds even without a new minimum-size notification")
+	check_layout("Cover after interrupted reveal offsets")
 	viewport.queue_free()
 	await settle()
 
@@ -148,5 +165,5 @@ func check_layout(context: String) -> void:
 		var conversation: Control = phone._composer.get_parent().get_parent()
 		check.call(conversation.get_child(-2).get_global_rect().end.y < damage_top,
 			context + " keeps quick replies above the damaged display")
-		check.call(composer.end.y < phone._device._caption.global_position.y,
-			context + " leaves the mood-lighting footer clear")
+		check.call(composer.end.y < phone._device._nav.global_position.y,
+			context + " leaves bottom navigation clear")

@@ -5,9 +5,9 @@ const Stats = preload("res://src/data/hardware_stats.gd")
 
 @onready var content: VBoxContainer = $Content
 @onready var blocked_banner: Label = $Content/BlockedBanner
-@onready var art: PartArt = $Content/Summary/Art
-@onready var price_label: Label = $Content/Summary/Info/Price
-@onready var name_label: Label = $Content/Summary/Info/Name
+@onready var art: PartArt = $Content/Art
+@onready var price_label: Label = $Content/Price
+@onready var name_label: Label = $Content/Name
 @onready var detail_label: Label = $Content/Detail
 @onready var fault_label: Label = $Content/Fault
 @onready var fire_label: Label = $Content/Fire

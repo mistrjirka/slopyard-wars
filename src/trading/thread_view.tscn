@@ -1,7 +1,6 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://src/trading/thread_view.gd" id="1"]
-[ext_resource type="PackedScene" path="res://src/trading/phone_navigation.tscn" id="2"]
 
 [node name="ThreadView" type="VBoxContainer"]
 layout_mode = 2
@@ -21,78 +20,43 @@ layout_mode = 2
 theme_type_variation = "GhostButton"
 text = "All messages"
 
+[node name="Header" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Back" type="Button" parent="Header"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+custom_minimum_size = Vector2(0, 0)
+text = "Back"
+
+[node name="Contact" type="Label" parent="Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "H2"
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="Role" type="Label" parent="Header"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+
+[node name="Subtitle" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = "Tiny"
+clip_text = true
+text_overrun_behavior = 3
+
 [node name="Split" type="HBoxContainer" parent="."]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 16
-
-[node name="Sidebar" type="VBoxContainer" parent="Split"]
-visible = false
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-theme_override_constants/separation = 8
-
-[node name="Heading" type="Label" parent="Split/Sidebar"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-theme_type_variation = "H2"
-text = "Messages"
-vertical_alignment = 1
-
-[node name="Scroll" type="ScrollContainer" parent="Split/Sidebar"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-horizontal_scroll_mode = 0
-
-[node name="List" type="VBoxContainer" parent="Split/Sidebar/Scroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="Nav" parent="Split/Sidebar" instance=ExtResource("2")]
-layout_mode = 2
 
 [node name="Right" type="VBoxContainer" parent="Split"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 4
-
-[node name="Header" type="HBoxContainer" parent="Split/Right"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="Back" type="Button" parent="Split/Right/Header"]
-layout_mode = 2
-theme_type_variation = "GhostButton"
-custom_minimum_size = Vector2(0, 44)
-text = "Back"
-
-[node name="Contact" type="Label" parent="Split/Right/Header"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = "H2"
-clip_text = true
-text_overrun_behavior = 3
-
-[node name="Role" type="Label" parent="Split/Right/Header"]
-layout_mode = 2
-theme_type_variation = "Tiny"
-
-[node name="Details" type="Button" parent="Split/Right/Header"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-theme_type_variation = "GhostButton"
-toggle_mode = true
-text = "Details"
-
-[node name="Subtitle" type="Label" parent="Split/Right"]
-layout_mode = 2
-theme_type_variation = "Tiny"
-clip_text = true
-text_overrun_behavior = 3
 
 [node name="Panes" type="HBoxContainer" parent="Split/Right"]
 layout_mode = 2
@@ -185,7 +149,7 @@ visible = false
 layout_mode = 2
 theme_type_variation = "GhostButton"
 theme_override_font_sizes/font_size = 13
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 text = "Available?"
 tooltip_text = "Is it still available?"
 
@@ -193,12 +157,12 @@ tooltip_text = "Is it still available?"
 layout_mode = 2
 theme_type_variation = "GhostButton"
 theme_override_font_sizes/font_size = 13
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 text = "Confirm terms"
 tooltip_text = "Yes, that price, time and place works."
 
 [node name="ComposerRow" type="HBoxContainer" parent="Split/Right/Panes/Conversation"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 theme_override_constants/separation = 6
 

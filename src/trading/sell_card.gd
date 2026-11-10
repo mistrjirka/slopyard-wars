@@ -17,10 +17,10 @@ const Stats = preload("res://src/data/hardware_stats.gd")
 @onready var cancel_btn: Button = $Content/ActiveActions/CancelBtn
 @onready var expand_btn: Button = $Content/ExpandBtn
 @onready var draft_form: VBoxContainer = $Content/DraftForm
-@onready var price: SpinBox = $Content/DraftForm/Price
-@onready var guide_btn: Button = $Content/DraftForm/QuickPrices/GuideBtn
-@onready var quick_btn: Button = $Content/DraftForm/QuickPrices/QuickBtn
-@onready var post_btn: Button = $Content/DraftForm/PostBtn
+@onready var price: SpinBox = $Content/DraftForm/Row/Price
+@onready var guide_btn: Button = $Content/DraftForm/Row/GuideBtn
+@onready var quick_btn: Button = $Content/DraftForm/Row/QuickBtn
+@onready var post_btn: Button = $Content/DraftForm/Row/PostBtn
 @onready var draft_advice: Label = $Content/DraftForm/DraftAdvice
 
 var _item: Dictionary = {}
@@ -37,9 +37,9 @@ func setup(item: Dictionary, active: Dictionary, draft_price: int, expanded: boo
 	var has_active := not active.is_empty()
 	status_advice.visible = has_active
 	active_actions.visible = has_active
-	expand_btn.visible = not has_active
+	expand_btn.visible = false
 	expand_btn.set_pressed_no_signal(expanded and not has_active)
-	draft_form.visible = expanded and not has_active
+	draft_form.visible = not has_active
 	if has_active:
 		var contacted := bool(active.get("buyer_contacted", false))
 		status_label.text = "Asking $%d · %s" % [int(active.price), ("%s is interested" % str(active.seller)) if contacted else "Waiting for interest"]

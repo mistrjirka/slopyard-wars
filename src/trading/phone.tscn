@@ -1,9 +1,8 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://src/trading/phone.gd" id="1"]
 [ext_resource type="PackedScene" path="res://src/trading/luckyfold_shell.tscn" id="2"]
 [ext_resource type="Shader" path="res://src/trading/fold_face.gdshader" id="3"]
-[ext_resource type="PackedScene" path="res://src/trading/phone_navigation.tscn" id="4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_cover"]
 resource_local_to_scene = true
@@ -59,7 +58,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Status" type="Control" parent="Screen/Viewport/Device/Inset/Content"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 
 [node name="Row" type="HBoxContainer" parent="Screen/Viewport/Device/Inset/Content/Status"]
@@ -81,14 +80,13 @@ layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="ModeButton" type="Button" parent="Screen/Viewport/Device/Inset/Content/Status/Row/Actions"]
-custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-theme_type_variation = "GhostButton"
+theme_type_variation = "PrimaryButton"
 theme_override_font_sizes/font_size = 13
 text = "Unfold"
 
 [node name="Close" type="Button" parent="Screen/Viewport/Device/Inset/Content/Status/Row/Actions"]
-custom_minimum_size = Vector2(44, 44)
+custom_minimum_size = Vector2(32, 30)
 layout_mode = 2
 theme_type_variation = "GhostButton"
 text = "×"
@@ -101,28 +99,19 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 theme_type_variation = "H2"
-theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1
 vertical_alignment = 1
+clip_text = true
+text_overrun_behavior = 3
 
 [node name="Body" type="VBoxContainer" parent="Screen/Viewport/Device/Inset/Content"]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
 
-[node name="NavSeparator" type="HSeparator" parent="Screen/Viewport/Device/Inset/Content"]
-visible = false
+[node name="CoverFooterSpace" type="Control" parent="Screen/Viewport/Device/Inset/Content"]
 layout_mode = 2
 mouse_filter = 2
-
-[node name="Nav" parent="Screen/Viewport/Device/Inset/Content" instance=ExtResource("4")]
-visible = false
-layout_mode = 2
-
-[node name="CoverHint" type="Label" parent="Screen/Viewport/Device/Inset/Content"]
-layout_mode = 2
-theme_type_variation = "Tiny"
-autowrap_mode = 3
 
 [node name="Fold" type="Control" parent="."]
 visible = false

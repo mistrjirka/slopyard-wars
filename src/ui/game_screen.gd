@@ -2,6 +2,9 @@ extends Control
 ## In-match presentation and local input. All mutations go through Game.act().
 signal notice_requested(message: String)
 signal leave_requested
+signal phone_pocketed
+const PHONE_ENTER_SECONDS := 0.48
+const PHONE_EXIT_SECONDS := 0.38
 const K = preload("res://src/ui/ui_kit.gd")
 const Config = preload("res://src/core/game_config.gd")
 const Activities = preload("res://src/world/activities.gd")
@@ -17,11 +20,19 @@ const MeetingButton = preload("res://src/ui/map_meeting_button.tscn")
 @onready var _context_label: Label = $Bottombar/Hints/Context
 @onready var _appointment_label: Label = $Bottombar/Hints/Appointment
 @onready var _phone_layer: Control = $PhoneLayer
+@onready var _phone_center: Control = $PhoneLayer/Center
+@onready var _phone_shade: ColorRect = $PhoneLayer/Shade
 @onready var _workspace: Control = $Workspace
 @onready var _map_layer: Control = $MapLayer
 
 var _move_t := 0.0
 var _tracked := -1
+var _phone_motion := "hidden"
+var _phone_wanted := false
+var _phone_slide := 1.0
+var _phone_tween: Tween
+var _phone_reveal_generation := 0
+var _after_phone_pocket := Callable()
 
 @onready var _dialogs: Control = $Dialogs
 @onready var _meetings: VBoxContainer = $MapLayer/Scroll/Content/Meetings
@@ -37,11 +48,13 @@ func _ready() -> void:
 	($Topbar/Row/MenuBtn as Button).pressed.connect(func(): _dialogs.ask("Leave match?", "This unfinished run is not saved.", "Leave", func(): leave_requested.emit()))
 	$Workspace/Work/BackBtn.pressed.connect(func(): _workspace.visible = false)
 	$MapLayer/Scroll/Content/Header/Close.pressed.connect(func(): _map_layer.hide())
-	_phone.close_requested.connect(func(): _phone_layer.visible = false)
+	_phone.close_requested.connect(_close_phone)
+	_phone.fold_finished.connect(_on_phone_fold_finished)
+	resized.connect(func(): _set_phone_slide(_phone_slide))
 	_phone.track_requested.connect(func(id: int):
 		_tracked = id
 		_world.tracked = id
-		_phone_layer.visible = false
+		_close_phone()
 		notice_requested.emit("Meeting tracked. M shows the whole town; follow the yellow marker. Park and E at the contact."))
 	_phone_layer.visible = false
 	_bench.ask = _dialogs.ask
@@ -59,17 +72,103 @@ func _overlay_open() -> bool:
 func _toggle_phone() -> void:
 	if Game.state.phase != "playing":
 		return
+	if _phone_wanted:
+		_close_phone()
+		return
+	_phone_wanted = true
+	_after_phone_pocket = Callable()
 	_workspace.visible = false
 	_map_layer.visible = false
-	# Pocketing hides the existing device; its fold state and current app stay intact.
-	_phone_layer.visible = not _phone_layer.visible
+	# Finish pocketing before honoring a rapid request to take it out again.
+	if _phone_motion == "hidden":
+		_open_phone()
 	Game.act("move", {"direction": Vector2.ZERO})
+
+
+func _open_phone() -> void:
+	_phone_reveal_generation += 1
+	_phone_motion = "opening"
+	_phone.set_unfolded(false)
+	_phone.set_pocket_transition(true)
+	_set_phone_slide(1.0)
+	_phone_layer.show()
+	_phone.refresh()
+	_start_phone_entry(_phone_reveal_generation)
+
+
+func _start_phone_entry(generation: int) -> void:
+	# Render the cover while it is below the screen, before the slide reveals it.
+	await _phone.prepare_for_reveal()
+	if generation != _phone_reveal_generation or _phone_motion != "opening":
+		return
+	_phone_tween = create_tween()
+	_phone_tween.tween_method(_set_phone_slide, 1.0, 0.0, PHONE_ENTER_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_phone_tween.finished.connect(func():
+		_phone_motion = "open"
+		_phone.set_pocket_transition(false))
+
+
+func _close_phone(after: Callable = Callable()) -> void:
+	_phone_reveal_generation += 1
+	_phone_wanted = false
+	_after_phone_pocket = after
+	if _phone_motion == "hidden":
+		if after.is_valid():
+			after.call_deferred()
+		return
+	if _phone_motion in ["closing_fold", "closing_slide"]:
+		return
+	if _phone_tween != null and _phone_tween.is_valid():
+		_phone_tween.kill()
+	_phone.set_pocket_transition(true)
+	_phone_motion = "closing_fold"
+	_advance_phone_close()
+
+
+func _on_phone_fold_finished() -> void:
+	# Defer so an interrupted fold can finish changing state before we inspect it.
+	if _phone_motion == "closing_fold":
+		_advance_phone_close.call_deferred()
+
+
+func _advance_phone_close() -> void:
+	if _phone_motion != "closing_fold" or _phone.is_folding():
+		return
+	if _phone.unfolded:
+		_phone.set_unfolded_animated(false)
+		if _phone.is_folding():
+			return
+	_phone_motion = "closing_slide"
+	_phone_tween = create_tween()
+	_phone_tween.tween_method(_set_phone_slide, _phone_slide, 1.0, PHONE_EXIT_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_phone_tween.finished.connect(_finish_phone_pocket)
+
+
+func _finish_phone_pocket() -> void:
+	_phone_layer.hide()
+	_phone.set_pocket_transition(false)
+	_phone_motion = "hidden"
+	var after := _after_phone_pocket
+	_after_phone_pocket = Callable()
+	phone_pocketed.emit()
+	if _phone_wanted:
+		_open_phone()
+	elif after.is_valid():
+		after.call_deferred()
+
+
+func _set_phone_slide(value: float) -> void:
+	_phone_slide = value
+	_phone_center.position.y = size.y * value
+	_phone_shade.modulate.a = 1.0 - value
 
 
 func _toggle_map() -> void:
 	if Game.state.phase != "playing":
 		return
-	_phone_layer.visible = false
+	if _phone_layer.visible:
+		_close_phone(_toggle_map)
+		return
 	_workspace.visible = false
 	_map_layer.visible = not _map_layer.visible
 	if not _map_layer.visible:
@@ -93,7 +192,9 @@ func _open_workspace(which: String) -> void:
 	if p.is_empty() or p.area != "home" or p.pos.distance_to(World.BENCH) > 58:
 		notice_requested.emit("Walk up to the PC workbench inside your house first.")
 		return
-	_phone_layer.visible = false
+	if _phone_layer.visible:
+		_close_phone(_open_workspace.bind(which))
+		return
 	_map_layer.visible = false
 	_workspace.visible = true
 	_bench.visible = which == "bench"
@@ -173,7 +274,9 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _unhandled_key_input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
+	# SubViewportContainer forwards keys in unhandled_input. Running game shortcuts
+	# in the earlier unhandled_key_input stage steals letters from phone text fields.
 	if event is not InputEventKey or not event.pressed or event.echo:
 		return
 	if _dialogs.visible:
@@ -186,7 +289,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		elif editing_here:
 			focus_owner.release_focus()
 		else:
-			_phone_layer.hide()
+			_close_phone()
 			_workspace.hide()
 			_map_layer.hide()
 	elif _phone_layer.visible and (event.is_action_pressed("ui_focus_next") or event.is_action_pressed("ui_focus_prev")):

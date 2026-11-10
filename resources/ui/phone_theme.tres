@@ -9,9 +9,9 @@ font_weight = 600
 
 [sub_resource type="StyleBoxFlat" id="Card"]
 content_margin_left = 14.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 14.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.11, 0.11, 0.12, 1)
 border_width_bottom = 1
 border_color = Color(0.22, 0.22, 0.24, 1)
@@ -33,9 +33,9 @@ corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="Button"]
 content_margin_left = 14.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 14.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.18, 0.18, 0.20, 1)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
@@ -44,9 +44,9 @@ corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="Hover"]
 content_margin_left = 14.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 14.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.24, 0.24, 0.27, 1)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
@@ -55,9 +55,9 @@ corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="Blue"]
 content_margin_left = 14.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 14.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.0392, 0.5176, 1, 1)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
@@ -66,9 +66,9 @@ corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="BlueHover"]
 content_margin_left = 14.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 14.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.16, 0.59, 1, 1)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
@@ -77,9 +77,9 @@ corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="BluePressed"]
 content_margin_left = 14.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 14.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.02, 0.35, 0.72, 1)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
@@ -88,9 +88,9 @@ corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="Disabled"]
 content_margin_left = 14.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 14.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.13, 0.13, 0.15, 1)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
@@ -111,9 +111,9 @@ corner_radius_bottom_right = 12
 
 [sub_resource type="StyleBoxFlat" id="Input"]
 content_margin_left = 12.0
-content_margin_top = 12.0
+content_margin_top = 7.0
 content_margin_right = 12.0
-content_margin_bottom = 12.0
+content_margin_bottom = 7.0
 bg_color = Color(0.15, 0.15, 0.17, 1)
 border_width_bottom = 1
 border_color = Color(0.28, 0.28, 0.3, 1)
@@ -144,9 +144,9 @@ corner_radius_bottom_right = 3
 
 [sub_resource type="StyleBoxEmpty" id="TabBar"]
 content_margin_left = 8.0
-content_margin_top = 4.0
+content_margin_top = 1.0
 content_margin_right = 8.0
-content_margin_bottom = 4.0
+content_margin_bottom = 1.0
 
 [sub_resource type="StyleBoxLine" id="Separator"]
 color = Color(0.24, 0.24, 0.26, 1)
@@ -154,18 +154,18 @@ thickness = 1
 
 [resource]
 default_font = SubResource("Sans")
-default_font_size = 16
+default_font_size = 14
 Control/colors/font_color = Color(0.96, 0.96, 0.98, 1)
 Label/colors/font_color = Color(0.96, 0.96, 0.98, 1)
 Label/colors/font_shadow_color = Color(0, 0, 0, 0)
 Label/constants/line_spacing = 3
-Label/font_sizes/font_size = 16
+Label/font_sizes/font_size = 14
 H1/base_type = &"Label"
 H1/fonts/font = SubResource("Semibold")
 H1/font_sizes/font_size = 28
 H2/base_type = &"Label"
 H2/fonts/font = SubResource("Semibold")
-H2/font_sizes/font_size = 22
+H2/font_sizes/font_size = 18
 Big/base_type = &"Label"
 Big/fonts/font = SubResource("Semibold")
 Big/font_sizes/font_size = 24
@@ -180,15 +180,15 @@ Muted/base_type = &"Label"
 Muted/font_sizes/font_size = 13
 Muted/colors/font_color = Color(0.68, 0.68, 0.72, 1)
 Tiny/base_type = &"Label"
-Tiny/font_sizes/font_size = 13
+Tiny/font_sizes/font_size = 11
 Tiny/colors/font_color = Color(0.68, 0.68, 0.72, 1)
 Mono/base_type = &"Label"
-Mono/font_sizes/font_size = 16
+Mono/font_sizes/font_size = 14
 ActionLabel/base_type = &"Label"
 ActionLabel/colors/font_color = Color(0.25, 0.64, 1, 1)
-ActionLabel/font_sizes/font_size = 16
+ActionLabel/font_sizes/font_size = 14
 Button/fonts/font = SubResource("Semibold")
-Button/font_sizes/font_size = 16
+Button/font_sizes/font_size = 14
 Button/colors/font_color = Color(0.96, 0.96, 0.98, 1)
 Button/colors/font_hover_color = Color(1, 1, 1, 1)
 Button/colors/font_pressed_color = Color(1, 1, 1, 1)
@@ -225,7 +225,7 @@ TabButton/styles/pressed = SubResource("TabBar")
 TabButton/styles/hover = SubResource("TabBar")
 TabButton/styles/hover_pressed = SubResource("TabBar")
 TabButton/styles/disabled = SubResource("TabBar")
-LineEdit/font_sizes/font_size = 16
+LineEdit/font_sizes/font_size = 14
 LineEdit/colors/font_color = Color(0.96, 0.96, 0.98, 1)
 LineEdit/colors/font_placeholder_color = Color(0.65, 0.65, 0.69, 1)
 LineEdit/colors/font_uneditable_color = Color(0.55, 0.55, 0.59, 1)
@@ -235,9 +235,9 @@ LineEdit/styles/normal = SubResource("Input")
 LineEdit/styles/read_only = SubResource("Disabled")
 LineEdit/styles/focus = SubResource("Focus")
 LineEdit/constants/minimum_character_width = 4
-SpinBox/font_sizes/font_size = 16
+SpinBox/font_sizes/font_size = 14
 SpinBox/constants/buttons_vertical_separation = 2
-OptionButton/font_sizes/font_size = 16
+OptionButton/font_sizes/font_size = 14
 OptionButton/colors/font_color = Color(0.96, 0.96, 0.98, 1)
 OptionButton/colors/font_hover_color = Color(1, 1, 1, 1)
 OptionButton/colors/font_pressed_color = Color(1, 1, 1, 1)
@@ -249,7 +249,7 @@ OptionButton/styles/disabled = SubResource("Disabled")
 OptionButton/styles/focus = SubResource("Focus")
 OptionButton/constants/arrow_margin = 12
 OptionButton/constants/h_separation = 12
-PopupMenu/font_sizes/font_size = 16
+PopupMenu/font_sizes/font_size = 14
 PopupMenu/colors/font_color = Color(0.96, 0.96, 0.98, 1)
 PopupMenu/colors/font_hover_color = Color(1, 1, 1, 1)
 PopupMenu/styles/panel = SubResource("Card")

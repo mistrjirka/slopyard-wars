@@ -37,19 +37,19 @@ layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="ChatBtn" type="Button" parent="Content/ActiveActions"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 theme_type_variation = "PrimaryButton"
 text = "Messages"
 
 [node name="CancelBtn" type="Button" parent="Content/ActiveActions"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 theme_type_variation = "DestructiveButton"
 text = "Cancel listing"
 
 [node name="ExpandBtn" type="Button" parent="Content"]
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 size_flags_horizontal = 0
 theme_type_variation = "GhostButton"
@@ -61,39 +61,33 @@ visible = false
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="PriceLabel" type="Label" parent="Content/DraftForm"]
+[node name="Row" type="HBoxContainer" parent="Content/DraftForm"]
 layout_mode = 2
-text = "Asking price"
+theme_override_constants/separation = 6
 
-[node name="Price" type="SpinBox" parent="Content/DraftForm"]
-custom_minimum_size = Vector2(0, 44)
+[node name="Price" type="SpinBox" parent="Content/DraftForm/Row"]
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 min_value = 1.0
 max_value = 5000.0
 prefix = "$"
 
-[node name="QuickPrices" type="HFlowContainer" parent="Content/DraftForm"]
-layout_mode = 2
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 6
-
-[node name="GuideBtn" type="Button" parent="Content/DraftForm/QuickPrices"]
-custom_minimum_size = Vector2(0, 44)
+[node name="GuideBtn" type="Button" parent="Content/DraftForm/Row"]
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 theme_type_variation = "GhostButton"
 
-[node name="QuickBtn" type="Button" parent="Content/DraftForm/QuickPrices"]
-custom_minimum_size = Vector2(0, 44)
+[node name="QuickBtn" type="Button" parent="Content/DraftForm/Row"]
+custom_minimum_size = Vector2(0, 0)
 layout_mode = 2
 theme_type_variation = "GhostButton"
 
+[node name="PostBtn" type="Button" parent="Content/DraftForm/Row"]
+custom_minimum_size = Vector2(0, 0)
+layout_mode = 2
+theme_type_variation = "PrimaryButton"
+text = "Post listing"
 [node name="DraftAdvice" type="Label" parent="Content/DraftForm"]
 layout_mode = 2
 theme_type_variation = "Tiny"
 autowrap_mode = 3
-
-[node name="PostBtn" type="Button" parent="Content/DraftForm"]
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-theme_type_variation = "PrimaryButton"
-text = "Post listing"

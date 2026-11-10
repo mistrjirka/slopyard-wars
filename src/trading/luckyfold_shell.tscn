@@ -1,8 +1,10 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://src/trading/luckyfold_shell.gd" id="1"]
 [ext_resource type="Shader" path="res://src/trading/fault_hue.gdshader" id="2"]
 [ext_resource type="Theme" path="res://resources/ui/phone_theme.tres" id="3"]
+
+[ext_resource type="PackedScene" path="res://src/trading/phone_navigation.tscn" id="4"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_fault"]
 resource_local_to_scene = true
@@ -48,6 +50,7 @@ corner_radius_top_left = 16
 corner_radius_top_right = 16
 corner_radius_bottom_right = 16
 corner_radius_bottom_left = 16
+corner_detail = 16
 
 [node name="LuckyFoldShell" type="Control"]
 layout_mode = 3
@@ -91,6 +94,11 @@ grow_vertical = 2
 layout_mode = 2
 theme_override_constants/separation = 6
 
+[node name="Nav" parent="." instance=ExtResource("4")]
+visible = false
+layout_mode = 0
+theme_override_constants/separation = 6
+
 [node name="Fault" type="TextureRect" parent="."]
 material = SubResource("ShaderMaterial_fault")
 layout_mode = 0
@@ -102,14 +110,6 @@ stretch_mode = 5
 layout_mode = 0
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="Caption" type="Label" parent="."]
-layout_mode = 0
-horizontal_alignment = 2
-
-[node name="PocketHint" type="Label" parent="."]
-layout_mode = 0
-mouse_filter = 2
 
 [node name="HueTimer" type="Timer" parent="."]
 wait_time = 1.1

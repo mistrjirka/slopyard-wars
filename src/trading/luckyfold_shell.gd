@@ -9,7 +9,6 @@ const MAX_HEIGHT := 700.0
 const PERSPECTIVE_CLEARANCE := 1.25
 const OPEN_WIDTH := MAX_HEIGHT * OPEN_ASPECT
 const CLOSED_WIDTH := OPEN_WIDTH * 0.5
-const POCKET_HINT := "P / Esc: pocket · clock keeps running"
 ## Top of the damaged pixels in the replaceable 1024x768 overlay's art contract.
 const DISPLAY_FAULT_TOP := 648.0 / 768.0
 const DISPLAY_FAULT_BAND_BOTTOM := 660.0 / 768.0
@@ -22,22 +21,22 @@ const PULSE_HUE := 0.2
 @export var open_shape: StyleBoxFlat
 var unfolded := false
 var _message_layout := false
+var _marketplace_layout := false
 var _message_bar_height := 36.0
-var _navigation_height := 0.0
 var _hue := 0.0
 var _hue_target := 0.0
 var _hue_step := 0
 var _pulse := 0.0
 var _hue_tween: Tween
 var _pulse_tween: Tween
+var _display_shape: StyleBoxFlat
 @onready var content: VBoxContainer = $Inset/Content
 @onready var _inset: MarginContainer = $Inset
 @onready var _display: Panel = $Display
 @onready var _fault: TextureRect = $Fault
 @onready var _hinge: ColorRect = $Hinge
 @onready var _brand: Label = $Brand
-@onready var _caption: Label = $Caption
-@onready var _pocket_hint: Label = $PocketHint
+@onready var _nav: HBoxContainer = $Nav
 @onready var _hue_timer: Timer = $HueTimer
 
 
@@ -47,6 +46,8 @@ func _ready() -> void:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_display_shape = _display.get_theme_stylebox("panel").duplicate()
+	_display.add_theme_stylebox_override("panel", _display_shape)
 	_hinge.color = Color(0.6, 0.68, 0.8, 0.08)
 	_hinge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_inset.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -62,18 +63,13 @@ func _ready() -> void:
 	_brand.add_theme_color_override("font_color", K.CREAM)
 	_brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_caption.text = "Factory-installed mood lighting."
-	_caption.theme_type_variation = "Tiny"
-	_caption.add_theme_color_override("font_color", K.MUTED)
-	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_pocket_hint.text = POCKET_HINT
-	_pocket_hint.theme_type_variation = "Tiny"
-	_pocket_hint.add_theme_color_override("font_color", K.MUTED)
-	_pocket_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_apply_display_hue()
 	_hue_timer.timeout.connect(_drift_hue)
 	display_pressed.connect(_pulse_display)
 	resized.connect(_layout)
+	_inset.minimum_size_changed.connect(fit_content, CONNECT_DEFERRED)
+	visibility_changed.connect(fit_content, CONNECT_DEFERRED)
+	_nav.minimum_size_changed.connect(_layout)
 	var host := _host_viewport()
 	if host != null and not host.size_changed.is_connected(_fit):
 		host.size_changed.connect(_fit)
@@ -176,17 +172,12 @@ func _apply_display_hue() -> void:
 	material.set_shader_parameter("band_bottom", DISPLAY_FAULT_BAND_BOTTOM)
 
 
-func set_message_layout(value: bool) -> void:
-	if _message_layout == value:
+func set_page_layout(page: String, in_thread: bool) -> void:
+	var marketplace := page == "browse"
+	if _message_layout == in_thread and _marketplace_layout == marketplace:
 		return
-	_message_layout = value
-	_layout()
-
-
-func set_navigation_height(value: float) -> void:
-	if is_equal_approx(_navigation_height, value):
-		return
-	_navigation_height = value
+	_message_layout = in_thread
+	_marketplace_layout = marketplace
 	_layout()
 
 
@@ -201,35 +192,61 @@ func message_text_left() -> float:
 	return _display.global_position.x + _display.size.x * DISPLAY_FAULT_COLUMN_RIGHT + 8.0
 
 
+func fit_content() -> void:
+	# Narrowing the phone can briefly increase wrapped labels' minimum heights.
+	# Control retains offsets from that temporary growth even after they shrink.
+	_inset.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_inset.queue_sort()
+	content.queue_sort()
+
+
+func _process(_delta: float) -> void:
+	if not is_visible_in_tree():
+		return
+	# Minimum-size notifications and container sorting can span multiple frames,
+	# especially when a reveal is interrupted. The shell is a Control, so no parent
+	# Container restores this anchored child after its temporary minimum shrinks.
+	# Refit only if its actual bounds drift; the settled layout does no work here.
+	if not _inset.get_rect().is_equal_approx(Rect2(Vector2.ZERO, size)):
+		fit_content()
+
+
 func _layout() -> void:
 	if not is_instance_valid(_inset):
 		return
 	var frame := $Frame as Panel
-	frame.add_theme_stylebox_override("panel", open_shape if unfolded else closed_shape)
+	var housing := open_shape if unfolded else closed_shape
+	frame.add_theme_stylebox_override("panel", housing)
+	# Follow the housing contour with the existing 18px bezel inset. The cover's
+	# hinge-side corners stay square; the open display has four rounded corners.
+	for corner in ["top_left", "top_right", "bottom_left", "bottom_right"]:
+		var property := "corner_radius_" + str(corner)
+		_display_shape.set(property, maxi(0, int(housing.get(property)) - 18))
 	_display.position = Vector2(18, 18)
 	_display.size = Vector2(maxf(0, size.x - 36), maxf(0, size.y - (36 if unfolded else 110)))
 	_fault.position = _display.position
 	_fault.size = _display.size
 	_fault.visible = unfolded
+	var nav_height := _nav.get_combined_minimum_size().y
+	_nav.position = Vector2(30, size.y - 32.0 - nav_height)
+	_nav.size = Vector2(maxf(0, size.x - 60), nav_height)
 	# Tuck the message bar's upper border into the stripe, leaving its text below it.
-	var bottom_margin := 24 if unfolded else 96
+	var bottom_margin := 72 if unfolded else 96
+	if unfolded and _marketplace_layout:
+		# Mirror the gap below navigation above it, extending the listing viewport
+		# so the icon/label row is centered between listings and the display edge.
+		var lower_gap := _display.get_rect().end.y - _nav.get_rect().end.y
+		bottom_margin = roundi(size.y - (_nav.position.y - lower_gap))
 	if unfolded and _message_layout:
 		var bar_top := _display.position.y + _display.size.y * DISPLAY_FAULT_BAND_BOTTOM - 3.0
 		# The fitted phone can be shorter than the old 760px shell. Do not let a
 		# fixed footer margin pull the composer above the physical damaged stripe.
-		bottom_margin = maxi(18, roundi(size.y - bar_top - _message_bar_height - _navigation_height))
+		bottom_margin = maxi(18, roundi(size.y - bar_top - _message_bar_height))
 	_inset.add_theme_constant_override("margin_bottom", bottom_margin)
+	fit_content()
 	_hinge.position = Vector2(size.x * 0.5 - 1, 20)
 	_hinge.size = Vector2(2, maxf(0, size.y - 40))
 	_hinge.visible = unfolded
 	_brand.position = Vector2(24, size.y - 82)
 	_brand.size = Vector2(maxf(0, size.x - 48), 54)
 	_brand.visible = not unfolded
-	# This is a display overlay on every inner-screen page, not a chat row.
-	# Lift it above the tab bar rather than obscuring navigation labels.
-	_caption.position = Vector2(size.x * 0.5, size.y - 38 - _navigation_height)
-	_caption.size = Vector2(maxf(0, size.x * 0.5 - 32), _caption.get_combined_minimum_size().y)
-	_caption.visible = unfolded
-	_pocket_hint.position = Vector2(32, size.y - 38)
-	_pocket_hint.size = Vector2(maxf(0, size.x * 0.5 - 32), _caption.get_combined_minimum_size().y)
-	_pocket_hint.visible = unfolded and is_zero_approx(_navigation_height)

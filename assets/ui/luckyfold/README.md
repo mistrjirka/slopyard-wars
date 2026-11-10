@@ -18,6 +18,6 @@ The shader gently changes lit colours over time and briefly on presses. Dark/tra
 
 The engine renders screen backgrounds, controls and **LuckyFold Duo** branding. Do not paint text or button artwork into the casing. App styling lives in `resources/ui/phone_theme.tres`; the three original 24×24 SVG tab icons live under `assets/ui/phone/`.
 
-In conversations, the message box's upper edge sits behind the horizontal stripe; input and Send text sit below it and to the right of the vertical column. Quick replies stay above it. The conversation footer remains clear. Top-level app tabs occupy the bottom area instead and hide inside conversations. Preserve these interaction areas when changing artwork.
+In conversations, the message box's upper edge sits behind the horizontal stripe; input and Send text sit below it and to the right of the vertical column. Quick replies stay above it. The bottom navigation remains clear and stays visible inside conversations. Pocket and mood-lighting captions are no longer displayed. Preserve these interaction areas when changing artwork.
 
 See `docs/asset_provenance.md` and `docs/third_party_notices.md` for origins and the reference fold-study license. No Apple model, wallpaper, interface image or font is included.
