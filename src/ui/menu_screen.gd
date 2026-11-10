@@ -1,5 +1,5 @@
 extends Control
-## Solo-first setup; networking is an optional expandable section.
+## Cover-led solo setup with fixed-size pages for help, dialogue settings and LAN.
 signal solo_requested(player_name: String, budget: int, objective: String)
 signal host_requested(player_name: String)
 signal join_requested(address: String, player_name: String)
@@ -27,10 +27,21 @@ func _ready() -> void:
 	for objective in OBJECTIVES:
 		_obj_opt.add_item(objective)
 	_on_objective_selected(0)
-	%RunDescription.text = "08:00–22:00 · about %d real minutes before time skips. Hunt parts, collect them, then leave the evening for your build." % roundi(Config.TOTAL_MINUTES / Config.RATE / 60.0)
+	%RunDescription.text = "08:00–22:00 · about %d minutes\nOne day to turn secondhand parts into first place." % roundi(Config.TOTAL_MINUTES / Config.RATE / 60.0)
 	# Assign only at startup, not refresh: state updates must not overwrite edits.
 	_key_edit.text = Game.openrouter_key()
-	_name_edit.grab_focus()
+	_show_solo()
+	%PlaySolo.grab_focus()
+	resized.connect(_layout)
+	_layout()
+
+
+func _layout() -> void:
+	var stacked := size.x < 960.0
+	%Columns.vertical = stacked
+	%SetupCard.custom_minimum_size.x = 0.0 if stacked else 440.0
+	%SetupCard.size_flags_horizontal = Control.SIZE_EXPAND_FILL if stacked else Control.SIZE_FILL
+	%Cover.custom_minimum_size.y = clampf((size.x - 64.0) / 1.26, 220.0, 380.0) if stacked else 400.0
 
 
 func _pname() -> String:
@@ -52,7 +63,27 @@ func _on_key_changed(value: String) -> void:
 
 
 func _toggle_lan() -> void:
-	_lan.visible = not _lan.visible
+	_show_page(_lan)
+
+
+func _toggle_help() -> void:
+	_show_page(%HelpControls)
+
+
+func _toggle_sellers() -> void:
+	_show_page(%SellerControls)
+
+
+func _show_solo() -> void:
+	_show_page(%SoloControls)
+
+
+func _show_page(page: Control) -> void:
+	var sections := [%SoloControls, %HelpControls, %SellerControls, _lan]
+	var buttons := [%PlayToggle, %HelpToggle, %SellerToggle, %LanToggle]
+	for i in sections.size():
+		sections[i].visible = sections[i] == page
+		buttons[i].set_pressed_no_signal(sections[i].visible)
 
 
 func _host() -> void:

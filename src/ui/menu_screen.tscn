@@ -1,8 +1,8 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://src/ui/menu_screen.gd" id="1"]
-[ext_resource type="Script" path="res://src/ui/menu_parts_art.gd" id="2"]
-[ext_resource type="Theme" path="res://resources/ui/game_theme.tres" id="3"]
+[ext_resource type="Texture2D" path="res://assets/cover/slopyard-wars-cover-1260x1000.png" id="2"]
+[ext_resource type="Theme" path="res://resources/ui/menu_theme.tres" id="3"]
 
 [node name="MenuScreen" type="Control"]
 layout_mode = 3
@@ -14,6 +14,16 @@ grow_vertical = 2
 theme = ExtResource("3")
 script = ExtResource("1")
 
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.075, 0.13, 0.15, 1)
+
 [node name="Scroll" type="ScrollContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
@@ -22,343 +32,471 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 horizontal_scroll_mode = 0
+follow_focus = true
 
 [node name="Margins" type="MarginContainer" parent="Scroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/margin_left = 48
-theme_override_constants/margin_top = 36
-theme_override_constants/margin_right = 48
-theme_override_constants/margin_bottom = 28
+size_flags_vertical = 3
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 32
 
-[node name="Columns" type="HBoxContainer" parent="Scroll/Margins"]
+[node name="Columns" type="BoxContainer" parent="Scroll/Margins"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 36
+theme_override_constants/separation = 32
 
 [node name="Hero" type="VBoxContainer" parent="Scroll/Margins/Columns"]
-custom_minimum_size = Vector2(360, 0)
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 1.25
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 
-[node name="Eyebrow" type="Label" parent="Scroll/Margins/Columns/Hero"]
+[node name="Cover" type="TextureRect" parent="Scroll/Margins/Columns/Hero"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 400)
 layout_mode = 2
-theme_type_variation = &"Eyebrow"
-text = "ONE DAY. ONE BUDGET. A PILE OF USED PARTS."
-
-[node name="Title" type="Label" parent="Scroll/Margins/Columns/Hero"]
-layout_mode = 2
-theme_type_variation = &"Display"
-text = "SLOPYARD WARS"
-autowrap_mode = 2
-
-[node name="Description" type="Label" parent="Scroll/Margins/Columns/Hero"]
-layout_mode = 2
-theme_type_variation = &"Muted"
-text = "Hunt classifieds, haggle with eccentric sellers, drive across town for the parts, assemble the rig by hand, overclock it to the edge and out-benchmark your rivals."
-autowrap_mode = 3
-
-[node name="PartsArt" type="Control" parent="Scroll/Margins/Columns/Hero"]
-custom_minimum_size = Vector2(0, 150)
-layout_mode = 2
+size_flags_vertical = 3
 mouse_filter = 2
-script = ExtResource("2")
+texture_filter = 1
+texture = ExtResource("2")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="HowItWorks" type="Label" parent="Scroll/Margins/Columns/Hero"]
+[node name="Tagline" type="Label" parent="Scroll/Margins/Columns/Hero"]
 layout_mode = 2
 theme_type_variation = &"Eyebrow"
-text = "HOW IT WORKS"
-
-[node name="Steps" type="GridContainer" parent="Scroll/Margins/Columns/Hero"]
-layout_mode = 2
-theme_override_constants/h_separation = 10
-theme_override_constants/v_separation = 10
-columns = 2
-
-[node name="Explore" type="PanelContainer" parent="Scroll/Margins/Columns/Hero/Steps"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"CardTight"
-
-[node name="Content" type="VBoxContainer" parent="Scroll/Margins/Columns/Hero/Steps/Explore"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Heading" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Explore/Content"]
-layout_mode = 2
-theme_type_variation = &"Mono"
-theme_override_colors/font_color = Color(0.7764706, 1, 0.2392157, 1)
-text = "1  EXPLORE"
-
-[node name="Description" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Explore/Content"]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"Muted"
-text = "WASD / arrows to walk. E uses doors, your car, contacts and town activities. Pray at Lucky Square for a blessing."
-autowrap_mode = 3
-
-[node name="Phone" type="PanelContainer" parent="Scroll/Margins/Columns/Hero/Steps"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"CardTight"
-
-[node name="Content" type="VBoxContainer" parent="Scroll/Margins/Columns/Hero/Steps/Phone"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Heading" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Phone/Content"]
-layout_mode = 2
-theme_type_variation = &"Mono"
-theme_override_colors/font_color = Color(0.7764706, 1, 0.2392157, 1)
-text = "2  PHONE"
-
-[node name="Description" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Phone/Content"]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"Muted"
-text = "P opens the phone. Filter parts and sort prices in Browse; use the value guide in Sell. Agree price, place AND time in chat."
-autowrap_mode = 3
-
-[node name="Meet" type="PanelContainer" parent="Scroll/Margins/Columns/Hero/Steps"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"CardTight"
-
-[node name="Content" type="VBoxContainer" parent="Scroll/Margins/Columns/Hero/Steps/Meet"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Heading" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Meet/Content"]
-layout_mode = 2
-theme_type_variation = &"Mono"
-theme_override_colors/font_color = Color(0.7764706, 1, 0.2392157, 1)
-text = "3  MEET"
-
-[node name="Description" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Meet/Content"]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"Muted"
-text = "Walk outside, E to enter the car, then drive yourself. Park and walk to the contact at the agreed time."
-autowrap_mode = 3
-
-[node name="Build" type="PanelContainer" parent="Scroll/Margins/Columns/Hero/Steps"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"CardTight"
-
-[node name="Content" type="VBoxContainer" parent="Scroll/Margins/Columns/Hero/Steps/Build"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Heading" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Build/Content"]
-layout_mode = 2
-theme_type_variation = &"Mono"
-theme_override_colors/font_color = Color(0.7764706, 1, 0.2392157, 1)
-text = "4  BUILD / SELL"
-
-[node name="Description" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Build/Content"]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"Muted"
-text = "B at your home workbench opens assembly. Sell spare parts on the phone; NPC buyers will haggle."
-autowrap_mode = 3
-
-[node name="Tune" type="PanelContainer" parent="Scroll/Margins/Columns/Hero/Steps"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"CardTight"
-
-[node name="Content" type="VBoxContainer" parent="Scroll/Margins/Columns/Hero/Steps/Tune"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Heading" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Tune/Content"]
-layout_mode = 2
-theme_type_variation = &"Mono"
-theme_override_colors/font_color = Color(0.7764706, 1, 0.2392157, 1)
-text = "5  TUNE"
-
-[node name="Description" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Tune/Content"]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"Muted"
-text = "Tune CPU, GPU and RAM. Check headroom, condition and failure odds. Risky tests can destroy parts; surviving causes wear."
-autowrap_mode = 3
-
-[node name="Bench" type="PanelContainer" parent="Scroll/Margins/Columns/Hero/Steps"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"CardTight"
-
-[node name="Content" type="VBoxContainer" parent="Scroll/Margins/Columns/Hero/Steps/Bench"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Heading" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Bench/Content"]
-layout_mode = 2
-theme_type_variation = &"Mono"
-theme_override_colors/font_color = Color(0.7764706, 1, 0.2392157, 1)
-text = "6  BENCH"
-
-[node name="Description" type="Label" parent="Scroll/Margins/Columns/Hero/Steps/Bench/Content"]
-custom_minimum_size = Vector2(40, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_type_variation = &"Muted"
-text = "One day, 08:00–22:00. Aim to head home by 19:00 for assembly and tuning. Finish early whenever your rig is ready."
+text = "BUY LOW. CLOCK HIGH. HOPE FOR THE BEST."
+horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="SetupCard" type="PanelContainer" parent="Scroll/Margins/Columns"]
-custom_minimum_size = Vector2(430, 0)
+unique_name_in_owner = true
+custom_minimum_size = Vector2(440, 580)
 layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 0
-theme_type_variation = &"Hero"
+size_flags_vertical = 4
 
-[node name="Form" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard"]
+[node name="PanelContent" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 16
 
-[node name="PlayerLabel" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form"]
+[node name="Pages" type="Control" parent="Scroll/Margins/Columns/SetupCard/PanelContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="SoloControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Eyebrow" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
 layout_mode = 2
 theme_type_variation = &"Eyebrow"
-text = "PLAYER"
+text = "ONE DAY. ONE BUDGET."
+autowrap_mode = 3
 
-[node name="PlayerName" type="LineEdit" parent="Scroll/Margins/Columns/SetupCard/Form"]
+
+[node name="Heading" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "Build a legend.\nOn a budget."
+autowrap_mode = 3
+
+
+[node name="Intro" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Haggle for used parts. Build a questionable PC. Push it until the numbers look good."
+autowrap_mode = 3
+
+
+[node name="Separator" type="HSeparator" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+
+[node name="PlayerLabel" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "YOUR NAME"
+autowrap_mode = 3
+
+
+[node name="PlayerName" type="LineEdit" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Scrapper"
 max_length = 16
 
-[node name="KeyLabel" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form"]
+[node name="Choices" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BudgetColumn" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Label" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices/BudgetColumn"]
 layout_mode = 2
 theme_type_variation = &"Eyebrow"
-text = "OPENROUTER API KEY"
+text = "BUDGET"
+autowrap_mode = 3
 
-[node name="OpenRouterKey" type="LineEdit" parent="Scroll/Margins/Columns/SetupCard/Form"]
+
+[node name="Budget" type="OptionButton" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices/BudgetColumn"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "Paste your API key (optional)"
+size_flags_horizontal = 3
+
+[node name="ObjectiveColumn" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Label" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices/ObjectiveColumn"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "BENCHMARK"
+autowrap_mode = 3
+
+
+[node name="Objective" type="OptionButton" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices/ObjectiveColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ObjectiveDescription" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = ""
+autowrap_mode = 3
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+
+[node name="PlaySolo" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_type_variation = &"PrimaryButton"
+text = "START SCAVENGING"
+mouse_default_cursor_shape = 2
+
+[node name="RunDescription" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = ""
+autowrap_mode = 3
+unique_name_in_owner = true
+
+[node name="HelpControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 14
+
+[node name="SellerControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 14
+
+[node name="LanControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "SELLER DIALOGUE"
+autowrap_mode = 3
+
+
+[node name="Help" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Use your OpenRouter key for live conversations, or leave it empty for offline sellers. Only the solo player or LAN host needs a key."
+autowrap_mode = 3
+
+
+[node name="OpenRouterKey" type="LineEdit" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls"]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "OpenRouter API key (optional)"
 secret = true
 drag_and_drop_selection_enabled = false
 clear_button_enabled = true
 
-[node name="KeyHelp" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form"]
+[node name="KeyHelp" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls"]
 layout_mode = 2
 theme_type_variation = &"Tiny"
-text = "Paste with Ctrl+V. Hidden and not copyable. Changes apply immediately for this session only; leave empty for offline sellers. Only the solo player / LAN host needs a key."
+text = "Changes apply immediately for this session. Your key stays hidden."
 autowrap_mode = 3
 
-[node name="Separator" type="HSeparator" parent="Scroll/Margins/Columns/SetupCard/Form"]
-layout_mode = 2
 
-[node name="SoloLabel" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form"]
+[node name="Title" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
 layout_mode = 2
 theme_type_variation = &"Eyebrow"
-text = "SOLO RUN"
-
-[node name="RunDescription" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"Tiny"
+text = "LAN MULTIPLAYER · EXPERIMENTAL"
 autowrap_mode = 3
 
-[node name="BudgetRow" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/Form"]
+
+[node name="Host" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
+layout_mode = 2
+text = "Host a game"
+
+[node name="JoinRow" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form/BudgetRow"]
-layout_mode = 2
-theme_type_variation = &"Muted"
-text = "Budget"
-
-[node name="Budget" type="OptionButton" parent="Scroll/Margins/Columns/SetupCard/Form/BudgetRow"]
+[node name="HostAddress" type="LineEdit" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls/JoinRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+placeholder_text = "Host address"
 
-[node name="GoalRow" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/Form"]
+[node name="Join" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls/JoinRow"]
 layout_mode = 2
+text = "Join"
 
-[node name="Label" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form/GoalRow"]
+[node name="Help" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
 layout_mode = 2
-theme_type_variation = &"Muted"
-text = "Goal"
+theme_type_variation = &"Tiny"
+text = "Same network, UDP 24680. Shared listings: whoever arrives first gets the part."
+autowrap_mode = 3
 
-[node name="Objective" type="OptionButton" parent="Scroll/Margins/Columns/SetupCard/Form/GoalRow"]
+
+[node name="SellerStatus" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = ""
+autowrap_mode = 3
+unique_name_in_owner = true
+
+[node name="Title" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_type_variation = &"Heading"
+text = "From scrap to score."
+theme_override_font_sizes/font_size = 24
+
+[node name="Intro" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Your one-day survival guide."
+
+[node name="Step1" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Number" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step1"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "01"
+
+[node name="Text" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step1"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="Heading" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step1/Text"]
+layout_mode = 2
+text = "Explore"
+theme_override_font_sizes/font_size = 14
+
+[node name="Description" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step1/Text"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "WASD / arrows to move. E uses doors, your car and town activities."
+autowrap_mode = 3
+
+[node name="Step2" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Number" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step2"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "02"
+
+[node name="Text" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step2"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="Heading" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step2/Text"]
+layout_mode = 2
+text = "Haggle"
+theme_override_font_sizes/font_size = 14
+
+[node name="Description" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step2/Text"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "P opens your phone. Agree on a price, place and time with the seller."
+autowrap_mode = 3
+
+[node name="Step3" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Number" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step3"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "03"
+
+[node name="Text" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step3"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="Heading" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step3/Text"]
+layout_mode = 2
+text = "Collect"
+theme_override_font_sizes/font_size = 14
+
+[node name="Description" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step3/Text"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Drive to the meeting. Park and approach the seller on foot."
+autowrap_mode = 3
+
+[node name="Step4" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Number" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step4"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "04"
+
+[node name="Text" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step4"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="Heading" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step4/Text"]
+layout_mode = 2
+text = "Build"
+theme_override_font_sizes/font_size = 14
+
+[node name="Description" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step4/Text"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "B at your home workbench opens assembly. Sell spare parts on the phone."
+autowrap_mode = 3
+
+[node name="Step5" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Number" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step5"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "05"
+
+[node name="Text" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step5"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="Heading" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step5/Text"]
+layout_mode = 2
+text = "Overclock"
+theme_override_font_sizes/font_size = 14
+
+[node name="Description" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step5/Text"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Tune CPU, GPU and RAM. Push too hard and you could destroy a part."
+autowrap_mode = 3
+
+[node name="Step6" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Number" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step6"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "06"
+
+[node name="Text" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step6"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 3
+
+[node name="Heading" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step6/Text"]
+layout_mode = 2
+text = "Beat the clock"
+theme_override_font_sizes/font_size = 14
+
+[node name="Description" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step6/Text"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Head home by 19:00. Finish your build and benchmark before 22:00."
+autowrap_mode = 3
+
+[node name="Navigation" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="PlayToggle" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-
-[node name="ObjectiveDescription" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_type_variation = &"Tiny"
-theme_override_colors/font_color = Color(0.4352941, 0.7058824, 1, 1)
-autowrap_mode = 3
-
-[node name="PlaySolo" type="Button" parent="Scroll/Margins/Columns/SetupCard/Form"]
-custom_minimum_size = Vector2(0, 46)
-layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Play"
+toggle_mode = true
 mouse_default_cursor_shape = 2
-theme_type_variation = &"PrimaryButton"
-text = "PLAY SOLO"
 
-[node name="LanSeparator" type="HSeparator" parent="Scroll/Margins/Columns/SetupCard/Form"]
-layout_mode = 2
-
-[node name="LanToggle" type="Button" parent="Scroll/Margins/Columns/SetupCard/Form"]
-layout_mode = 2
-mouse_default_cursor_shape = 2
-theme_type_variation = &"GhostButton"
-text = "LAN MULTIPLAYER (EXPERIMENTAL)"
-
-[node name="LanControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/Form"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-
-[node name="Host" type="Button" parent="Scroll/Margins/Columns/SetupCard/Form/LanControls"]
-layout_mode = 2
-mouse_default_cursor_shape = 2
-text = "HOST A GAME"
-
-[node name="JoinRow" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/Form/LanControls"]
-layout_mode = 2
-
-[node name="HostAddress" type="LineEdit" parent="Scroll/Margins/Columns/SetupCard/Form/LanControls/JoinRow"]
+[node name="HelpToggle" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-placeholder_text = "Host address, e.g. 192.168.1.20"
-
-[node name="Join" type="Button" parent="Scroll/Margins/Columns/SetupCard/Form/LanControls/JoinRow"]
-layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "How to play"
+toggle_mode = true
 mouse_default_cursor_shape = 2
-text = "JOIN"
 
-[node name="Help" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form/LanControls"]
-layout_mode = 2
-theme_type_variation = &"Tiny"
-text = "Same network, UDP port 24680. Players compete for the same shared listings: whoever arrives first gets the part."
-autowrap_mode = 3
-
-[node name="SellerStatus" type="Label" parent="Scroll/Margins/Columns/SetupCard/Form"]
+[node name="SellerToggle" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_type_variation = &"Tiny"
-theme_override_colors/font_color = Color(1, 0.5411765, 0.1647059, 1)
-autowrap_mode = 3
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "Sellers"
+toggle_mode = true
+mouse_default_cursor_shape = 2
 
-[connection signal="text_changed" from="Scroll/Margins/Columns/SetupCard/Form/OpenRouterKey" to="." method="_on_key_changed"]
-[connection signal="item_selected" from="Scroll/Margins/Columns/SetupCard/Form/GoalRow/Objective" to="." method="_on_objective_selected"]
-[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/Form/PlaySolo" to="." method="_start_solo"]
-[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/Form/LanToggle" to="." method="_toggle_lan"]
-[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/Form/LanControls/Host" to="." method="_host"]
-[connection signal="text_submitted" from="Scroll/Margins/Columns/SetupCard/Form/LanControls/JoinRow/HostAddress" to="." method="_on_address_submitted"]
-[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/Form/LanControls/JoinRow/Join" to="." method="_join"]
+[node name="LanToggle" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+text = "LAN"
+toggle_mode = true
+mouse_default_cursor_shape = 2
+
+[connection signal="text_changed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls/OpenRouterKey" to="." method="_on_key_changed"]
+[connection signal="item_selected" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices/ObjectiveColumn/Objective" to="." method="_on_objective_selected"]
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/PlaySolo" to="." method="_start_solo"]
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation/LanToggle" to="." method="_toggle_lan"]
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation/HelpToggle" to="." method="_toggle_help"]
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation/SellerToggle" to="." method="_toggle_sellers"]
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls/Host" to="." method="_host"]
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls/JoinRow/Join" to="." method="_join"]
+[connection signal="text_submitted" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls/JoinRow/HostAddress" to="." method="_on_address_submitted"]
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation/PlayToggle" to="." method="_show_solo"]

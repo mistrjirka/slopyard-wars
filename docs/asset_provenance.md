@@ -21,7 +21,8 @@ All three are tinted by the phone theme and displayed at 18 px. Their SVG paths 
 | `resources/ui/game_theme.tres` | Serialized from this project's existing `UiKit.make_theme()` using Godot's ResourceSaver | Editor-visible shared UI theme; no external artwork |
 | `src/workshop/assembly.gd` | Original procedural drawing and interaction code | Case tray, schematic motherboard holes, socket/retention mechanism, GPU fan-side view, PSU rear plate, supplied cooler and thermal paste |
 | Feature-local `.tscn` screens and component templates | Authored from the existing scripted UI | Editable layouts, cards, dialogs, buttons and labels |
-| `src/ui/menu_parts_art.gd` | Existing project part textures composed by original drawing code | Main-menu illustration |
+| `assets/cover/slopyard-wars-cover-1260x1000.png` | Existing project title artwork, reused without modification | Main-menu centerpiece; aspect ratio preserved with nearest-neighbor sampling |
+| `resources/ui/menu_theme.tres` | Original Godot theme using the project's existing Hack fonts | Main-menu teal surfaces, cream text and gold accents drawn from the cover palette |
 | `src/trading/fold_face.gdshader` | Native Godot adaptation of the MIT-licensed iPhone Duo screen shader | Projected fold-face sampling, blur and darkening; see [third-party notices](third_party_notices.md) |
 | `src/trading/fault_hue.gdshader` | Original shader applied to the existing fault PNG | Colour shifts and slight horizontal-band thickening in the intentional damaged display; source PNG and vertical column unchanged, no new image asset |
 | `resources/ui/phone_theme.tres` | Original authored Godot theme using installed Noto Sans / DejaVu Sans | Feature-local dark app surfaces, blue controls and readable typography; no new font files |
