@@ -112,5 +112,5 @@ layout_mode = 0
 mouse_filter = 2
 
 [node name="HueTimer" type="Timer" parent="."]
-wait_time = 3.4
+wait_time = 1.1
 autostart = true

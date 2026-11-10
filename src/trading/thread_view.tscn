@@ -137,7 +137,7 @@ theme_override_constants/separation = 4
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 4
+theme_override_constants/separation = 8
 
 [node name="Context" type="Label" parent="Split/Right/Panes/Conversation"]
 layout_mode = 2
@@ -177,6 +177,7 @@ layout_mode = 2
 theme_override_constants/separation = 4
 
 [node name="QuickA" type="Button" parent="Split/Right/Panes/Conversation/QuickRow"]
+visible = false
 layout_mode = 2
 theme_type_variation = "GhostButton"
 theme_override_font_sizes/font_size = 13
@@ -204,9 +205,11 @@ mouse_filter = 2
 [node name="Composer" type="LineEdit" parent="Split/Right/Panes/Conversation/ComposerRow"]
 layout_mode = 2
 size_flags_horizontal = 3
+editable = false
 max_length = 240
 
 [node name="Send" type="Button" parent="Split/Right/Panes/Conversation/ComposerRow"]
 layout_mode = 2
 theme_type_variation = "PrimaryButton"
+disabled = true
 text = "Send"

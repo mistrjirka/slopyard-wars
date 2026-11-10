@@ -93,15 +93,15 @@ func _ready() -> void:
 	visibility_changed.connect(_on_visibility_changed)
 	var content: VBoxContainer = _device.get_node("Inset/Content")
 	_content = content
-	_clock = content.get_node("Status/Clock")
+	_clock = content.get_node("Status/Row/Clock")
 	_clock.text = ""
 	_clock.theme_type_variation = "Tiny"
-	var close_btn: Button = content.get_node("Status/Close")
+	var close_btn: Button = content.get_node("Status/Row/Actions/Close")
 	close_btn.pressed.connect(func(): close_requested.emit())
-	_heading = content.get_node("BrandRow/Heading")
+	_heading = content.get_node("Status/Heading")
 	_heading.text = "Messages"
-	_heading.theme_type_variation = "H1"
-	_mode_button = content.get_node("Status/ModeButton")
+	_heading.theme_type_variation = "H2"
+	_mode_button = content.get_node("Status/Row/Actions/ModeButton")
 	_mode_button.text = "Unfold"
 	_mode_button.pressed.connect(_toggle_fold)
 	_nav = content.get_node("Nav")
@@ -388,9 +388,45 @@ func _on_resized() -> void:
 	_apply_fold(_fold_progress)
 
 
+func _focused_text_control() -> Control:
+	if not is_instance_valid(_viewport):
+		return null
+	var owner := _viewport.gui_get_focus_owner()
+	return owner if owner is LineEdit or owner is TextEdit else null
+
+
+func has_text_focus() -> bool:
+	return is_visible_in_tree() and _focused_text_control() != null
+
+
+func release_text_focus() -> bool:
+	var owner := _focused_text_control()
+	if owner == null:
+		return false
+	owner.release_focus()
+	return true
+
+
+func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree() or _folding:
+		return
+	var mouse := event as InputEventMouseButton
+	if mouse == null or not mouse.pressed or mouse.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var owner := _focused_text_control()
+	if owner == null:
+		return
+	# The focused field belongs to the capture viewport, not the host window.
+	var local_mouse := _screen.make_input_local(mouse) as InputEventMouseButton
+	if local_mouse != null and not owner.get_global_rect().has_point(local_mouse.position):
+		owner.release_focus()
+
+
 func _on_visibility_changed() -> void:
-	if not is_visible_in_tree() and _folding:
-		_finish_fold()
+	if not is_visible_in_tree():
+		release_text_focus()
+		if _folding:
+			_finish_fold()
 
 
 func _open_marketplace() -> void:
@@ -461,7 +497,7 @@ func refresh() -> void:
 	var active_page := page if unfolded else "messages"
 	var in_thread := active_page == "messages" and selected >= 0
 	_heading.text = {"browse": "Marketplace", "messages": "Messages", "sell": "Your listings"}.get(active_page, "Marketplace")
-	_heading.get_parent().visible = not in_thread
+	_heading.visible = unfolded and not in_thread
 	_cover_hint.visible = not unfolded and not in_thread
 	_nav.visible = unfolded and not in_thread
 	_nav_separator.visible = _nav.visible
@@ -473,7 +509,7 @@ func refresh() -> void:
 	sig += str(me.get("contact_relations", {}))
 	if active_page == "messages" and selected >= 0:
 		var l := _listing(selected)
-		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(l.get("status", "gone")) + str(_slots)
+		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.counters.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(l.get("status", "gone")) + str(l.get("buyer_contacted", true)) + str(_slots)
 		if unfolded:
 			# The left display previews every conversation, not just the open thread.
 			sig += str(me.chats).sha256_text()

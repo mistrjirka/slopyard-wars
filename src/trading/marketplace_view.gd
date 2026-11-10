@@ -11,11 +11,9 @@ var filters: Dictionary
 var _listings: Array
 var _player: Dictionary
 @onready var _search: LineEdit = $Controls/Search
-@onready var _type: OptionButton = $FilterSection/TypeRow/Type
-@onready var _order: OptionButton = $FilterSection/OrderRow/Order
-@onready var _reset_button: Button = $FilterSection/OrderRow/Reset
-@onready var _filters_button: Button = $Controls/Filters
-@onready var _filter_section: VBoxContainer = $FilterSection
+@onready var _type: OptionButton = $Controls/Type
+@onready var _order: OptionButton = $Controls/Order
+@onready var _reset_button: Button = $Controls/Reset
 @onready var _grid: GridContainer = $Scroll/Grid
 @onready var _count: Label = $Count
 @onready var _empty: Label = $Empty
@@ -47,10 +45,6 @@ func setup(saved_filters: Dictionary, listings: Array, player: Dictionary) -> vo
 	_order.select(maxi(0, SORTS.find(str(filters.sort))))
 	if not _reset_button.pressed.is_connected(_reset):
 		_reset_button.pressed.connect(_reset)
-	_filters_button.set_pressed_no_signal(bool(filters.get("filters_open", false)))
-	_filter_section.visible = _filters_button.button_pressed
-	if not _filters_button.toggled.is_connected(_toggle_filters):
-		_filters_button.toggled.connect(_toggle_filters)
 	if not _scroll.resized.is_connected(_fit_columns):
 		_scroll.resized.connect(_fit_columns)
 	_fit_columns()
@@ -62,11 +56,6 @@ func setup(saved_filters: Dictionary, listings: Array, player: Dictionary) -> vo
 	if not _order.item_selected.is_connected(_on_order_selected):
 		_order.item_selected.connect(_on_order_selected)
 	update_listings(listings, player)
-
-
-func _toggle_filters(open: bool) -> void:
-	filters["filters_open"] = open
-	_filter_section.visible = open
 
 
 func _fit_columns() -> void:

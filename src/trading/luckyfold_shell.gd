@@ -12,11 +12,11 @@ const CLOSED_WIDTH := OPEN_WIDTH * 0.5
 const POCKET_HINT := "P / Esc: pocket · clock keeps running"
 ## Top of the damaged pixels in the replaceable 1024x768 overlay's art contract.
 const DISPLAY_FAULT_TOP := 648.0 / 768.0
-const DISPLAY_FAULT_BAND_BOTTOM := 656.0 / 768.0
+const DISPLAY_FAULT_BAND_BOTTOM := 660.0 / 768.0
 const DISPLAY_FAULT_COLUMN_RIGHT := 516.0 / 1024.0
 ## Small discrete hue steps; the band drifts toward each one instead of snapping.
-const HUE_STEPS: Array[float] = [0.05, -0.035, 0.06, -0.045, 0.03, -0.06]
-const HUE_DRIFT_SECONDS := 1.6
+const HUE_STEPS: Array[float] = [0.10, -0.08, 0.14, -0.10, 0.12, -0.13]
+const HUE_DRIFT_SECONDS := 0.8
 const PULSE_HUE := 0.2
 @export var closed_shape: StyleBoxFlat
 @export var open_shape: StyleBoxFlat
@@ -173,6 +173,7 @@ func _apply_display_hue() -> void:
 	if material == null:
 		return
 	material.set_shader_parameter("hue_shift", _hue + _pulse * PULSE_HUE)
+	material.set_shader_parameter("band_bottom", DISPLAY_FAULT_BAND_BOTTOM)
 
 
 func set_message_layout(value: bool) -> void:
@@ -224,9 +225,11 @@ func _layout() -> void:
 	_brand.position = Vector2(24, size.y - 82)
 	_brand.size = Vector2(maxf(0, size.x - 48), 54)
 	_brand.visible = not unfolded
-	_caption.position = Vector2(size.x * 0.5, size.y - 38)
+	# This is a display overlay on every inner-screen page, not a chat row.
+	# Lift it above the tab bar rather than obscuring navigation labels.
+	_caption.position = Vector2(size.x * 0.5, size.y - 38 - _navigation_height)
 	_caption.size = Vector2(maxf(0, size.x * 0.5 - 32), _caption.get_combined_minimum_size().y)
-	_caption.visible = unfolded and is_zero_approx(_navigation_height)
-	_pocket_hint.position = Vector2(32, _caption.position.y)
+	_caption.visible = unfolded
+	_pocket_hint.position = Vector2(32, size.y - 38)
 	_pocket_hint.size = Vector2(maxf(0, size.x * 0.5 - 32), _caption.get_combined_minimum_size().y)
-	_pocket_hint.visible = _caption.visible
+	_pocket_hint.visible = unfolded and is_zero_approx(_navigation_height)

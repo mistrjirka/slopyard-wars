@@ -10,7 +10,7 @@ Both halves use one responsive scale. The open aspect follows the reference's 26
 
 `display_fault.png` is a **1024×768 RGBA** transparent overlay scaled to the inner display. Its opaque pale/lime/purple horizontal rows extend from the hinge toward the right at y≈650, with a narrow vertical column continuing downward. Preserve transparent pixels elsewhere.
 
-This represents **failed pixel rows/columns**, not a spiderweb glass crack. The original placeholder follows the geometry visible in [iFixit's reference photo](https://www.ifixit.com/News/119895/iphone-duo-teardown), not copied photo pixels. Keep the fault within x≥510, y≥648; preserve the horizontal band's bottom at y=656 and the vertical column within x=510..516. These positions are also the layout contract used to protect typing and Send text.
+This represents **failed pixel rows/columns**, not a spiderweb glass crack. The original placeholder follows the geometry visible in [iFixit's reference photo](https://www.ifixit.com/News/119895/iphone-duo-teardown), not copied photo pixels. Keep the fault within x≥510, y≥648; preserve the horizontal band's bottom at y=656 and the vertical column within x=510..516. These are the source-art bounds. At runtime the shader expands only the horizontal strip from 8 to 12 source pixels (ending at y=660); `DISPLAY_FAULT_BAND_BOTTOM` supplies the matching layout/sampling bound so typing and Send text remain below it.
 
 The shader gently changes lit colours over time and briefly on presses. Dark/transparent pixels and the rest of the app remain unchanged. Do not bake flicker or animation frames into the PNG.
 

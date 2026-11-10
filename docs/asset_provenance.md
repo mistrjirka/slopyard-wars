@@ -23,7 +23,7 @@ All three are tinted by the phone theme and displayed at 18 px. Their SVG paths 
 | Feature-local `.tscn` screens and component templates | Authored from the existing scripted UI | Editable layouts, cards, dialogs, buttons and labels |
 | `src/ui/menu_parts_art.gd` | Existing project part textures composed by original drawing code | Main-menu illustration |
 | `src/trading/fold_face.gdshader` | Native Godot adaptation of the MIT-licensed iPhone Duo screen shader | Projected fold-face sampling, blur and darkening; see [third-party notices](third_party_notices.md) |
-| `src/trading/fault_hue.gdshader` | Original shader applied to the existing fault PNG | Colour shifts in the intentional damaged-display band; no new image asset |
+| `src/trading/fault_hue.gdshader` | Original shader applied to the existing fault PNG | Colour shifts and slight horizontal-band thickening in the intentional damaged display; source PNG and vertical column unchanged, no new image asset |
 | `resources/ui/phone_theme.tres` | Original authored Godot theme using installed Noto Sans / DejaVu Sans | Feature-local dark app surfaces, blue controls and readable typography; no new font files |
 | `src/trading/phone.gd` and authored chassis nodes in `phone.tscn` | Original projected solid geometry informed by the fold study's dimensions/hinge transform | Rounded sidewalls, beveled rails, physical hinge clearance; no imported model |
 | Closed/open styles in `src/trading/luckyfold_shell.tscn` | Original procedural casing shapes | Straight closed hinge edge, rounded outside corners; replaces the legacy nine-patch rendering |

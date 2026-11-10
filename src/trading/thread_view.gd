@@ -48,6 +48,7 @@ var _meeting_panel: Control = null
 var _locked := true
 var _details_open := false
 var _can_confirm := false
+var _quick_a_text := ""
 
 
 func _ready() -> void:
@@ -58,7 +59,7 @@ func _ready() -> void:
 	composer.text_changed.connect(func(_text: String) -> void: _update_send())
 	composer.text_submitted.connect(_submit)
 	send_btn.pressed.connect(func() -> void: _submit(composer.text))
-	quick_a.pressed.connect(func() -> void: _submit("Is it still available?"))
+	quick_a.pressed.connect(func() -> void: _submit(_quick_a_text))
 	quick_b.pressed.connect(func() -> void:
 		if _can_confirm:
 			_submit("Yes, that price, time and place works."))
@@ -100,8 +101,13 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	panes.visible = true
 	contact_label.text = str(listing.seller)
 	contact_label.tooltip_text = str(listing.seller)
-	role_label.text = "Buyer" if int(listing.get("owner", 0)) > 0 else "Seller"
-	subtitle_label.text = str(listing.name) + " · $%d" % int(listing.price)
+	var selling: bool = int(listing.get("owner", 0)) == Game.local_id()
+	var waiting_for_buyer: bool = selling and not listing.get("buyer_contacted", true)
+	var private_thread: bool = int(listing.get("owner", 0)) > 0 and not selling
+	var agreed_price := int(me.offers.get(selected, 0))
+	var buyer_offer := int(me.get("counters", {}).get(selected, 0)) if selling else 0
+	role_label.text = "Buyer" if selling else "Seller"
+	subtitle_label.text = str(listing.name) + (" · Your ask: $%d" if selling else " · $%d") % int(listing.price)
 	subtitle_label.tooltip_text = subtitle_label.text
 	tagline_label.text = Characters.for_listing(listing).tagline
 	spec_text.text = Catalog.spec_text(listing)
@@ -109,10 +115,12 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	schedule_label.text = str(schedule.note) + " Meets: " + ", ".join(schedule.places)
 	_show_details(_details_open)
 	var blocked := Relationships.blocked(me, listing)
-	var terminal: bool = blocked or listing.status != "available" or bool(me.ready)
-	_locked = pending or waiting or terminal
+	var terminal: bool = blocked or listing.status != "available" or bool(me.ready) or private_thread
+	_locked = pending or waiting or terminal or waiting_for_buyer
 	var has_meeting := false
-	var context_text := "No agreed price. Ask or make an offer."
+	var context_text := "No agreed price. Reply to the buyer to negotiate." if selling else "No agreed price. Ask or make an offer."
+	if selling and buyer_offer > 0 and agreed_price <= 0:
+		context_text = "Buyer offers $%d · Accept or negotiate." % buyer_offer
 	if me.meetings.has(selected):
 		var m: Dictionary = me.meetings[selected]
 		has_meeting = Game.clock() <= float(m.end)
@@ -121,14 +129,18 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 		context_text = "Agreed: $%d · Choose a time and place." % int(me.offers[selected])
 	if pending or waiting:
 		context_text = "Waiting for a reply. You can draft your next message."
+	if waiting_for_buyer:
+		context_text = "Waiting for buyer. No one has contacted you yet."
+	if private_thread:
+		context_text = "Another player's private buyer conversation."
 	if bool(me.ready):
 		context_text = "You're ready. Conversation is read-only."
 	if listing.status != "available":
 		context_text = str(listing.status).capitalize() + " · Conversation is read-only."
 	if blocked:
-		context_text = "Contact blocked trading. Try another seller."
+		context_text = "Contact blocked trading. Try another buyer." if selling else "Contact blocked trading. Try another seller."
 	context_label.text = context_text
-	meeting_host_cover.visible = not terminal
+	meeting_host_cover.visible = not terminal and not waiting_for_buyer
 	meeting_host_specs.visible = false
 	for host in [meeting_host_specs, meeting_host_cover]:
 		for c in host.get_children():
@@ -145,21 +157,34 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 		c.queue_free()
 	var messages: Array = me.chats.get(selected, [])
 	empty_log.visible = messages.is_empty()
+	empty_log.text = "Waiting for buyer. No one has contacted you yet." if waiting_for_buyer else ("Reply to the buyer about your listing." if selling else "Say hello. People won't always know the specs, and they have lives outside the marketplace.")
 	for msg: Dictionary in messages:
 		var row: HBoxContainer = MessageRowScene.instantiate()
 		log.add_child(row)
 		row.setup(msg, str(me.name))
-	composer.placeholder_text = "Read-only conversation" if terminal else "Message…"
+	composer.placeholder_text = "Read-only conversation" if terminal else ("Waiting for buyer" if waiting_for_buyer else "Message…")
 	composer.text = str(drafts.get(selected, ""))
-	composer.editable = not terminal
+	composer.editable = not terminal and not waiting_for_buyer
 	var terms_ready := int(me.offers.get(selected, 0)) > 0 and has_meeting and not terminal
 	_can_confirm = terms_ready and not _locked
 	_update_send()
-	# In the compact cover, the open time picker replaces the quick shortcuts.
-	quick_row.visible = not terminal and (unfolded or not slots)
+	_quick_a_text = ""
+	quick_a.visible = not terminal and not waiting_for_buyer and agreed_price <= 0 and (not selling or buyer_offer > 0)
+	if selling:
+		quick_a.text = "Accept $%d" % buyer_offer
+		quick_a.tooltip_text = "Accept the buyer's $%d offer" % buyer_offer
+		if quick_a.visible:
+			_quick_a_text = "Deal"
+	else:
+		quick_a.text = "Available?"
+		quick_a.tooltip_text = "Is it still available?"
+		if quick_a.visible:
+			_quick_a_text = "Is it still available?"
 	quick_a.disabled = _locked
-	quick_b.visible = terms_ready
+	quick_b.visible = terms_ready and not waiting_for_buyer
 	quick_b.disabled = not _can_confirm
+	# In the compact cover, the open time picker replaces the quick shortcuts.
+	quick_row.visible = (quick_a.visible or quick_b.visible) and (unfolded or not slots)
 	fault_clearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 

@@ -168,10 +168,20 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if _dialogs.visible:
 		return
+	var focus_owner := get_viewport().gui_get_focus_owner()
+	var editing_here := focus_owner is LineEdit or focus_owner is TextEdit
 	if event.is_action_pressed("ui_cancel"):
-		_phone_layer.hide()
-		_workspace.hide()
-		_map_layer.hide()
+		if _phone_layer.visible and _phone.release_text_focus():
+			pass # First Escape leaves text editing; another pockets the phone.
+		elif editing_here:
+			focus_owner.release_focus()
+		else:
+			_phone_layer.hide()
+			_workspace.hide()
+			_map_layer.hide()
+	elif editing_here or _phone.has_text_focus():
+		# Child SubViewport GUI handling does not consume the host's shortcuts.
+		return
 	elif event.is_action_pressed("phone"):
 		_toggle_phone()
 	elif event.is_action_pressed("town_map"):
