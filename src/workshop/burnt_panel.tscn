@@ -1,0 +1,31 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/workshop/burnt_panel.gd" id="1_burnt"]
+
+[node name="BurntPanel" type="PanelContainer" unique_id=3001]
+theme_type_variation = "CardRisk"
+script = ExtResource("1_burnt")
+
+[node name="Box" type="VBoxContainer" parent="." unique_id=3002]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="TitleLabel" type="Label" parent="Box" unique_id=3003]
+layout_mode = 2
+theme_type_variation = "Eyebrow"
+text = "BURNT OUT"
+
+[node name="ItemsLabel" type="Label" parent="Box" unique_id=3004]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="FooterLabel" type="Label" parent="Box" unique_id=3005]
+layout_mode = 2
+theme_type_variation = "Tiny"
+text = "Destroyed parts are gone for good. Buy a replacement."
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3

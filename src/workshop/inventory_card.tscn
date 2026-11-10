@@ -1,0 +1,51 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/ui/part_art.gd" id="1_partart"]
+[ext_resource type="Script" path="res://src/workshop/inventory_card.gd" id="2_inventorycard"]
+
+[node name="InventoryCard" type="PanelContainer" unique_id=2001]
+theme_type_variation = "CardTight"
+script = ExtResource("2_inventorycard")
+
+[node name="Row" type="HBoxContainer" parent="." unique_id=2002]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Art" type="Control" parent="Row" unique_id=2003]
+custom_minimum_size = Vector2(84, 58)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("1_partart")
+
+[node name="TextCol" type="VBoxContainer" parent="Row" unique_id=2004]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="NameLabel" type="Label" parent="Row/TextCol" unique_id=2005]
+layout_mode = 2
+theme_type_variation = "Mono"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="SpecLabel" type="Label" parent="Row/TextCol" unique_id=2006]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="StatusLabel" type="Label" parent="Row/TextCol" unique_id=2007]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="InstallButton" type="Button" parent="Row" unique_id=2008]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_default_cursor_shape = 2
+theme_type_variation = "PrimaryButton"
+text = "INSTALL"

@@ -4,6 +4,7 @@ const Activities = preload("res://src/world/activities.gd")
 const Art = preload("res://src/ui/art_library.gd")
 const World = preload("res://src/world/world_rules.gd")
 const Catalog = preload("res://src/data/catalog.gd")
+const K = preload("res://src/ui/ui_kit.gd")
 var has_rig := false:
 	set(value):
 		if has_rig != value:
@@ -29,21 +30,24 @@ func _art(key: String, rect: Rect2) -> void:
 
 
 func _tiles(key: String, rect: Rect2) -> void:
-	for y in range(int(rect.position.y), int(rect.end.y), 32):
-		for x in range(int(rect.position.x), int(rect.end.x), 32):
-			var extent := Vector2(minf(32, rect.end.x - x), minf(32, rect.end.y - y))
-			draw_texture_rect_region(Art.WORLD[key], Rect2(Vector2(x, y), extent), Rect2(Vector2.ZERO, extent))
+	# All floor patches share the same tile origin. Clip edge tiles rather than restarting their UVs.
+	for y in range(floori(rect.position.y / 32) * 32, ceili(rect.end.y), 32):
+		for x in range(floori(rect.position.x / 32) * 32, ceili(rect.end.x), 32):
+			var tile := Rect2(Vector2(x, y), Vector2(32, 32))
+			var visible := tile.intersection(rect)
+			if visible.has_area():
+				draw_texture_rect_region(Art.WORLD[key], visible, Rect2(visible.position - tile.position, visible.size))
 
 
 func _label(at: Vector2, text: String, color: Color = Color("30474e")) -> void:
-	draw_string(ThemeDB.fallback_font, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, color)
+	draw_string(K.world_font(), at.round(), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, color)
 
 
 func _house() -> void:
 	draw_rect(Rect2(Vector2.ZERO, World.ROOM_SIZE), Color("374650"))
 	_tiles("floor_wood_light", Rect2(18, 22, 348, 218))
-	_tiles("floor_tile_gray", Rect2(26, 28, 126, 66))
-	_tiles("floor_wood_dark", Rect2(256, 28, 96, 140))
+	_tiles("floor_tile_gray", Rect2(24, 33, 128, 63))
+	_tiles("floor_wood_dark", Rect2(256, 33, 104, 143))
 	draw_rect(Rect2(18, 16, 348, 17), Color("73838b"))
 	draw_rect(Rect2(18, 33, 6, 207), Color("9b8b75"))
 	draw_rect(Rect2(360, 33, 6, 207), Color("9b8b75"))
@@ -53,14 +57,14 @@ func _house() -> void:
 	_art("rug_b", Rect2(46, 187, 60, 48))
 	_art("window", Rect2(174, 10, 38, 38))
 	_art("window", Rect2(219, 10, 38, 38))
-	_art("bench_metal" if has_rig else "bench_wood", Rect2(30, 8, 116, 84))
+	_art("bench_metal" if has_rig else "bench_wood", World.BENCH_RECT)
 	_art("desk_metal" if has_rig else "desk_wood", Rect2(46, 124, 64, 48))
 	_art("bookshelf", Rect2(264, 20, 44, 55))
 	_art("bookshelf", Rect2(305, 20, 44, 55))
 	_art("bed", Rect2(278, 92, 58, 78))
 	_art("box", Rect2(135, 86, 42, 36))
 	_art("statue_lucky_gpu", Rect2(316, 172, 30, 42))
-	_label(Vector2(39, 22), "PC WORKBENCH", Color("fff0c2"))
+	_label(Vector2(49, 30), "PC WORKBENCH", Color("fff0c2"))
 	_label(Vector2(160, 230), "E : OUTSIDE")
 	_label(Vector2(263, 222), "LUCKY'S CORNER")
 

@@ -1,16 +1,23 @@
 # LuckyFold Duo artist handoff
 
-There are **two runtime PNGs**, already used by the device. Overwrite either file with the same dimensions and filename; Godot reimports it without code or scene edits. No separate open/closed casing, brand-text texture, button sprites or animation frames are required.
+## Casing and fold
 
-| File | Canvas | Contract |
-| --- | --- | --- |
-| `device_frame.png` | 128×128 RGBA | Shared nine-patch casing. The outer 40 pixels on each side preserve the corners; the middle stretches to fit both folded and unfolded modes. Keep transparency outside the rounded silhouette. Avoid lettering or decorative details in the stretchable center. |
-| `display_fault.png` | 1024×768 RGBA | Transparent overlay scaled to the entire inner display. The current stand-in is an opaque white/lime horizontal band from the center hinge to the right edge at y≈650, with a thin vertical column continuing to the bottom. Preserve transparent pixels everywhere else. |
+The current casing is procedural, not a stretched PNG. `src/trading/luckyfold_shell.tscn` contains the closed/open StyleBoxFlat shapes: a straight left hinge edge while closed and rounded outside corners. `src/trading/phone.tscn` contains the authored chassis/hinge polygons and captured screen faces. `phone.gd` projects solid sidewalls and beveled rims, with the stationary camera half separated from the moving cover.
 
-The display fault should resemble **failed pixel rows/columns**, with a solid illuminated stripe. It is not a spiderweb crack in the glass. The lower-right placement follows the requested reference; the current original placeholder is based on the geometry visible in [iFixit's reference photo](https://www.ifixit.com/News/119895/iphone-duo-teardown), rather than copied photo pixels. Keep the fault within x≥510, y≥648 to preserve the interaction area above it. No flicker is required.
+Both halves use one responsive scale. The open aspect follows the reference's 2670×1878 inner screen. The closed phone rests centered, shifts right, then opens to the left; closing reverses the path. Keep the live and captured endpoint silhouettes consistent when changing the casing. The old 128×128 `device_frame.png` is retained as a legacy/reference asset, but is no longer the runtime casing.
 
-The engine draws the screen backgrounds, faint hinge, controls and **LuckyFold Duo** name. The name is centered in the free space below the closed cover screen, so it must not be painted into the casing. The unfolded footer places the P / Esc hint on the left and the mood-lighting caption on the right, at the same height below the app content. The failed pixels occupy the lower-right.
+## Display-fault PNG
 
-In unfolded conversations, the message box's upper edge sits behind the horizontal stripe, with input and Send text below it. Quick replies sit above the stripe. Preserve the horizontal band's bottom at y=656 and the vertical column within x=510..516 so the typing area to its right stays readable. The footer positions are unchanged.
+`display_fault.png` is a **1024×768 RGBA** transparent overlay scaled to the inner display. Its opaque pale/lime/purple horizontal rows extend from the hinge toward the right at y≈650, with a narrow vertical column continuing downward. Preserve transparent pixels elsewhere.
 
-These PNGs are intentionally simple stand-ins. The casing can gain wear, metal and edge detail; the fault can gain subtle colored edge pixels while retaining its clean solid line. Do not rerun the temporary placeholder generator after replacing them with finished artwork.
+This represents **failed pixel rows/columns**, not a spiderweb glass crack. The original placeholder follows the geometry visible in [iFixit's reference photo](https://www.ifixit.com/News/119895/iphone-duo-teardown), not copied photo pixels. Keep the fault within x≥510, y≥648; preserve the horizontal band's bottom at y=656 and the vertical column within x=510..516. These positions are also the layout contract used to protect typing and Send text.
+
+The shader gently changes lit colours over time and briefly on presses. Dark/transparent pixels and the rest of the app remain unchanged. Do not bake flicker or animation frames into the PNG.
+
+## App and branding
+
+The engine renders screen backgrounds, controls and **LuckyFold Duo** branding. Do not paint text or button artwork into the casing. App styling lives in `resources/ui/phone_theme.tres`; the three original 24×24 SVG tab icons live under `assets/ui/phone/`.
+
+In conversations, the message box's upper edge sits behind the horizontal stripe; input and Send text sit below it and to the right of the vertical column. Quick replies stay above it. The conversation footer remains clear. Top-level app tabs occupy the bottom area instead and hide inside conversations. Preserve these interaction areas when changing artwork.
+
+See `docs/asset_provenance.md` and `docs/third_party_notices.md` for origins and the reference fold-study license. No Apple model, wallpaper, interface image or font is included.

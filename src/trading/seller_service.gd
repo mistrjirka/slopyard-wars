@@ -1,6 +1,6 @@
 extends Node
 ## Seller dialogue service proposes dialogue and negotiation decisions; the host validates and applies agreements and transactions.
-## Host/solo only. Credentials come from the environment or an ignored project-local file, never match state.
+## Host/solo only. Credentials stay local: menu input, environment or ignored config, never match state.
 
 signal reply(req_id: int, ok: bool, decision: Dictionary, error: String)
 
@@ -10,6 +10,7 @@ const Catalog = preload("res://src/data/catalog.gd")
 const URL := "https://openrouter.ai/api/v1/chat/completions"
 const MODEL := "deepseek/deepseek-v4.1-flash-1017"
 const LOCAL_CREDENTIALS := "res://.local/openrouter.cfg"
+const LOCAL_ENV := "res://.env"
 const TIMEOUT := 12.0
 const MAX_TOKENS := 400 # Short tool-call replies; reasoning is disabled to bound cost and latency.
 const MAX_CONCURRENT := 2
@@ -34,10 +35,56 @@ var _queue: Array = []
 
 func _ready() -> void:
 	_key = OS.get_environment("OPENROUTER_API_KEY").strip_edges()
+	if _key == "":
+		_key = OS.get_environment("OPENROUTER_KEY").strip_edges()
+	if _key == "":
+		_key = _local_env_key()
 	if _key == "" and FileAccess.file_exists(LOCAL_CREDENTIALS):
 		var config := ConfigFile.new()
 		if config.load(LOCAL_CREDENTIALS) == OK:
 			_key = str(config.get_value("openrouter", "api_key", "")).strip_edges()
+
+
+## Read only the credential entry, without evaluating shell expressions or changing the environment.
+func _local_env_key() -> String:
+	if not FileAccess.file_exists(LOCAL_ENV):
+		return ""
+	var file := FileAccess.open(LOCAL_ENV, FileAccess.READ)
+	if file == null:
+		return ""
+	while not file.eof_reached():
+		var line := file.get_line().strip_edges().trim_prefix("export ").strip_edges()
+		var entry := line.split("=", true, 1)
+		if entry.size() != 2 or entry[0].strip_edges() not in ["OPENROUTER_KEY", "OPENROUTER_API_KEY"]:
+			continue
+		var value := entry[1].strip_edges()
+		if value.begins_with("\"") or value.begins_with("'"):
+			var quote := value.left(1)
+			var end := value.find(quote, 1)
+			if end < 0:
+				continue
+			value = value.substr(1, end - 1)
+		else:
+			value = value.split(" #", true, 1)[0].strip_edges()
+		if value != "":
+			return value.strip_edges()
+	return ""
+
+
+## The menu prefills this runtime value; never include it in snapshots or logs.
+func get_api_key() -> String:
+	return _key
+
+
+func set_api_key(value: String) -> void:
+	var key := value.strip_edges()
+	if key == _key:
+		return
+	cancel_all()
+	_key = key
+	_fails = 0
+	_cool_until = 0.0
+	_last_error = ""
 
 
 func begin_match() -> void:

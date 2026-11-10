@@ -1,0 +1,75 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/ui/part_art.gd" id="1_partart"]
+[ext_resource type="Script" path="res://src/workshop/slot_card.gd" id="2_slotcard"]
+
+[node name="SlotCard" type="PanelContainer" unique_id=1001]
+theme_type_variation = "CardTight"
+script = ExtResource("2_slotcard")
+
+[node name="Row" type="HBoxContainer" parent="." unique_id=1002]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Art" type="Control" parent="Row" unique_id=1003]
+custom_minimum_size = Vector2(72, 50)
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("1_partart")
+
+[node name="TextCol" type="VBoxContainer" parent="Row" unique_id=1004]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 1
+
+[node name="CategoryLabel" type="Label" parent="Row/TextCol" unique_id=1005]
+layout_mode = 2
+theme_type_variation = "Eyebrow"
+
+[node name="NameLabel" type="Label" parent="Row/TextCol" unique_id=1006]
+layout_mode = 2
+theme_type_variation = "Mono"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="SpecLabel" type="Label" parent="Row/TextCol" unique_id=1007]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="OcLabel" type="Label" parent="Row/TextCol" unique_id=1008]
+layout_mode = 2
+theme_type_variation = "Tiny"
+visible = false
+
+[node name="PenaltyLabel" type="Label" parent="Row/TextCol"]
+visible = false
+layout_mode = 2
+theme_type_variation = &"Tiny"
+theme_override_colors/font_color = Color(1, 0.5411765, 0.1647059, 1)
+autowrap_mode = 3
+
+[node name="Reinstall" type="Button" parent="Row/TextCol"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_default_cursor_shape = 2
+theme_type_variation = &"GhostButton"
+theme_override_font_sizes/font_size = 11
+text = "REINSTALL"
+tooltip_text = "Retry the installation to correct paste or mounting. Physical damage remains."
+
+[node name="OkPill" type="PanelContainer" parent="Row" unique_id=1009]
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = "Pill"
+visible = false
+mouse_filter = 2
+
+[node name="L" type="Label" parent="Row/OkPill" unique_id=1010]
+layout_mode = 2
+theme_type_variation = "Tiny"
+text = "OK"

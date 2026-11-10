@@ -385,7 +385,7 @@ func _activities() -> void:
 
 func _interfaces() -> void:
 	var player := fresh()
-	var shell: Control = load("res://scenes/main.tscn").instantiate()
+	var shell: Control = load("res://src/main.tscn").instantiate()
 	game.changed.emit()
 	root_add(shell)
 	await game.get_tree().process_frame
@@ -439,7 +439,7 @@ func _interfaces() -> void:
 	await game.get_tree().process_frame
 	player = _fire_rig("luckyforce_ltx_5090", "luckycore_l9_13900l")
 	player.workshop_modifiers.lucky_tests = 1
-	var bench: Control = load("res://src/workshop/bench_view.gd").new()
+	var bench: Control = load("res://src/workshop/bench_view.tscn").instantiate()
 	confirmations.clear()
 	bench.ask = func(_title, body, _label, _action): confirmations.append(body)
 	bench._finish()

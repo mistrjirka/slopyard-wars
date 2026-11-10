@@ -17,12 +17,6 @@ var tint: Color = K.LIME
 var _drag: bool = false
 
 
-func _init() -> void:
-	custom_minimum_size = Vector2(170, 170)
-	focus_mode = Control.FOCUS_ALL
-	mouse_default_cursor_shape = Control.CURSOR_DRAG
-
-
 func set_value(v: float, emit: bool = false) -> void:
 	var nv: float = snappedf(clampf(v, min_v, max_v), 0.01)
 	if is_equal_approx(nv, value):

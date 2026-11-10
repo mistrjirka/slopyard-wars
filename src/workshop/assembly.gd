@@ -1,450 +1,818 @@
 extends Control
-## Component-specific assembly minigame. One canvas, a step list per part category.
-## Emits completed(slips) when every step is done; the caller then sends the install action.
+## A schematic assembly bench. Layout/controls are authored in assembly.tscn.
+## Physical damage is committed by the host immediately, not deferred until completion.
+signal completed(result: Dictionary)
+signal cancelled
+signal damage_requested(strike: int, reason: String)
+signal stage_changed
+
 const K = preload("res://src/ui/ui_kit.gd")
 const PartArt = preload("res://src/ui/part_art.gd")
-
-signal completed(slips: int)
-signal cancelled
-
+const Overclock = preload("res://src/workshop/overclock_rules.gd")
 const W := 780.0
-const H := 440.0
+const H := 540.0
 const CASE_RECT := Rect2(30, 40, 480, 330)
+const BOARD_RECT := Rect2(100, 65, 340, 270)
+const BOARD_TARGET := BOARD_RECT.position + BOARD_RECT.size * 0.5
 const TARGET := Vector2(270, 205)
+const MAX_STRIKES := 5
+const SCREW_RATE := 65.0
+const GPU_SAFE_SPEED := 220.0
+const PSU_TARGET := Vector2(170, 280)
+const PSU_SIZE := Vector2(240, 135)
+const PSU_HOLES: Array[Vector2] = [Vector2(-108, -45), Vector2(108, -45), Vector2(-108, 60), Vector2(108, 60)]
+# Schematic topology from ATX 2.2, Figure 2, p.10. Not a drilling template.
+# Rear I/O is at the top. mATX adds B/R/S rather than being a smaller 3x3 grid.
+const HOLES := {
+	"A": Vector2(0.05, 0.07), "B": Vector2(0.285, 0.07), "C": Vector2(0.455, 0.07),
+	"F": Vector2(0.95, 0.14), "G": Vector2(0.05, 0.65), "H": Vector2(0.455, 0.65),
+	"J": Vector2(0.95, 0.65), "K": Vector2(0.05, 0.92), "L": Vector2(0.455, 0.92),
+	"M": Vector2(0.95, 0.92), "R": Vector2(0.222, 0.65), "S": Vector2(0.285, 0.65),
+}
+const ATX_HOLES: Array[String] = ["A", "C", "F", "G", "H", "J", "K", "L", "M"]
+const MATX_HOLES: Array[String] = ["B", "C", "F", "H", "J", "L", "M", "R", "S"]
 
 var item: Dictionary = {}
-var cat: String = ""
-var steps: Array = []
-var si: int = 0
-var slips: int = 0
-var note: String = ""
-var note_err: bool = false
-var _flash: float = 0.0
-var _t: float = 0.0
-var _dragging: bool = false
+var cat := ""
+var steps: Array[Dictionary] = []
+var si := 0
+var slips := 0
+var note := ""
+var note_err := false
+var _context: Dictionary = {}
+var _standoffs: Dictionary = {}
+var _strikes := 0
+var _condition := 100
+var _expected_strike := 0
+var _pending_damage := false
+var _destroyed := false
+var _done := false
+var _committed := false
+var _board_fault := false
+var _paste_amount := 0.0
+var _paste_spots: Array[Vector2] = []
+var _worst_pressure_spread := 0.0
+var _held_paste := false
+var _held_screw := -1
+var _screw_direction := 0.0
+var _dragging := false
 var _grab := Vector2.ZERO
 var _mouse := Vector2.ZERO
-var _cable: int = -1
-var _done: bool = false
+var _last_motion_us := 0
+var _drag_speed := 0.0
+var _flash := 0.0
+var _t := 0.0
+
+@onready var _primary: Button = $Actions/Primary
+@onready var _secondary: Button = $Actions/Secondary
+@onready var _retry: Button = $Actions/Retry
+@onready var _hint: Label = $Hint
+@onready var _penalties: Label = $Penalties
 
 
-func _init() -> void:
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	custom_minimum_size = Vector2(W, H)
-	focus_mode = Control.FOCUS_ALL
-	clip_contents = true
+func begin(part: Dictionary, context: Dictionary = {}) -> void:
+	item = part.duplicate(true)
+	_context = context.duplicate(true)
+	cat = str(item.get("category", ""))
+	_strikes = int(item.get("assembly_strikes", 0))
+	_condition = int(item.get("condition", 100))
+	_reset_attempt()
+	grab_focus()
 
 
-func begin(it: Dictionary) -> void:
-	item = it
-	cat = String(it.get("category", ""))
-	steps = _build()
+func synchronize(part: Dictionary) -> void:
+	item = part.duplicate(true)
+	_strikes = int(item.get("assembly_strikes", 0))
+	_condition = int(item.get("condition", 100))
+	if _pending_damage and _strikes >= _expected_strike:
+		_pending_damage = false
+	_refresh_controls()
+
+
+func has_pending_fatal_damage() -> bool:
+	return _expected_strike >= MAX_STRIKES or _strikes >= MAX_STRIKES
+
+
+func mark_destroyed() -> void:
+	_destroyed = true
+	_pending_damage = false
+	_strikes = MAX_STRIKES
+	_stop_holding()
+	note = "DO: Close installation and replace this destroyed part.\nDON'T: Retry; five damage strikes are permanent."
+	note_err = true
+	_refresh_controls()
+
+
+func rotation_available() -> bool:
+	return not _done and not _destroyed and not steps.is_empty() and int(steps[si].get("inc", 0)) > 0
+
+
+func _reset_attempt() -> void:
 	si = 0
 	slips = 0
 	_done = false
-	_dragging = false
-	_cable = -1
+	_committed = false
+	_board_fault = false
+	_paste_amount = 0.0
+	_paste_spots.clear()
+	_worst_pressure_spread = 0.0
+	_standoffs.clear()
+	_stop_holding()
+	steps = _build()
 	_enter()
-	grab_focus()
-
-# ------------------------------------------------------------------ step builders
 
 
-func _clk(p: Vector2, n: int = 1, r: float = 15.0, decoy: bool = false) -> Dictionary:
-	return {"p": p, "n": n, "c": 0, "r": r, "decoy": decoy}
+func _clk(pos: Vector2, count: int = 1, radius: float = 15.0) -> Dictionary:
+	return {"p": pos, "n": count, "c": 0.0, "r": radius, "damaged": false}
 
 
-func _clicks(title: String, hint: String, pts: Array, style: String = "screw") -> Dictionary:
-	return {"kind": "clicks", "title": title, "hint": hint, "pts": pts, "style": style}
+func _clicks(title: String, hint: String, points: Array, style: String = "tighten") -> Dictionary:
+	if style == "loosen":
+		for point: Dictionary in points:
+			point.c = 100.0
+	return {"kind": "clicks", "title": title, "hint": hint, "pts": points, "style": style}
 
 
-func _drag(title: String, hint: String, start: Vector2, target: Vector2, scale: float, inc: int, tol: float = 26.0, fail: String = "") -> Dictionary:
-	var rot := 0
-	if inc > 0:
-		rot = inc if inc != 1 else [1, 2, 3][randi() % 3]
-	return {"kind": "drag", "title": title, "hint": hint, "pos": start, "start": start, "target": target,
-		"scale": scale, "inc": inc, "rot": rot, "tol": tol, "fail": fail}
+func _drag(title: String, hint: String, start: Vector2, target: Vector2, scale: float,
+		rotation_step: int = 0, part: String = "") -> Dictionary:
+	return {"kind": "drag", "title": title, "hint": hint, "pos": start, "target": target,
+		"scale": scale, "inc": rotation_step, "rot": rotation_step if rotation_step > 0 else 0,
+		"tol": 25.0, "part": part}
 
 
-func _cables(title: String, hint: String, list: Array) -> Dictionary:
-	return {"kind": "cables", "title": title, "hint": hint, "list": list}
+func _hole_ids() -> Array[String]:
+	return MATX_HOLES if str(item.get("form", "ATX")) == "mATX" else ATX_HOLES
 
 
-func _holes() -> Array:
-	var xs := [-70.0, 0.0, 70.0]
-	var ys: Array = [-70.0, 0.0, 70.0] if String(item.get("form", "ATX")) == "ATX" else [-45.0, 45.0]
-	var out: Array = []
-	for y in ys:
-		for x in xs:
-			out.append(TARGET + Vector2(x, y))
-	return out
+func _hole_pos(id: String) -> Vector2:
+	return BOARD_RECT.position + Vector2(HOLES[id]) * BOARD_RECT.size
 
 
-func _corner_pts(c: Vector2, hx: float, hy: float) -> Array:
-	return [_clk(c + Vector2(-hx, -hy)), _clk(c + Vector2(hx, -hy)), _clk(c + Vector2(-hx, hy)), _clk(c + Vector2(hx, hy))]
+func _board_pcb_rect(rect: Rect2) -> Rect2:
+	if str(item.get("form", "ATX")) == "mATX":
+		rect.position.x += rect.size.x * 0.19
+		rect.size.x *= 0.81
+	return rect
 
 
-func _build() -> Array:
+func _corner_points(center: Vector2, hx: float, hy: float) -> Array:
+	return [_clk(center + Vector2(-hx, -hy)), _clk(center + Vector2(hx, -hy)),
+		_clk(center + Vector2(-hx, hy)), _clk(center + Vector2(hx, hy))]
+
+
+func _build() -> Array[Dictionary]:
 	match cat:
 		"case":
-			var pts: Array = []
-			for h in _holes():
-				pts.append(_clk(h, 1, 13.0))
-			pts.append(_clk(Vector2(80, 90), 1, 13.0, true))
-			pts.append(_clk(Vector2(460, 330), 1, 13.0, true))
-			return [
-				_clicks("1/2  MOUNT STANDOFFS", "Click every glowing hole to screw in a brass standoff (%s case: %d). Dim spots are wrong - skip them." % [String(item.get("form", "ATX")), _holes().size()], pts, "standoff"),
-				_clicks("2/2  CLOSE THE SIDE PANEL", "Tighten the four thumbscrews at the panel corners.", _corner_pts(CASE_RECT.get_center(), 218, 148)),
-			]
+			return [_drag("1/2  SET THE CASE ON THE BENCH", "DO: Drag the case onto the outline.\nDON'T: Add standoffs yet; choose the motherboard first.", Vector2(650, 220), TARGET, 2.0),
+				_clicks("2/2  OPEN THE SIDE PANEL", "DO: Hold right mouse on each panel screw to reach 0%.\nDON'T: Leave screws in. Metal case screws cannot cause damage.", _corner_points(TARGET, 185, 115), "loosen")]
 		"motherboard":
-			return [
-				_drag("1/2  SET THE BOARD", "Drag the motherboard from the bench onto the brass standoffs in the case tray.", Vector2(650, 230), TARGET, 2.6, 0, 30.0),
-				_clicks("2/2  SCREW IT DOWN", "Drive a screw into each board corner.", _corner_pts(TARGET, 78, 74)),
-			]
+			var points: Array = []
+			for id in _hole_ids():
+				points.append(_clk(_hole_pos(id), 1, 11.0))
+			return [{"kind": "standoffs", "title": "1/4  MATCH THE STANDOFFS", "hint": "DO: Match letters; click holes to add/remove supports.\nDON'T: Support solid PCB. Extras outside the PCB are safe."},
+				_drag("2/4  LOWER THE MOTHERBOARD", "DO: Match letters; keep blue REAR I/O edges at top.\nDON'T: Put supports under solid PCB; outside extras are safe.", Vector2(645, 220), BOARD_TARGET, 2.6, 0, "board"),
+				{"kind": "board_check", "title": "3/4  CHECK SUPPORTS", "hint": "DO: Lift Board to correct missing or solid-PCB supports.\nDON'T: Force past 50% over extras: damage. Outside PCB is safe."},
+				_clicks("4/4  FASTEN THE BOARD", "DO: Hold left mouse to tighten, right to loosen. Safe: 100–150%.\nDON'T: Force PCB extras past 50%: back out, lift, remove extras.", points)]
 		"cpu":
-			return [
-				_clicks("1/5  RELEASE THE SOCKET LEVER", "Click the lever end to lift it open.", [_clk(Vector2(440, 245), 1, 20.0)], "lever"),
-				_drag("2/5  SEAT THE CPU", "Match the gold triangle on the CPU with the triangle on the socket corner (top-left). Rotate with R / E, right-click or mouse wheel, then drag it into the socket.", Vector2(650, 240), Vector2(270, 205), 2.2, 1, 24.0, "The gold triangle must sit on the socket's triangle (top-left). Rotate with R."),
-				_clicks("3/5  LOCK THE LEVER", "Click the raised lever to clamp the CPU.", [_clk(Vector2(338, 150), 1, 20.0)], "lever"),
-				_clicks("4/5  THERMAL PASTE", "Click the centre of the CPU to drop a pea of paste.", [_clk(Vector2(270, 205), 1, 22.0)], "paste"),
-				_clicks("5/5  MOUNT THE COOLER", "Tighten the four cooler screws.", _corner_pts(Vector2(270, 205), 88, 88)),
-			]
+			return [_clicks("1/6  RELEASE THE SOCKET", "DO: Click the retention lever to open the socket.\nDON'T: Force the CPU into a locked socket.", [_clk(Vector2(440, 245), 1, 20)], "lever"),
+				_drag("2/6  SEAT THE CPU", "DO: R / right-click to rotate; match the gold corner triangle.\nDON'T: Lock the socket until the CPU is seated flat.", Vector2(650, 230), TARGET, 1.6, 1),
+				_clicks("3/6  LOCK THE SOCKET", "DO: Click the retention lever to secure the seated CPU.\nDON'T: Leave the socket unlocked before fitting the cooler.", [_clk(Vector2(338, 150), 1, 20)], "lever"),
+				{"kind": "paste", "title": "4/6  APPLY THERMAL PASTE", "hint": "DO: Hold left mouse on CPU for paste; 100% is enough.\nDON'T: Use too little: up to 50% performance loss. Extra is harmless."},
+				_drag("5/6  PLACE THE COOLER", "DO: Drag the supplied cooler squarely onto the CPU.\nDON'T: Skip paste; the cooler is already bundled with the CPU.", Vector2(650, 230), TARGET, 1.0, 0, "cooler"),
+				_clicks("6/6  TIGHTEN EVENLY", "DO: Hold left mouse to tighten, right to loosen; alternate corners.\nDON'T: Finish one first or exceed 150% (damage). Safe: 100–150%.", _corner_points(TARGET, 88, 88), "cooler")]
 		"gpu":
-			return [
-				_clicks("1/4  OPEN THE SLOT LATCH", "Click the PCIe latch at the end of the x16 slot.", [_clk(Vector2(458, 310), 1, 18.0)], "lever"),
-				_drag("2/4  SLIDE IN THE CARD", "Drag the graphics card down so the gold fingers drop into the x16 slot.", Vector2(630, 110), Vector2(250, 268), 2.6, 0, 26.0),
-				_clicks("3/4  CLOSE THE LATCH", "Click the latch again to lock the card.", [_clk(Vector2(458, 310), 1, 18.0)], "lever"),
-				_clicks("4/4  BRACKET SCREWS", "Secure the card bracket with the two screws on the left.", [_clk(Vector2(128, 235)), _clk(Vector2(128, 300))]),
-			]
+			return [_clicks("1/3  OPEN THE PCIe LATCH", "DO: Click the latch at the end of the PCIe slot.\nDON'T: Insert the GPU while the latch is closed.", [_clk(Vector2(458, 310), 1, 18)], "lever"),
+				{"kind": "gpu_drag", "title": "2/3  LOWER THE GRAPHICS CARD GENTLY", "hint": "DO: Align the gold connector with the slot; drag gently down.\nDON'T: Hit the slot fast; impact damages the GPU.", "pos": Vector2(250, 120), "target": Vector2(250, 268), "scale": 2.6, "inc": 0, "rot": 0, "tol": 24.0, "part": "gpu"},
+				_clicks("3/3  SECURE THE CASE BRACKET", "DO: Hold left mouse on bracket screws to reach at least 100%.\nDON'T: Leave the bracket loose. Metal screws cannot cause damage.", [_clk(Vector2(92, 210)), _clk(Vector2(92, 270))])]
 		"ram":
-			return [
-				_clicks("1/3  OPEN THE CLIPS", "Click both retention clips at the ends of the DIMM slot.", [_clk(Vector2(118, 313), 1, 18.0), _clk(Vector2(562, 313), 1, 18.0)], "lever"),
-				_drag("2/3  ALIGN THE NOTCH", "The stick's notch must sit over the slot key (bottom centre). Flip it with R / E or right-click, then drag it onto the slot.", Vector2(390, 110), Vector2(340, 263), 3.6, 2, 26.0, "Notch is on the wrong side - flip the stick with R."),
-				_clicks("3/3  PRESS DOWN", "Press both ends firmly: click each end 3 times until the clips snap shut.", [_clk(Vector2(200, 258), 3, 20.0), _clk(Vector2(480, 258), 3, 20.0)], "press"),
-			]
+			return [_clicks("1/3  OPEN THE CLIPS", "DO: Click both DIMM retention clips to open them.\nDON'T: Insert the RAM while the clips are closed.", [_clk(Vector2(118, 313), 1, 18), _clk(Vector2(562, 313), 1, 18)], "lever"),
+				_drag("2/3  ALIGN THE NOTCH", "DO: Match the notch to the slot key; R / right-click flips RAM.\nDON'T: Force the stick in backwards.", Vector2(390, 110), Vector2(340, 263), 3.6, 2),
+				_clicks("3/3  PRESS BOTH ENDS", "DO: Click each end three times to close both clips.\nDON'T: Leave one end unseated.", [_clk(Vector2(200, 258), 3, 20), _clk(Vector2(480, 258), 3, 20)], "press")]
 		"psu":
-			return [
-				_drag("1/3  SLIDE THE PSU INTO ITS BAY", "Drag the power supply into the bottom bay.", Vector2(660, 330), Vector2(170, 320), 2.6, 0, 30.0),
-				_clicks("2/3  FASTEN THE BRACKET", "Four rear screws hold it in.", [_clk(Vector2(62, 276)), _clk(Vector2(278, 276)), _clk(Vector2(62, 376)), _clk(Vector2(278, 376))]),
-				_cables("3/3  PLUG IN THE CABLES", "Drag each coloured lead from the PSU to the matching colour socket.", [
-					{"from": Vector2(292, 291), "to": Vector2(440, 90), "col": Color(1, 0.8, 0.3), "label": "CPU 8-PIN", "done": false},
-					{"from": Vector2(292, 315), "to": Vector2(440, 170), "col": Color(1, 0.4, 0.2), "label": "24-PIN BOARD", "done": false},
-					{"from": Vector2(292, 338), "to": Vector2(440, 250), "col": Color(0.4, 0.8, 1), "label": "PCIe / SATA", "done": false}]),
-			]
+			var points: Array = []
+			for hole in PSU_HOLES:
+				points.append(_clk(PSU_TARGET + hole))
+			return [_drag("1/2  ALIGN THE POWER SUPPLY", "DO: Drag the PSU to align all four rear holes with the case.\nDON'T: Leave a mounting hole out of line.", Vector2(650, 180), PSU_TARGET, 1.0, 0, "psu"),
+				_clicks("2/2  FASTEN TO THE CASE", "DO: Hold left mouse on all four PSU screws to reach 100%.\nDON'T: Leave screws loose. Metal screws cannot cause damage.", points)]
 		"storage":
-			return [
-				_drag("1/3  SLIDE THE DRIVE INTO THE BAY", "Drag the drive onto the bay rails.", Vector2(650, 230), Vector2(375, 205), 3.0, 0, 30.0),
-				_clicks("2/3  SCREW IT TO THE RAILS", "Four screws hold the drive in the cage.", [_clk(Vector2(262, 112)), _clk(Vector2(488, 112)), _clk(Vector2(262, 298)), _clk(Vector2(488, 298))]),
-				_cables("3/3  CONNECT DATA + POWER", "Drag the cyan SATA data lead and the orange power lead onto the matching drive ports.", [
-					{"from": Vector2(70, 130), "to": Vector2(292, 170), "col": Color(0.4, 0.88, 0.95), "label": "SATA DATA", "done": false},
-					{"from": Vector2(70, 210), "to": Vector2(292, 240), "col": Color(1, 0.55, 0.17), "label": "SATA POWER", "done": false}]),
-			]
-	return [_clicks("1/1  INSTALL", "Click the marker to install.", [_clk(Vector2(390, 220), 1, 22.0)], "press")]
-
-# ------------------------------------------------------------------ flow
+			return [_drag("1/2  ALIGN THE DRIVE", "DO: Drag the drive onto its mounting rails.\nDON'T: Leave the drive outside the outline.", Vector2(650, 230), Vector2(375, 205), 2.5),
+				_clicks("2/2  SECURE THE DRIVE", "DO: Hold left mouse to tighten, right to loosen. Safe: 100–150%.\nDON'T: Exceed 150%; overtightening damages the drive.", [_clk(Vector2(262, 112)), _clk(Vector2(488, 112)), _clk(Vector2(262, 298)), _clk(Vector2(488, 298))])]
+	return []
 
 
 func _enter() -> void:
+	_stop_holding()
 	if si < steps.size():
-		note = String(steps[si].hint)
+		note = str(steps[si].hint)
 		note_err = false
+	_refresh_controls()
+	stage_changed.emit()
 
 
-func _slip(msg: String) -> void:
-	slips += 1
-	_flash = 0.45
-	note = msg
-	note_err = true
+func _stop_holding() -> void:
+	_held_screw = -1
+	_screw_direction = 0.0
+	_held_paste = false
+	_dragging = false
 
 
 func _advance() -> void:
 	si += 1
 	if si >= steps.size():
 		_done = true
-		note = "Seated and secured."
+		note = "DO: Review penalties below, then Install / Apply Reinstallation.\nDON'T: Expect damage to reset. Retry improves installation quality."
 		note_err = false
-		await get_tree().create_timer(0.9).timeout
-		completed.emit(slips)
+		_stop_holding()
+		_refresh_controls()
+		stage_changed.emit()
 	else:
 		_enter()
 
 
-func _gui_input(e: InputEvent) -> void:
-	if _done:
+func _request_damage(reason: String, message: String) -> void:
+	if _pending_damage or _destroyed:
 		return
-	var st: Dictionary = steps[si]
-	if e is InputEventMouseMotion:
-		_mouse = (e as InputEventMouseMotion).position
-		if _dragging and st.kind == "drag":
-			st.pos = (_mouse - _grab).clamp(Vector2(60, 60), Vector2(W - 20, H - 60))
-	elif e is InputEventMouseButton:
-		var mb := e as InputEventMouseButton
-		_mouse = mb.position
-		if mb.button_index == MOUSE_BUTTON_LEFT:
-			if mb.pressed:
-				_press(st)
+	slips += 1
+	_expected_strike = _strikes + 1
+	_pending_damage = true
+	_flash = 0.5
+	_stop_holding()
+	note = message
+	note_err = true
+	damage_requested.emit(_expected_strike, reason)
+	_refresh_controls()
+
+
+func _mount_quality() -> float:
+	return 1.0 - clampf((_worst_pressure_spread - 40.0) / 60.0, 0.0, 1.0)
+
+
+func _preview() -> Dictionary:
+	var modifiers: Dictionary = _context.get("modifiers", {}).duplicate(true)
+	modifiers["cpu_mount_quality"] = _mount_quality()
+	modifiers["cpu_paste_amount"] = minf(1.0, _paste_amount)
+	return Overclock.evaluate(item, 1.0, 1.0, _context.get("installed", {}), modifiers)
+
+
+func _screw_style(step: Dictionary) -> bool:
+	return step.get("kind") == "clicks" and step.get("style") in ["tighten", "cooler", "loosen"]
+
+
+func _sensitive_screws() -> bool:
+	return cat in ["motherboard", "cpu", "storage"]
+
+
+func _all_seated(step: Dictionary) -> bool:
+	if step.get("style") == "loosen":
+		return _all_backed_out(step)
+	for point: Dictionary in step.pts:
+		if float(point.c) < 100.0 or (_sensitive_screws() and float(point.c) > 150.0):
+			return false
+	return true
+
+
+func _all_backed_out(step: Dictionary) -> bool:
+	for point: Dictionary in step.pts:
+		if float(point.c) > 0.0:
+			return false
+	return true
+
+
+func _missing_holes() -> Array[String]:
+	var result: Array[String] = []
+	for id in _hole_ids():
+		if not bool(_standoffs.get(id, false)):
+			result.append(id)
+	return result
+
+
+func _extra_holes() -> Array[String]:
+	var result: Array[String] = []
+	for id: String in _standoffs:
+		if bool(_standoffs[id]) and id not in _hole_ids() and _board_pcb_rect(BOARD_RECT).has_point(_hole_pos(id)):
+			result.append(id)
+	return result
+
+
+func _primary_pressed() -> void:
+	if _pending_damage or _destroyed or _committed:
+		return
+	if _done:
+		_committed = true
+		completed.emit({"slips": slips, "mount_quality": _mount_quality(), "paste_amount": _paste_amount})
+		return
+	var step: Dictionary = steps[si]
+	if step.kind == "board_check":
+		if not _extra_holes().is_empty():
+			_advance()
+			return
+		if not _missing_holes().is_empty():
+			note = "DO: Lift Board and add the missing supports marked red.\nDON'T: Start fastening with unsupported holes."
+			note_err = true
+			return
+	elif _screw_style(step) and (not _all_seated(step) or _board_fault or (cat == "motherboard" and not _missing_holes().is_empty())):
+		return
+	_advance()
+
+
+func _secondary_pressed() -> void:
+	if _pending_damage or _destroyed or _done:
+		return
+	var step: Dictionary = steps[si]
+	if step.kind == "paste":
+		_paste_amount = 0.0
+		_paste_spots.clear()
+	elif cat == "motherboard" and si >= 2:
+		if _screw_style(step) and not _all_backed_out(step):
+			note = "DO: Hold right mouse: back every started screw out to 0%.\nDON'T: Lift the board until all screws are out."
+			note_err = true
+			return
+		_board_fault = false
+		si = 0
+		steps[1].pos = Vector2(645, 220)
+		for point: Dictionary in steps[3].pts:
+			point.c = 0.0
+			point.damaged = false
+		_enter()
+	_refresh_controls()
+
+
+func _retry_requires_backout() -> bool:
+	return cat == "motherboard" and _board_fault and not _all_backed_out(steps[3])
+
+
+func _retry_pressed() -> void:
+	if not _pending_damage and not _destroyed and not _committed and not _retry_requires_backout():
+		_reset_attempt()
+
+
+func _refresh_controls() -> void:
+	if not is_node_ready():
+		return
+	_hint.text = note
+	_hint.add_theme_font_override("font", K.body())
+	_hint.add_theme_color_override("font_color", K.DANGER if note_err else K.CREAM)
+	var status := "Damage %d/%d · condition %d/100" % [_strikes, MAX_STRIKES, _condition]
+	var paste_stage_reached := cat == "cpu" and si >= 3
+	if paste_stage_reached:
+		var preview := _preview()
+		var paste_loss := roundi((1.0 - float(preview.paste_multiplier)) * 100)
+		status += "\nAfter install: paste " + ("has no penalty" if paste_loss == 0 else "−%d%% CPU performance" % paste_loss)
+		if _done or steps[si].get("style") == "cooler":
+			var mount_loss := roundi((1.0 - float(preview.mount_headroom_multiplier)) * 100)
+			status += " · mount " + ("has no penalty" if mount_loss == 0 else "−%d%% OC headroom, +%.0f°C" % [mount_loss, float(preview.mount_temperature_penalty)])
+	if _pending_damage:
+		status += " · waiting for host confirmation"
+	_penalties.text = status
+	var penalty_active := _strikes > 0 or (paste_stage_reached and (_paste_amount < 1.0 or _mount_quality() < 0.999))
+	_penalties.add_theme_color_override("font_color", K.ORANGE if penalty_active else K.MUTED)
+	var blocked := _pending_damage or _destroyed or _committed
+	var primary_visible := _done and not _destroyed
+	var primary_disabled := blocked
+	var primary_text := "APPLY REINSTALLATION" if _context.get("reinstall", false) else "INSTALL"
+	var secondary_visible := false
+	var secondary_disabled := blocked
+	var secondary_text := ""
+	if not _done and not _destroyed and not steps.is_empty():
+		var step: Dictionary = steps[si]
+		primary_visible = step.kind in ["standoffs", "board_check", "paste"] or _screw_style(step)
+		if step.kind == "standoffs":
+			primary_text = "LOWER BOARD"
+		elif step.kind == "board_check":
+			primary_text = "START SCREWS"
+		elif step.kind == "paste":
+			primary_text = "FIT COOLER · PASTE %d%%" % roundi(minf(_paste_amount, 1.0) * 100)
+			secondary_visible = true
+			secondary_text = "CLEAR PASTE"
+		elif _screw_style(step):
+			primary_text = "CONTINUE"
+			primary_disabled = blocked or not _all_seated(step) or _board_fault or (cat == "motherboard" and not _missing_holes().is_empty())
+		if cat == "motherboard" and si >= 2:
+			secondary_visible = true
+			secondary_text = "LIFT BOARD"
+			secondary_disabled = blocked or (_screw_style(step) and not _all_backed_out(step))
+	# Apply each final state once: hiding/re-showing a button every frame cancels clicks.
+	_primary.visible = primary_visible
+	_primary.disabled = primary_disabled
+	_primary.text = primary_text
+	_secondary.visible = secondary_visible
+	_secondary.disabled = secondary_disabled
+	_secondary.text = secondary_text
+	_retry.visible = not _destroyed and not _committed
+	_retry.disabled = blocked or _retry_requires_backout()
+
+
+func _gui_input(event: InputEvent) -> void:
+	if _destroyed or _pending_damage or _done or steps.is_empty():
+		return
+	var step: Dictionary = steps[si]
+	if event is InputEventMouseMotion:
+		_mouse = event.position
+		if _dragging:
+			var now := Time.get_ticks_usec()
+			var elapsed := maxf(0.001, float(now - _last_motion_us) / 1000000.0)
+			_last_motion_us = now
+			var previous: Vector2 = step.pos
+			step.pos = (_mouse - _grab).clamp(Vector2(45, 65), Vector2(W - 45, 380))
+			_drag_speed = Vector2(step.pos).distance_to(previous) / elapsed
+			if step.kind == "gpu_drag" and previous.y < step.target.y and step.pos.y >= step.target.y:
+				if absf(step.pos.x - step.target.x) <= float(step.tol):
+					_seat_gpu(step, _drag_speed)
+				else:
+					step.pos.y = step.target.y - 8.0
+	elif event is InputEventMouseButton:
+		_mouse = event.position
+		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+			if event.pressed:
+				_press(step, event.button_index == MOUSE_BUTTON_RIGHT)
 			else:
-				_release(st)
-		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_RIGHT or mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN):
-			_rotate(st)
+				_release(step)
+		elif event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			_rotate(step)
 		accept_event()
-	elif e is InputEventKey and (e as InputEventKey).pressed and not (e as InputEventKey).echo:
-		var kc: Key = (e as InputEventKey).keycode
-		if kc == KEY_R or kc == KEY_E or kc == KEY_Q:
-			_rotate(st)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode in [KEY_R, KEY_Q, KEY_E]:
+			_rotate(step)
 			accept_event()
-		elif kc == KEY_ESCAPE:
+		elif event.keycode == KEY_ESCAPE:
 			cancelled.emit()
 			accept_event()
+	_refresh_controls()
 	queue_redraw()
 
 
+func _press(step: Dictionary, right: bool) -> void:
+	if _screw_style(step):
+		if cat == "motherboard" and _board_fault and not right:
+			return
+		for i in step.pts.size():
+			if _mouse.distance_to(step.pts[i].p) <= 18.0:
+				_held_screw = i
+				_screw_direction = -1.0 if right else 1.0
+				return
+	elif right:
+		_rotate(step)
+	elif step.kind == "standoffs":
+		for id: String in HOLES:
+			if _mouse.distance_to(_hole_pos(id)) <= 9.0:
+				_standoffs[id] = not bool(_standoffs.get(id, false))
+				return
+	elif step.kind == "paste":
+		_held_paste = Rect2(TARGET - Vector2(58, 58), Vector2(116, 116)).has_point(_mouse)
+	elif step.kind == "clicks":
+		for point: Dictionary in step.pts:
+			if float(point.c) < float(point.n) and _mouse.distance_to(point.p) <= float(point.r) + 4:
+				point.c = float(point.c) + 1.0
+				for other: Dictionary in step.pts:
+					if float(other.c) < float(other.n):
+						return
+				_advance()
+				return
+	elif step.kind in ["drag", "gpu_drag"]:
+		var half := _part_size(step) * 0.5 + Vector2(8, 8)
+		if Rect2(Vector2(step.pos) - half, half * 2).has_point(_mouse):
+			_dragging = true
+			_grab = _mouse - Vector2(step.pos)
+			_last_motion_us = Time.get_ticks_usec()
+			_drag_speed = 0.0
+
+
+func _part_size(step: Dictionary, at_target: bool = false) -> Vector2:
+	if step.get("part") == "board":
+		return BOARD_RECT.size * (1.0 if at_target or Vector2(step.pos).distance_to(BOARD_TARGET) < 30 else 0.57)
+	if step.get("part") == "cooler":
+		return Vector2(176, 176)
+	if step.kind == "gpu_drag":
+		return Vector2(310, 120)
+	if step.get("part") == "psu":
+		return PSU_SIZE * (1.0 if at_target or Vector2(step.pos).distance_to(PSU_TARGET) < 30 else 0.8)
+	var extent := PartArt.drawing_size(cat, item, float(step.scale))
+	return Vector2(extent.y, extent.x) if int(step.rot) % 2 != 0 else extent
+
+
+func _release(step: Dictionary) -> void:
+	_held_screw = -1
+	_held_paste = false
+	if not _dragging:
+		return
+	_dragging = false
+	if Vector2(step.pos).distance_to(step.target) <= float(step.tol):
+		if int(step.inc) > 0 and int(step.rot) % 4 != 0:
+			note = "DO: R / right-click to match the gold triangle or notch.\nDON'T: Seat the part in this orientation."
+			note_err = true
+			return
+		if step.kind == "gpu_drag":
+			var age := float(Time.get_ticks_usec() - _last_motion_us) / 1000000.0
+			_seat_gpu(step, _drag_speed if age < 0.18 else 0.0)
+		else:
+			step.pos = step.target
+			_advance()
+
+
+func _seat_gpu(step: Dictionary, speed: float) -> void:
+	_dragging = false
+	if speed > GPU_SAFE_SPEED:
+		step.pos = Vector2(step.target) - Vector2(0, 100)
+		_request_damage("gpu_impact", "DO: Try again; align the connector and lower gently.\nDON'T: Hit the slot fast. One permanent damage strike added.")
+	else:
+		step.pos = step.target
+		_advance()
+
+
 func rotate_current() -> void:
-	if not _done and si < steps.size():
+	if rotation_available() and not _pending_damage:
 		_rotate(steps[si])
 		queue_redraw()
 
 
-func _rotate(st: Dictionary) -> void:
-	if st.kind == "drag" and int(st.inc) > 0:
-		st.rot = (int(st.rot) + int(st.inc)) % 4
-
-
-func _press(st: Dictionary) -> void:
-	match String(st.kind):
-		"clicks":
-			var pts: Array = st.pts
-			for i in range(pts.size() - 1, -1, -1):
-				var pt: Dictionary = pts[i]
-				if int(pt.c) >= int(pt.n):
-					continue
-				if _mouse.distance_to(pt.p) <= float(pt.r) + 4.0:
-					if pt.decoy:
-						_slip("That is not a standoff position - use only the glowing holes.")
-						return
-					pt.c = int(pt.c) + 1
-					note = String(st.hint)
-					note_err = false
-					for q in pts:
-						if not q.decoy and int(q.c) < int(q.n):
-							return
-					_advance()
-					return
-		"drag":
-			var half: float = 50.0 * float(st.scale) * 0.8
-			if _mouse.distance_to(st.pos) <= half:
-				_dragging = true
-				_grab = _mouse - Vector2(st.pos)
-		"cables":
-			var list: Array = st.list
-			for i in list.size():
-				if not list[i].done and _mouse.distance_to(list[i].from) <= 20.0:
-					_cable = i
-					return
-
-
-func _release(st: Dictionary) -> void:
-	if st.kind == "drag" and _dragging:
-		_dragging = false
-		var d: float = Vector2(st.pos).distance_to(st.target)
-		if d <= float(st.tol):
-			if int(st.inc) > 0 and int(st.rot) % 4 != 0:
-				_slip(String(st.fail))
-				return
-			st.pos = st.target
-			_advance()
-		elif d <= float(st.tol) * 3.0:
-			_slip("Not quite lined up - nudge it onto the ghost outline.")
-	elif st.kind == "cables" and _cable >= 0:
-		var list: Array = st.list
-		var c: Dictionary = list[_cable]
-		_cable = -1
-		if _mouse.distance_to(c.to) <= 24.0:
-			c.done = true
-			note = String(st.hint)
-			note_err = false
-			for o in list:
-				if not o.done:
-					return
-			_advance()
-			return
-		for o in list:
-			if o != c and not o.done and _mouse.distance_to(o.to) <= 24.0:
-				_slip("Wrong socket - %s belongs on the %s socket (match the colour)." % [String(c.label), String(c.label)])
-				break
+func _rotate(step: Dictionary) -> void:
+	if int(step.get("inc", 0)) > 0:
+		step.rot = (int(step.rot) + int(step.inc)) % 4
 
 
 func _process(delta: float) -> void:
 	_t += delta
-	_flash = maxf(0.0, _flash - delta)
-	if is_visible_in_tree():
+	_flash = maxf(0, _flash - delta)
+	if not is_visible_in_tree() or _done or _destroyed or _pending_damage or steps.is_empty():
 		queue_redraw()
+		return
+	var step: Dictionary = steps[si]
+	if _held_paste:
+		var cpu_rect := Rect2(TARGET - Vector2(58, 58), Vector2(116, 116))
+		if cpu_rect.has_point(_mouse):
+			_paste_amount = minf(3.0, _paste_amount + delta * 0.6)
+			if _paste_spots.size() < 128 and (_paste_spots.is_empty() or _paste_spots[-1].distance_to(_mouse) > 10):
+				_paste_spots.append(_mouse)
+	if _held_screw >= 0 and _screw_style(step):
+		var point: Dictionary = step.pts[_held_screw]
+		if _mouse.distance_to(point.p) > 24:
+			_held_screw = -1
+			_screw_direction = 0.0
+		var next_tightness := clampf(float(point.c) + _screw_direction * SCREW_RATE * delta, 0, 200)
+		if cat == "motherboard" and _screw_direction > 0.0:
+			if _board_fault:
+				_stop_holding()
+				_refresh_controls()
+				queue_redraw()
+				return
+			if next_tightness > 50.0 and not _extra_holes().is_empty():
+				point.c = 50.0
+				_board_fault = true
+				_request_damage("extra_standoff", "DO: Hold right mouse: all screws to 0%; Lift Board, remove red extras.\nDON'T: Tighten past 50% resistance. One permanent damage strike.")
+				queue_redraw()
+				return
+		point.c = next_tightness
+		if float(point.c) < 145:
+			point.damaged = false
+		if step.style == "cooler":
+			var low := 200.0
+			var high := 0.0
+			for screw: Dictionary in step.pts:
+				low = minf(low, float(screw.c))
+				high = maxf(high, float(screw.c))
+			if low < 80 and high >= 95:
+				_worst_pressure_spread = maxf(_worst_pressure_spread, high - low)
+				if _mount_quality() < 0.999:
+					note = "DO: Retry to fix uneven mounting; see the penalty below.\nDON'T: Expect matching final tightness to erase uneven turns."
+					note_err = true
+		if _sensitive_screws() and float(point.c) > 150 and not bool(point.damaged):
+			point.damaged = true
+			_request_damage("overtighten", "DO: Hold right mouse back to 100–150%; one damage strike added.\nDON'T: Expect Retry to repair physical damage.")
+	_refresh_controls()
+	queue_redraw()
 
-# ------------------------------------------------------------------ drawing
 
-
-func _txt(p: Vector2, s: String, size: int, col: Color, bold: bool = false) -> void:
-	draw_string(K.mono_bold() if bold else K.mono(), p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+func _txt(pos: Vector2, text: String, font_size: int, color: Color, bold: bool = false) -> void:
+	draw_string(K.mono_bold() if bold else K.mono(), pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 
 func _draw() -> void:
 	draw_rect(Rect2(0, 0, W, H), K.NAVY0)
 	for x in range(0, int(W), 30):
-		draw_line(Vector2(x, 0), Vector2(x, H), Color(K.LINE, 0.22), 1.0)
-	for y in range(0, int(H), 30):
-		draw_line(Vector2(0, y), Vector2(W, y), Color(K.LINE, 0.22), 1.0)
+		draw_line(Vector2(x, 0), Vector2(x, 390), Color(K.LINE, 0.2))
+	for y in range(0, 390, 30):
+		draw_line(Vector2(0, y), Vector2(W, y), Color(K.LINE, 0.2))
+	if steps.is_empty():
+		return
 	_scene()
 	for i in mini(si + 1, steps.size()):
 		_draw_step(steps[i], i == si and not _done)
-	if si < steps.size():
-		_txt(Vector2(16, 24), String(steps[si].title), 15, K.cat_color(cat), true)
-	for i in steps.size():
-		var done: bool = i < si or _done
-		draw_circle(Vector2(W - 20 - (steps.size() - 1 - i) * 18, 20), 6.0, K.LIME if done else (K.CREAM if i == si else K.LINE))
-	draw_rect(Rect2(0, H - 50, W, 50), Color(K.NAVY1, 0.96))
-	draw_line(Vector2(0, H - 50), Vector2(W, H - 50), K.DANGER if note_err else K.LINE, 1.5)
-	draw_multiline_string(K.body(), Vector2(16, H - 30), note, HORIZONTAL_ALIGNMENT_LEFT, W - 32, 14, 2, K.DANGER if note_err else K.CREAM)
-	if slips > 0:
-		_txt(Vector2(W - 100, H - 56), "slips: %d" % slips, 11, K.ORANGE)
-	if _flash > 0.0:
-		draw_rect(Rect2(0, 0, W, H), Color(K.DANGER, _flash * 0.35))
-	if _done:
-		_txt(Vector2(W * 0.5 - 90, 100), "INSTALLED", 28, K.LIME, true)
+	if cat == "motherboard" and si >= 2:
+		_draw_board_errors()
+	var title := "REVIEW INSTALLATION" if _done else str(steps[si].title)
+	if _destroyed:
+		title = "PART DESTROYED"
+	_txt(Vector2(16, 24), title, 18, K.DANGER if _destroyed else K.cat_color(cat), true)
+	draw_rect(Rect2(0, 394, W, H - 394), K.NAVY1)
+	draw_line(Vector2(0, 394), Vector2(W, 394), K.LINE)
+	if _flash > 0:
+		draw_rect(Rect2(0, 32, W, 360), Color(K.DANGER, _flash * 0.3))
 
 
 func _scene() -> void:
-	var tint: Color = K.cat_color(cat)
 	draw_rect(CASE_RECT, Color("0b1738"))
-	draw_rect(CASE_RECT, K.LINE, false, 2.0)
-	_txt(Vector2(CASE_RECT.position.x + 8, CASE_RECT.end.y + 16), "CASE INTERIOR", 10, K.FAINT)
-	draw_rect(Rect2(540, 40, 220, 330), Color(K.PANEL, 0.5))
-	draw_rect(Rect2(540, 40, 220, 330), Color(K.LINE, 0.6), false, 1.0)
-	_txt(Vector2(550, 58), "PARTS BENCH", 10, K.FAINT)
+	draw_rect(CASE_RECT, K.LINE, false, 2)
+	_txt(Vector2(42, 384), "CASE / INSTALLED HARDWARE", 10, K.FAINT)
+	if cat != "gpu":
+		draw_rect(Rect2(540, 40, 220, 330), Color(K.PANEL, 0.5))
+		_txt(Vector2(550, 58), "PARTS BENCH", 10, K.FAINT)
 	match cat:
-		"motherboard":
-			for h in _holes():
-				draw_circle(h, 7.0, Color("b08a3a"))
-				draw_circle(h, 3.0, K.NAVY0)
-		"cpu", "gpu", "ram":
-			PartArt.draw_part(self, Transform2D(0.0, Vector2(2.6, 2.6), 0.0, TARGET), "motherboard", {"form": "ATX"}, K.cat_color("motherboard").darkened(0.35), 0.9)
-			if cat == "cpu":
-				draw_rect(Rect2(TARGET - Vector2(62, 62), Vector2(124, 124)), K.NAVY0)
-				draw_rect(Rect2(TARGET - Vector2(62, 62), Vector2(124, 124)), tint, false, 2.0)
-				for i in 8:
-					for j in 8:
-						draw_circle(TARGET - Vector2(48, 48) + Vector2(i, j) * 13.7, 1.6, Color(1, 0.8, 0.3, 0.6))
-				draw_colored_polygon(PackedVector2Array([TARGET + Vector2(-62, -62), TARGET + Vector2(-42, -62), TARGET + Vector2(-62, -42)]), K.LIME)
-				var up: bool = si >= 1 and si <= 2
-				var base := Vector2(338, 245)
-				draw_line(base, Vector2(338, 150) if up else Vector2(440, 245), K.CREAM, 5.0)
-				draw_circle(base, 5.0, K.FAINT)
-			elif cat == "gpu":
-				draw_rect(Rect2(80, 300, 360, 18), K.NAVY0)
-				draw_rect(Rect2(80, 300, 360, 18), tint, false, 1.5)
-				_txt(Vector2(84, 296), "PCIe x16", 10, K.FAINT)
-				draw_rect(Rect2(448, 290 if si == 1 else 302, 20, 14), K.ORANGE if si < 2 else K.LIME_DIM)
+		"cpu":
+			PartArt.draw_part(self, Transform2D(0, Vector2(2.6, 2.6), 0, TARGET), "motherboard", _context.get("installed", {}).get("motherboard", {}), K.cat_color("motherboard").darkened(0.35), 0.9)
+			var socket_rect := Rect2(TARGET - Vector2(62, 62), Vector2(124, 124))
+			draw_rect(socket_rect, K.NAVY0)
+			draw_rect(socket_rect, K.FAINT, false, 5)
+			for i in 8:
+				for j in 8:
+					draw_circle(TARGET - Vector2(48, 48) + Vector2(i, j) * 13.7, 1.6, Color("c9b176"))
+			if str(item.get("socket", "")).begins_with("OX"):
+				_txt(Vector2(175, 115), "PGA SOCKET · LEVER", 10, K.FAINT)
 			else:
-				draw_rect(Rect2(130, 300, 420, 26), K.NAVY0)
-				draw_rect(Rect2(130, 300, 420, 26), tint, false, 1.5)
-				draw_rect(Rect2(335, 324, 10, 8), K.LIME)
-				_txt(Vector2(300, 348), "SLOT KEY", 10, K.LIME)
-				for cx in [118, 562]:
-					draw_rect(Rect2(cx - 10, 296, 20, 34), K.ORANGE if si == 0 else K.LIME_DIM)
+				_txt(Vector2(175, 115), "LGA SOCKET · LOAD PLATE", 10, K.FAINT)
+				var plate := socket_rect.grow(12)
+				if si in [1, 2]:
+					plate.position.y -= 95
+					plate.size.y = 55
+				draw_rect(plate, K.CREAM, false, 3)
+			draw_colored_polygon(PackedVector2Array([TARGET + Vector2(-62, -62), TARGET + Vector2(-42, -62), TARGET + Vector2(-62, -42)]), Color("d9b95d"))
+			draw_line(Vector2(338, 245), Vector2(338, 150) if si in [1, 2] else Vector2(440, 245), K.CREAM, 5)
+		"gpu":
+			draw_rect(Rect2(70, 80, 420, 265), K.LINE, false, 4)
+			draw_rect(Rect2(75, 295, 405, 45), K.cat_color("motherboard").darkened(0.6))
+			draw_rect(Rect2(80, 300, 360, 18), K.NAVY0)
+			draw_rect(Rect2(80, 300, 360, 18), K.LIME, false, 2)
+			_txt(Vector2(320, 359), "PCIe SLOT BELOW", 11, K.FAINT)
+			_txt(Vector2(540, 100), "FAN-SIDE VIEW", 11, K.SKY, true)
+			_txt(Vector2(540, 124), "Lower slowly.", 11, K.MUTED)
+			_txt(Vector2(540, 144), "Latch locks on seating.", 11, K.MUTED)
+			draw_rect(Rect2(448, 290 if si < 2 else 302, 20, 14), K.ORANGE if si < 2 else K.LIME_DIM)
+		"ram":
+			draw_rect(Rect2(130, 300, 420, 26), K.NAVY0)
+			draw_rect(Rect2(130, 300, 420, 26), K.cat_color(cat), false, 2)
+			draw_rect(Rect2(335, 324, 10, 8), K.LIME)
+			for x in [118, 562]:
+				draw_rect(Rect2(x - 10, 296, 20, 34), K.ORANGE if si == 0 else K.LIME_DIM)
 		"psu":
-			draw_rect(Rect2(50, 262, 240, 126), Color("070e24"))
-			draw_rect(Rect2(50, 262, 240, 126), tint, false, 1.5)
-			_txt(Vector2(60, 278), "PSU BAY", 10, K.FAINT)
+			draw_rect(Rect2(PSU_TARGET - PSU_SIZE * 0.5, PSU_SIZE), K.FAINT, false, 3)
+			for hole in PSU_HOLES:
+				draw_arc(PSU_TARGET + hole, 8, 0, TAU, 16, K.LIME, 2)
+			_txt(Vector2(60, 200), "PSU REAR / CASE MOUNT", 10, K.FAINT)
 		"storage":
-			draw_rect(Rect2(250, 100, 250, 210), Color("070e24"))
-			draw_rect(Rect2(250, 100, 250, 210), tint, false, 1.5)
-			for y in [110, 296]:
-				draw_line(Vector2(256, y), Vector2(494, y), K.FAINT, 3.0)
-			_txt(Vector2(256, 326), "DRIVE CAGE", 10, K.FAINT)
+			draw_rect(Rect2(250, 100, 250, 210), K.FAINT, false, 3)
 
 
-func _screw(p: Vector2, hot: bool, done: bool) -> void:
-	if done:
-		draw_circle(p, 9.0, K.FAINT)
-		draw_line(p + Vector2(-5, 0), p + Vector2(5, 0), K.NAVY0, 2.0)
-		return
-	if hot:
-		draw_arc(p, 14.0 + sin(_t * 6.0) * 2.0, 0, TAU, 24, Color(K.LIME, 0.9), 2.0, true)
-	draw_circle(p, 9.0, K.CREAM if hot else K.FAINT)
-	draw_line(p + Vector2(-5, 0), p + Vector2(5, 0), K.NAVY0, 2.0)
-	draw_line(p + Vector2(0, -5), p + Vector2(0, 5), K.NAVY0, 2.0)
+func _draw_board(center: Vector2, scale_factor: float, alpha: float = 1.0) -> void:
+	var rect := Rect2(center - BOARD_RECT.size * scale_factor * 0.5, BOARD_RECT.size * scale_factor)
+	var board_rect := _board_pcb_rect(rect)
+	draw_rect(board_rect, Color(K.cat_color("motherboard").darkened(0.55), alpha))
+	draw_rect(board_rect, Color(K.cat_color("motherboard"), alpha), false, 2)
+	draw_rect(Rect2(rect.position + rect.size * Vector2(0.53, 0.2), rect.size * Vector2(0.23, 0.26)), Color(K.FAINT, alpha))
+	# Expansion slots run toward the same top/rear edge as the I/O ports.
+	for i in 3:
+		draw_rect(Rect2(rect.position + rect.size * Vector2(0.52 + i * 0.1, 0.55), rect.size * Vector2(0.035, 0.34)), Color(K.NAVY0, alpha))
+	_draw_rear_edge(rect, alpha)
+	for id in _hole_ids():
+		var at := rect.position + Vector2(HOLES[id]) * rect.size
+		draw_circle(at, 5.0 * scale_factor, Color(K.NAVY0, alpha))
+		draw_arc(at, 7.0 * scale_factor, 0, TAU, 16, Color(K.CREAM, alpha), 1)
+		_txt(at + Vector2(7, -8), id, 10, Color(K.CREAM, alpha))
 
 
-func _draw_step(st: Dictionary, active: bool) -> void:
-	match String(st.kind):
+func _draw_rear_edge(rect: Rect2, alpha: float = 1.0) -> void:
+	var start := rect.position + Vector2(rect.size.x * 0.5, 0)
+	var end := rect.position + Vector2(rect.size.x * 0.9, 0)
+	draw_line(start, end, Color(K.SKY, alpha), 6)
+	for i in 4:
+		var at := start.lerp(end, (i + 0.5) / 4.0)
+		draw_line(at - Vector2(0, 3), at + Vector2(0, 3), Color(K.NAVY0, alpha), 3)
+	_txt(start + Vector2(0, -10), "REAR I/O", 10, Color(K.SKY, alpha))
+
+
+func _draw_board_errors() -> void:
+	var pulse := 0.45 + 0.55 * absf(sin(_t * 5))
+	for id in _missing_holes() + _extra_holes():
+		var at := _hole_pos(id)
+		draw_circle(at, 9, Color(K.DANGER, pulse))
+		draw_arc(at, 13, 0, TAU, 20, K.DANGER, 2)
+		_txt(at + Vector2(-4, 4), "!", 13, K.CREAM, true)
+
+
+func _draw_gpu(center: Vector2) -> void:
+	draw_rect(Rect2(center - Vector2(150, 55), Vector2(300, 95)), K.PANEL2)
+	draw_rect(Rect2(center - Vector2(150, 55), Vector2(300, 95)), K.SKY, false, 2)
+	for x in [-90, 0, 90]:
+		var at := center + Vector2(x, -8)
+		draw_circle(at, 35, K.NAVY0)
+		for i in 7:
+			var angle := i * TAU / 7
+			draw_line(at, at + Vector2(cos(angle), sin(angle)) * 28, K.FAINT, 7)
+		draw_circle(at, 9, K.LINE)
+	draw_rect(Rect2(center + Vector2(-125, 40), Vector2(245, 12)), Color("d9b95d"))
+	for i in 22:
+		draw_line(center + Vector2(-121 + i * 11, 42), center + Vector2(-121 + i * 11, 52), K.NAVY0)
+	draw_line(center + Vector2(-155, -65), center + Vector2(-155, 38), K.CREAM, 7)
+
+
+func _draw_psu(center: Vector2, scale_factor: float) -> void:
+	draw_set_transform_matrix(Transform2D(0, Vector2(scale_factor, scale_factor), 0, center))
+	draw_rect(Rect2(-PSU_SIZE * 0.5, PSU_SIZE), K.PANEL2)
+	draw_rect(Rect2(-PSU_SIZE * 0.5, PSU_SIZE), K.CREAM, false, 2)
+	for x in 8:
+		for y in 6:
+			draw_circle(Vector2(-83 + x * 13, -37 + y * 13), 3, K.NAVY0)
+	draw_rect(Rect2(35, -8, 55, 34), K.NAVY0)
+	for x in 3:
+		draw_line(Vector2(46 + x * 13, 2), Vector2(46 + x * 13, 15), K.CREAM, 3)
+	draw_rect(Rect2(50, -39, 28, 17), K.NAVY0)
+	for hole in PSU_HOLES:
+		draw_circle(hole, 6, K.NAVY0)
+		draw_arc(hole, 7, 0, TAU, 16, K.CREAM, 1)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+func _draw_cooler(center: Vector2) -> void:
+	for offset in [Vector2(-88, -88), Vector2(88, -88), Vector2(-88, 88), Vector2(88, 88)]:
+		draw_line(center, center + offset, K.LINE, 12)
+		draw_circle(center + offset, 8, K.FAINT)
+		draw_circle(center + offset, 4, K.NAVY0)
+	draw_rect(Rect2(center - Vector2(72, 72), Vector2(144, 144)), K.FAINT)
+	for i in 12:
+		draw_line(center + Vector2(-67, -64 + i * 12), center + Vector2(67, -64 + i * 12), K.CREAM, 2)
+	draw_circle(center, 54, K.NAVY0)
+	for i in 8:
+		var angle := i * TAU / 8
+		draw_line(center, center + Vector2(cos(angle), sin(angle)) * 46, K.LINE, 12)
+	draw_circle(center, 13, K.SKY)
+
+
+func _draw_step(step: Dictionary, active: bool) -> void:
+	match str(step.kind):
+		"standoffs":
+			_draw_rear_edge(BOARD_RECT)
+			for id: String in HOLES:
+				var at := _hole_pos(id)
+				draw_circle(at, 6, K.NAVY0)
+				draw_arc(at, 8, 0, TAU, 20, K.FAINT, 1)
+				if bool(_standoffs.get(id, false)):
+					draw_circle(at, 7, Color("d9a441"))
+					draw_circle(at, 3, K.NAVY0)
+				if active:
+					_txt(at + Vector2(-4, -12), id, 10, K.MUTED)
+			if active:
+				_draw_board(Vector2(645, 220), 0.57)
+				_txt(Vector2(550, 326), "%s MOUNTING HOLES" % item.get("form", "ATX"), 10, K.SKY)
+				_txt(Vector2(550, 345), "Same view: rear at top", 10, K.MUTED)
+		"paste":
+			if _paste_amount > 0:
+				var radius := 8.0 + 22.0 * sqrt(minf(_paste_amount, 2.0))
+				var at := TARGET if _paste_spots.is_empty() else _paste_spots[0]
+				draw_circle(at, radius, Color("bfc4d6"))
+				for spot in _paste_spots:
+					draw_circle(spot, minf(10, radius), Color("bfc4d6"))
+			if active:
+				_txt(Vector2(550, 200), "Paste applied: %d%%" % roundi(_paste_amount * 100), 13, K.SKY)
+				_txt(Vector2(550, 224), "100% is enough.", 11, K.MUTED)
+				_txt(Vector2(550, 245), "Extra: no penalty.", 11, K.MUTED)
 		"clicks":
-			var style := String(st.style)
-			for pt in st.pts:
-				var p: Vector2 = pt.p
-				var left: int = int(pt.n) - int(pt.c)
-				if pt.decoy:
+			for point: Dictionary in step.pts:
+				var at: Vector2 = point.p
+				if _screw_style(step):
+					var value := float(point.c)
+					var color := K.DANGER if _sensitive_screws() and value > 150 else (K.LIME if value >= 100 else K.CREAM)
+					if step.style == "loosen":
+						color = K.LIME if value <= 0 else K.CREAM
+					draw_circle(at, 8, K.FAINT if value == 0 and not active else color)
+					draw_line(at - Vector2(5, 0), at + Vector2(5, 0), K.NAVY0, 2)
 					if active:
-						draw_arc(p, 11.0, 0, TAU, 16, Color(K.FAINT, 0.7), 1.5, true)
-					continue
-				if style == "standoff":
-					if left <= 0:
-						draw_circle(p, 8.0, Color("d9a441"))
-						draw_circle(p, 3.5, K.NAVY0)
-					elif active:
-						draw_arc(p, 13.0 + sin(_t * 6.0) * 2.0, 0, TAU, 20, K.LIME, 2.0, true)
-						draw_circle(p, 6.0, K.NAVY0)
-				elif style == "lever" or style == "paste" or style == "press":
-					if left > 0 and active:
-						draw_arc(p, float(pt.r) + sin(_t * 6.0) * 3.0, 0, TAU, 28, K.LIME, 2.5, true)
-						if int(pt.n) > 1:
-							_txt(p + Vector2(-4, 5), str(left), 14, K.LIME, true)
-					elif left <= 0 and style == "paste":
-						draw_circle(p, 8.0, Color("c9d1e8"))
-					elif left <= 0 and style == "press":
-						draw_circle(p, 5.0, K.LIME)
-				else:
-					_screw(p, active and left > 0, left <= 0)
-		"drag":
-			var pos: Vector2 = st.pos
-			var tgt: Vector2 = st.target
-			var sc: float = st.scale
-			var tint: Color = K.cat_color(cat)
+						draw_arc(at, 12, -PI / 2, -PI / 2 + TAU * minf(1, value / 100), 24, color, 2)
+						_txt(at + Vector2(-13, 25), "%d%%" % roundi(value), 10, color)
+				elif active and float(point.c) < float(point.n):
+					draw_arc(at, float(point.r) + sin(_t * 5) * 2, 0, TAU, 24, K.LIME, 2)
+					if int(point.n) > 1:
+						_txt(at + Vector2(-4, 4), str(int(point.n) - int(point.c)), 13, K.LIME)
+		"drag", "gpu_drag":
+			var pos: Vector2 = step.pos
 			if active:
-				var near: bool = pos.distance_to(tgt) <= float(st.tol)
-				var gcol: Color = K.LIME if near else Color(K.CREAM, 0.5)
-				var r := Rect2(tgt - Vector2(50, 35) * sc * 0.8, Vector2(100, 70) * sc * 0.8)
-				draw_rect(r, Color(gcol, 0.08 + 0.05 * sin(_t * 5.0)))
-				draw_rect(r, gcol, false, 1.5)
-			var rot: float = float(int(st.rot)) * PI * 0.5
-			PartArt.draw_part(self, Transform2D(rot, Vector2(sc, sc), 0.0, pos), cat, item, tint, 1.0)
-			if active:
-				if int(st.inc) > 0:
-					_txt(pos + Vector2(-46, 50 * sc * 0.8 + 18), "R / right-click = rotate", 11, K.ORANGE if int(st.rot) % 4 != 0 else K.LIME)
-				else:
-					_txt(pos + Vector2(-34, 50 * sc * 0.8 + 18), "drag me", 11, K.MUTED)
-		"cables":
-			for i in st.list.size():
-				var c: Dictionary = st.list[i]
-				var col: Color = c.col
-				var tp: Vector2 = c.to
-				draw_rect(Rect2(tp - Vector2(14, 11), Vector2(28, 22)), K.NAVY0)
-				draw_rect(Rect2(tp - Vector2(14, 11), Vector2(28, 22)), col, false, 2.0)
-				_txt(tp + Vector2(20, 4), String(c.label), 10, col)
-				var fp: Vector2 = c.from
-				if c.done:
-					_cable_line(fp, tp, col)
-				else:
-					draw_circle(fp, 8.0, col)
-					if active:
-						draw_arc(fp, 12.0 + sin(_t * 6.0) * 2.0, 0, TAU, 20, col, 2.0, true)
-						if i == _cable:
-							_cable_line(fp, _mouse, col)
-
-
-func _cable_line(a: Vector2, b: Vector2, col: Color) -> void:
-	var pts := PackedVector2Array()
-	var mid := (a + b) * 0.5 + Vector2(0, 26)
-	for i in 21:
-		var t := float(i) / 20.0
-		pts.append(a.lerp(mid, t).lerp(mid.lerp(b, t), t))
-	draw_polyline(pts, col, 4.0, true)
-	draw_circle(b, 6.0, col)
+				var target: Vector2 = step.target
+				var outline := Rect2(target - _part_size(step, true) * 0.5, _part_size(step, true))
+				draw_rect(outline, Color(K.LIME, 0.08))
+				draw_rect(outline, K.LIME, false, 1)
+			if step.get("part") == "board":
+				_draw_board(pos, 1.0 if pos.distance_to(BOARD_TARGET) < 30 else 0.57)
+			elif step.get("part") == "cooler":
+				_draw_cooler(pos)
+			elif step.get("part") == "psu":
+				_draw_psu(pos, 1.0 if pos.distance_to(PSU_TARGET) < 30 else 0.8)
+			elif step.kind == "gpu_drag":
+				_draw_gpu(pos)
+			else:
+				var transform := Transform2D(float(step.rot) * PI / 2, Vector2(step.scale, step.scale), 0, pos)
+				PartArt.draw_part(self, transform, cat, item, K.cat_color(cat), 1)
+				if cat == "cpu":
+					# Both CPU detail PNGs have a 40x40 package inside a 64x64 canvas.
+					var corner := -PartArt.drawing_size(cat, item) * 0.3125
+					draw_set_transform_matrix(transform)
+					draw_colored_polygon(PackedVector2Array([corner, corner + Vector2(9, 0), corner + Vector2(0, 9)]), Color("d9b95d"))
+					draw_set_transform_matrix(Transform2D.IDENTITY)
+			if active and int(step.inc) > 0:
+				_txt(pos + Vector2(-60, 95), "R / right-click: rotate", 10, K.ORANGE if int(step.rot) % 4 != 0 else K.LIME)

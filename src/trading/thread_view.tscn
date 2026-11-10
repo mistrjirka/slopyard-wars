@@ -1,0 +1,212 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/trading/thread_view.gd" id="1"]
+
+[node name="ThreadView" type="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+script = ExtResource("1")
+
+[node name="Gone" type="Label" parent="."]
+visible = false
+layout_mode = 2
+theme_type_variation = "Muted"
+text = "This old listing is gone."
+autowrap_mode = 3
+
+[node name="GoneBack" type="Button" parent="."]
+visible = false
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "All messages"
+
+[node name="Split" type="HBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="Sidebar" type="VBoxContainer" parent="Split"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="Split/Sidebar"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_type_variation = "H2"
+text = "Messages"
+vertical_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="Split/Sidebar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="List" type="VBoxContainer" parent="Split/Sidebar/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Right" type="VBoxContainer" parent="Split"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="Header" type="HBoxContainer" parent="Split/Right"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Back" type="Button" parent="Split/Right/Header"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+custom_minimum_size = Vector2(0, 44)
+text = "Back"
+
+[node name="Contact" type="Label" parent="Split/Right/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "H2"
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="Role" type="Label" parent="Split/Right/Header"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+
+[node name="Details" type="Button" parent="Split/Right/Header"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_type_variation = "GhostButton"
+toggle_mode = true
+text = "Details"
+
+[node name="Subtitle" type="Label" parent="Split/Right"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="Panes" type="HBoxContainer" parent="Split/Right"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="Specs" type="ScrollContainer" parent="Split/Right/Panes"]
+visible = false
+custom_minimum_size = Vector2(0, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Details" type="VBoxContainer" parent="Split/Right/Panes/Specs"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="Tagline" type="Label" parent="Split/Right/Panes/Specs/Details"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+
+[node name="NotesHead" type="Label" parent="Split/Right/Panes/Specs/Details"]
+layout_mode = 2
+theme_type_variation = "Eyebrow"
+text = "HARDWARE NOTES"
+
+[node name="SpecText" type="Label" parent="Split/Right/Panes/Specs/Details"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+
+[node name="Schedule" type="Label" parent="Split/Right/Panes/Specs/Details"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+
+[node name="MeetingHostSpecs" type="VBoxContainer" parent="Split/Right/Panes/Specs/Details"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Conversation" type="VBoxContainer" parent="Split/Right/Panes"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="Context" type="Label" parent="Split/Right/Panes/Conversation"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+
+[node name="MeetingHostCover" type="VBoxContainer" parent="Split/Right/Panes/Conversation"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HistoryScroll" type="ScrollContainer" parent="Split/Right/Panes/Conversation"]
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="HistoryContent" type="VBoxContainer" parent="Split/Right/Panes/Conversation/HistoryScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="EmptyLog" type="Label" parent="Split/Right/Panes/Conversation/HistoryScroll/HistoryContent"]
+layout_mode = 2
+theme_type_variation = "Muted"
+text = "Say hello. People won't always know the specs, and they have lives outside the marketplace."
+autowrap_mode = 3
+
+[node name="Log" type="VBoxContainer" parent="Split/Right/Panes/Conversation/HistoryScroll/HistoryContent"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="QuickRow" type="HBoxContainer" parent="Split/Right/Panes/Conversation"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="QuickA" type="Button" parent="Split/Right/Panes/Conversation/QuickRow"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+theme_override_font_sizes/font_size = 13
+custom_minimum_size = Vector2(0, 44)
+text = "Available?"
+tooltip_text = "Is it still available?"
+
+[node name="QuickB" type="Button" parent="Split/Right/Panes/Conversation/QuickRow"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+theme_override_font_sizes/font_size = 13
+custom_minimum_size = Vector2(0, 44)
+text = "Confirm terms"
+tooltip_text = "Yes, that price, time and place works."
+
+[node name="ComposerRow" type="HBoxContainer" parent="Split/Right/Panes/Conversation"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="FaultClearance" type="Control" parent="Split/Right/Panes/Conversation/ComposerRow"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Composer" type="LineEdit" parent="Split/Right/Panes/Conversation/ComposerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_length = 240
+
+[node name="Send" type="Button" parent="Split/Right/Panes/Conversation/ComposerRow"]
+layout_mode = 2
+theme_type_variation = "PrimaryButton"
+text = "Send"

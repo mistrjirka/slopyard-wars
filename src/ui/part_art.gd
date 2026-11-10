@@ -27,13 +27,16 @@ func _draw() -> void:
 		Color(0.5, 0.5, 0.5) if dim else Color.WHITE)
 
 
-## Assembly uses a stable 100 x 70 coordinate system for drag targets and rotation.
+## Assembly uses the same dimensions for drawing, picking, and alignment outlines.
+static func drawing_size(cat: String, value: Dictionary, scale_factor: float = 1.0) -> Vector2:
+	var texture := Art.part(cat, value, true)
+	return texture.get_size() * minf(100.0 / texture.get_width(), 70.0 / texture.get_height()) * scale_factor
 
 
 static func draw_part(canvas: CanvasItem, transform: Transform2D, cat: String,
 		value: Dictionary, _tint: Color, alpha: float) -> void:
 	var texture := Art.part(cat, value, true)
-	var extent := texture.get_size() * minf(100.0 / texture.get_width(), 70.0 / texture.get_height())
+	var extent := drawing_size(cat, value)
 	canvas.draw_set_transform_matrix(transform)
 	canvas.draw_texture_rect(texture, Rect2(-extent * 0.5, extent), false, Color(1, 1, 1, alpha))
 	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)

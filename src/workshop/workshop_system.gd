@@ -6,6 +6,21 @@ const Config = preload("res://src/core/game_config.gd")
 const RigRules = preload("res://src/workshop/rig_rules.gd")
 const World = preload("res://src/world/world_rules.gd")
 
+## Assembly damage is host-authoritative: the minigame reports a strike, the host validates and applies it.
+const ASSEMBLY_MAX_STRIKES := 5
+const ASSEMBLY_WEAR := 5
+## Error -> the part categories it can physically happen to. PSU/GPU bracket screws are immune by design.
+const ASSEMBLY_REASONS := {
+	"extra_standoff": ["motherboard"],
+	"gpu_impact": ["gpu"],
+	"overtighten": ["motherboard", "cpu", "ram", "storage"],
+}
+const ASSEMBLY_REASON_TEXT := {
+	"extra_standoff": "an extra standoff",
+	"gpu_impact": "forced insertion",
+	"overtighten": "over-tightened screws",
+}
+
 var session: Node
 var state: Dictionary:
 	get:
@@ -42,18 +57,32 @@ func busy_block(pid: int, p: Dictionary) -> bool:
 	return false
 
 
+func _inventory_index(p: Dictionary, id: int) -> int:
+	for i in p.inventory.size():
+		if int(p.inventory[i].id) == id:
+			return i
+	return -1
+
+
 func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 	if busy_block(pid, p):
 		return
 	var id = int(session.number(d.get("item_id"), -1))
-	var idx := -1
-	for i in p.inventory.size():
-		if p.inventory[i].id == id:
-			idx = i
-	if idx < 0:
+	var idx := _inventory_index(p, id)
+	var item := {}
+	var reinstall := false
+	if idx >= 0:
+		item = p.inventory[idx]
+	else:
+		# An owned part already mounted can be reinstalled to correct paste or cooler seating.
+		for slot in p.installed:
+			if int(p.installed[slot].id) == id and str(p.installed[slot].get("category", "")) == str(slot):
+				item = p.installed[slot]
+				reinstall = true
+				break
+	if item.is_empty():
 		session.notify_player(pid, "You do not own that part.")
 		return
-	var item: Dictionary = p.inventory[idx]
 	for listing in state.listings:
 		if int(listing.get("owner", 0)) == pid and int(listing.get("item_id", -99999)) == id and listing.status == "available":
 			session.notify_player(pid, "Cancel the sale listing before installing this part.")
@@ -62,15 +91,94 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 	if why != "":
 		session.notify_player(pid, "Cannot install: " + why)
 		return
-	p.inventory.remove_at(idx)
 	var cat: String = item.category
-	if p.installed.has(cat):
-		p.inventory.append(p.installed[cat])
+	if not reinstall:
+		p.inventory.remove_at(idx)
+		if p.installed.has(cat):
+			p.inventory.append(p.installed[cat])
 	p.installed[cat] = item
 	p.tuning.erase(cat)
 	p.busy = Config.INSTALL_MIN
+	var message := ("Reinstalled %s." if reinstall else "Installed %s.") % item.name
+	if cat == "cpu":
+		# Mount quality and paste coverage belong to the player's build, not to the tradeable part.
+		var quality := clampf(session.number(d.get("mount_quality"), 1.0), 0.0, 1.0)
+		p.workshop_modifiers["cpu_mount_quality"] = quality
+		# The paste minigame reports a raw 0..3 amount; 1.0 already means "enough", more is not penalised.
+		p.workshop_modifiers["cpu_paste_amount"] = clampf(session.number(d.get("paste_amount"), 1.0), 0.0, 1.0)
+		if quality < 0.999:
+			message += " The cooler mount is uneven (quality %d%%): expect less clock headroom and more heat." % roundi(quality * 100.0)
 	var rest := build_issues(p)
-	session.notify_player(pid, "Installed %s." % item.name + ("" if rest.is_empty() else " Still: " + rest[0]))
+	session.notify_player(pid, message + ("" if rest.is_empty() else " Still: " + rest[0]))
+
+
+## Applies one reported assembly mistake to a spare part the player owns. Idempotent per strike count;
+## the counter lives on the part so it survives cancelling or retrying the minigame and follows the part
+## through every existing sale path (listings and handoffs duplicate the whole item dictionary).
+func assembly_damage(pid: int, p: Dictionary, d: Dictionary) -> void:
+	if busy_block(pid, p):
+		return
+	var reason := str(d.get("reason", ""))
+	if not ASSEMBLY_REASONS.has(reason):
+		session.notify_player(pid, "Unrecognised assembly mistake.")
+		return
+	var raw_strike: float = session.number(d.get("strike"), -1.0)
+	if raw_strike != floorf(raw_strike) or raw_strike < 1.0 or raw_strike > float(ASSEMBLY_MAX_STRIKES):
+		session.notify_player(pid, "Invalid assembly strike count.")
+		return
+	var strike := int(raw_strike)
+	var id := int(session.number(d.get("item_id"), -1))
+	var idx := _inventory_index(p, id)
+	var item := {}
+	var mounted_cat := ""
+	if idx >= 0:
+		item = p.inventory[idx]
+	else:
+		# Already mounted parts take damage too: a botched retry can ruin the installed part.
+		for slot in p.installed:
+			if int(p.installed[slot].id) == id and str(p.installed[slot].get("category", "")) == str(slot):
+				item = p.installed[slot]
+				mounted_cat = str(slot)
+				break
+	if item.is_empty():
+		session.notify_player(pid, "You do not own that part.")
+		return
+	var cat := str(item.get("category", ""))
+	if cat not in ASSEMBLY_REASONS[reason]:
+		session.notify_player(pid, "That mistake cannot happen to %s." % item.name)
+		return
+	# The counter is checked before the listing/compatibility gates so a repeated report is a no-op.
+	var current := int(item.get("assembly_strikes", 0))
+	if strike <= current:
+		return  # Duplicate or outdated report: damage is applied once per strike.
+	if strike != current + 1:
+		session.notify_player(pid, "That assembly strike no longer matches this part.")
+		return
+	for listing in state.listings:
+		if int(listing.get("owner", 0)) == pid and int(listing.get("item_id", -99999)) == id and listing.status == "available":
+			session.notify_player(pid, "Cancel the sale listing before working on this part.")
+			return
+	var why := compatibility(item, p)
+	if why != "":
+		session.notify_player(pid, "Cannot assemble: " + why)
+		return
+	item["assembly_strikes"] = strike
+	var cause: String = ASSEMBLY_REASON_TEXT[reason]
+	if strike >= ASSEMBLY_MAX_STRIKES:
+		if mounted_cat != "":
+			# Destroying the mounted part leaves nothing behind: no spare appears in the inventory.
+			p.installed.erase(mounted_cat)
+			p.tuning.erase(mounted_cat)
+		else:
+			p.inventory.remove_at(idx)
+		p.destroyed.append(item.name)
+		session.record_event("%s wrecked %s while assembling (%s, strike %d/%d)." % [p.name, item.name, cause, strike, ASSEMBLY_MAX_STRIKES])
+		session.notify_player(pid, "%s is destroyed: %s caused the final defect on strike %d/%d. The part is gone for good." % [item.name, cause, strike, ASSEMBLY_MAX_STRIKES])
+		return
+	item["condition"] = maxi(1, int(item.get("condition", 100)) - ASSEMBLY_WEAR)
+	var left := ASSEMBLY_MAX_STRIKES - strike
+	session.record_event("%s damaged %s while assembling (%s, strike %d/%d)." % [p.name, item.name, cause, strike, ASSEMBLY_MAX_STRIKES])
+	session.notify_player(pid, "%s took damage from %s: strike %d/%d, condition %d/100. %d more strike%s will destroy it." % [item.name, cause, strike, ASSEMBLY_MAX_STRIKES, int(item.condition), left, "" if left == 1 else "s"])
 
 
 func tune(pid: int, p: Dictionary, d: Dictionary) -> void:

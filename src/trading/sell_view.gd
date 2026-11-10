@@ -1,64 +1,50 @@
 extends VBoxContainer
 ## Public valuation and asking-price help; all sales still go through the host.
 signal listing_selected(id: int)
-const K = preload("res://src/ui/ui_kit.gd")
 const Stats = preload("res://src/data/hardware_stats.gd")
+const SellCardScene = preload("res://src/trading/sell_card.tscn")
 var _drafts: Dictionary
+@onready var _box: VBoxContainer = $Scroll/Box
+@onready var _empty: Label = $Scroll/Box/Empty
+
+
+static func _clear(node: Node) -> void:
+	for c in node.get_children():
+		if c.name == "Empty":
+			continue
+		node.remove_child(c)
+		c.queue_free()
 
 
 func setup(player: Dictionary, listings: Array, price_drafts: Dictionary) -> void:
 	_drafts = price_drafts
+	if not _drafts.has("expanded_items"):
+		_drafts["expanded_items"] = {}
 	add_theme_constant_override("separation", 8)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(K.lbl("YOUR SPARE PARTS", "H2"))
-	add_child(K.lbl("Prices below account for condition. They are guides, not guaranteed offers. Buyers haggle in Messages; you only get paid at the meeting. Cancel a listing before installing its part.", "Muted", null, true))
-	var scroll := K.scroll()
-	add_child(scroll)
-	var box := K.vbox(10)
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(box)
+	_clear(_box)
 	for item: Dictionary in player.inventory:
 		var active := {}
 		for listing: Dictionary in listings:
 			if int(listing.get("owner", 0)) == Game.local_id() and int(listing.get("item_id", -99999)) == int(item.id) and listing.status == "available":
 				active = listing
-		box.add_child(_card(item, active))
-	if player.inventory.is_empty():
-		box.add_child(K.lbl("No spare parts. Installed components must be replaced at the workbench before selling.", "Muted", null, true))
+		_add_card(item, active)
+	_box.move_child(_empty, -1)
+	_empty.visible = player.inventory.is_empty()
 
 
-func _card(item: Dictionary, active: Dictionary) -> Control:
-	var card := K.panel("Card")
-	var content := K.vbox(6)
-	card.add_child(content)
-	content.add_child(K.lbl(str(item.name), "Mono", null, true))
-	var guide := Stats.sale_guide(item)
-	content.add_child(K.lbl("Condition %d/100 · estimated used value $%d\nSuggested ask $%d–$%d · quick-deal guide $%d" % [item.get("condition", 100), guide.value, guide.ask_low, guide.ask_high, guide.quick], "Tiny", K.LIME, true))
-	if not active.is_empty():
-		var contacted: bool = active.get("buyer_contacted", true)
-		var status := "%s is interested" % active.seller if contacted else "Waiting for interest — high asks may get no replies"
-		content.add_child(K.lbl("Listed $%d · %s" % [int(active.price), status], "Tiny", K.SKY, true))
-		content.add_child(K.lbl(Stats.sale_advice(item, int(active.price)), "Tiny", K.MUTED, true))
-		var actions := K.hbox(6)
-		if contacted:
-			actions.add_child(K.btn("Chat with buyer", "", func(): listing_selected.emit(int(active.id))))
-		actions.add_child(K.btn("Cancel listing", "GhostButton", func(): Game.act("cancel_sale", {"listing_id": active.id})))
-		content.add_child(actions)
-		return card
-	var row := K.hbox(6)
-	var price := SpinBox.new()
-	price.min_value = 1
-	price.max_value = 5000
-	price.value = int(_drafts.get(int(item.id), guide.value))
-	price.prefix = "$"
-	row.add_child(price)
-	row.add_child(K.btn("Use guide: $%d" % guide.value, "GhostButton", func(): price.value = guide.value))
-	row.add_child(K.btn("Quick deal: $%d" % guide.quick, "GhostButton", func(): price.value = guide.quick))
-	row.add_child(K.btn("Post listing", "PrimaryButton", func(): Game.act("post_sale", {"item_id": item.id, "price": int(price.value)})))
-	content.add_child(row)
-	var advice := K.lbl(Stats.sale_advice(item, int(price.value)), "Tiny", K.MUTED, true)
-	content.add_child(advice)
-	price.value_changed.connect(func(value: float):
-		_drafts[int(item.id)] = int(value)
-		advice.text = Stats.sale_advice(item, int(value)))
-	return card
+func _add_card(item: Dictionary, active: Dictionary) -> void:
+	var card: PanelContainer = SellCardScene.instantiate()
+	_box.add_child(card)
+	var draft_price := int(_drafts.get(int(item.id), Stats.sale_guide(item).value))
+	var expanded_items: Dictionary = _drafts.get("expanded_items", {})
+	card.setup(item, active, draft_price, bool(expanded_items.get(int(item.id), false)), _drafts.has(int(item.id)))
+	if active.is_empty():
+		card.expanded_changed.connect(func(expanded: bool):
+			expanded_items[int(item.id)] = expanded
+			_drafts["expanded_items"] = expanded_items)
+		card.price.value_changed.connect(func(value: float): _drafts[int(item.id)] = int(value))
+		card.post_requested.connect(func(price: int): Game.act("post_sale", {"item_id": item.id, "price": price}))
+	else:
+		card.chat_requested.connect(func(): listing_selected.emit(int(active.id)))
+		card.cancel_requested.connect(func(): Game.act("cancel_sale", {"listing_id": active.id}))

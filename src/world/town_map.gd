@@ -6,11 +6,6 @@ const Catalog = preload("res://src/data/catalog.gd")
 const K = preload("res://src/ui/ui_kit.gd")
 
 
-func _init() -> void:
-	custom_minimum_size = Vector2(480, 400)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-
 func _process(_delta: float) -> void:
 	if is_visible_in_tree():
 		queue_redraw()
@@ -34,24 +29,30 @@ func _draw() -> void:
 		var at: Vector2 = origin + Catalog.LOCATIONS[name] * scale_factor
 		draw_circle(at, 5, K.CREAM)
 		draw_circle(at, 3, K.NAVY0)
-		var label_pos := at + Vector2(-22, 20)
-		if name == "Lakeside Storage":
-			label_pos.x -= 40
-		draw_string(K.mono(), label_pos, name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, K.NAVY0)
+		var font := K.map_font()
+		var label_width := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		var label_pos := at + Vector2(-label_width * 0.5, 20)
+		label_pos.x = clampf(label_pos.x, origin.x + 4, origin.x + World.TOWN_SIZE.x * scale_factor - label_width - 4)
+		draw_string(font, label_pos.round(), name, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, K.NAVY0)
 	for activity: Resource in Activities.ALL:
 		if activity.area != "town":
 			continue
 		var at: Vector2 = origin + activity.position * scale_factor
 		draw_rect(Rect2(at - Vector2(4, 4), Vector2(8, 8)), K.ORANGE)
-		draw_string(K.mono(), at + Vector2(-24, 15), activity.map_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, K.NAVY0)
+		var font := K.map_font()
+		var label_width := font.get_string_size(activity.map_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+		draw_string(font, (at + Vector2(-label_width * 0.5, 16)).round(), activity.map_label, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, K.NAVY0)
 	var p: Dictionary = Game.me()
 	var pos: Vector2 = p.pos if p.area == "town" else World.DOOR_OUTSIDE
 	var you := origin + pos * scale_factor
 	draw_circle(you, 7, K.LIME)
-	draw_string(K.mono_bold(), you + Vector2(9, -6), "YOU", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, K.NAVY0)
+	draw_string(K.map_font(true), (you + Vector2(9, -6)).round(), "YOU", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, K.NAVY0)
 	var car: Vector2 = origin + Vector2(p.car_pos) * scale_factor
 	draw_texture_rect(preload("res://src/ui/art_library.gd").WORLD.car_top, Rect2(car - Vector2(10, 7), Vector2(20, 14)), false)
 	for m: Dictionary in Game.active_meetings(p):
 		var at: Vector2 = origin + Vector2(m.pos) * scale_factor
 		draw_arc(at, 12, 0, TAU, 20, K.ORANGE, 2)
-	draw_string(K.mono_bold(), origin + World.DOOR_OUTSIDE * scale_factor + Vector2(-24, 22), "HOME", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, K.NAVY0)
+	var home_font := K.map_font(true)
+	var home_width := home_font.get_string_size("HOME", HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	var home_label := origin + World.DOOR_OUTSIDE * scale_factor + Vector2(-home_width - 10, 22)
+	draw_string(home_font, home_label.round(), "HOME", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, K.NAVY0)

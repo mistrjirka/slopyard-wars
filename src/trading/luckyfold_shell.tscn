@@ -1,0 +1,116 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://src/trading/luckyfold_shell.gd" id="1"]
+[ext_resource type="Shader" path="res://src/trading/fault_hue.gdshader" id="2"]
+[ext_resource type="Theme" path="res://resources/ui/phone_theme.tres" id="3"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fault"]
+resource_local_to_scene = true
+shader = ExtResource("2")
+shader_parameter/hue_shift = 0.0
+shader_parameter/saturation_floor = 0.03
+shader_parameter/brightness_floor = 0.1
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_closed"]
+bg_color = Color(0.047, 0.063, 0.09, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.42, 0.47, 0.56, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 38
+corner_radius_bottom_right = 38
+corner_radius_bottom_left = 3
+corner_detail = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_open"]
+bg_color = Color(0.047, 0.063, 0.09, 1)
+border_width_left = 5
+border_width_top = 5
+border_width_right = 5
+border_width_bottom = 5
+border_color = Color(0.42, 0.47, 0.56, 1)
+corner_radius_top_left = 38
+corner_radius_top_right = 38
+corner_radius_bottom_right = 38
+corner_radius_bottom_left = 38
+corner_detail = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_display"]
+bg_color = Color(0.035, 0.035, 0.045, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.18, 0.19, 0.22, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="LuckyFoldShell" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("3")
+script = ExtResource("1")
+closed_shape = SubResource("StyleBox_closed")
+open_shape = SubResource("StyleBox_open")
+
+[node name="Frame" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Display" type="Panel" parent="."]
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_display")
+
+[node name="Hinge" type="ColorRect" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="Inset" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Content" type="VBoxContainer" parent="Inset"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Fault" type="TextureRect" parent="."]
+material = SubResource("ShaderMaterial_fault")
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Brand" type="Label" parent="."]
+layout_mode = 0
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Caption" type="Label" parent="."]
+layout_mode = 0
+horizontal_alignment = 2
+
+[node name="PocketHint" type="Label" parent="."]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="HueTimer" type="Timer" parent="."]
+wait_time = 3.4
+autostart = true

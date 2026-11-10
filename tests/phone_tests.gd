@@ -20,7 +20,7 @@ func run(session: Node, assertion: Callable) -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.theme = K.make_theme()
 	viewport.add_child(center)
-	phone = load("res://src/trading/phone.gd").new()
+	phone = load("res://src/trading/phone.tscn").instantiate()
 	center.add_child(phone)
 	phone.refresh()
 	await settle()

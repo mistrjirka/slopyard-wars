@@ -4,6 +4,30 @@ const Stats = preload("res://src/data/hardware_stats.gd")
 const HARD_VOLTAGE_LIMIT := 1.40
 
 
+## Mount quality is a property of the player's build (player.workshop_modifiers["cpu_mount_quality"]),
+## not of the tradeable CPU. Absent or non-numeric means 1.0, so a clean build keeps the old numbers.
+static func cpu_mount_quality(modifiers: Dictionary) -> float:
+	var raw: Variant = modifiers.get("cpu_mount_quality", 1.0)
+	if typeof(raw) != TYPE_INT and typeof(raw) != TYPE_FLOAT:
+		return 1.0
+	var q := float(raw)
+	if is_nan(q) or is_inf(q):
+		return 1.0
+	return clampf(q, 0.0, 1.0)
+
+
+## Thermal paste coverage is also a build property, not a part stat: the CPU minigame reports a raw
+## 0..3 amount (1.0 = enough), the host clamps it to 0..1, and anything above 1.0 is simply "enough".
+static func cpu_paste_amount(modifiers: Dictionary) -> float:
+	var raw: Variant = modifiers.get("cpu_paste_amount", 1.0)
+	if typeof(raw) != TYPE_INT and typeof(raw) != TYPE_FLOAT:
+		return 1.0
+	var p := float(raw)
+	if is_nan(p) or is_inf(p):
+		return 1.0
+	return clampf(p, 0.0, 1.0)
+
+
 static func evaluate(item: Dictionary, clock: float, voltage: float,
 		installed: Dictionary = {}, modifiers: Dictionary = {}) -> Dictionary:
 	var health := clampf(float(item.get("condition", 100)), 0, 100)
@@ -17,11 +41,29 @@ static func evaluate(item: Dictionary, clock: float, voltage: float,
 	var vrm := float(board.get("support_quality", 50)) * Stats.condition_factor(board)
 	var regulation := float(supply.get("support_quality", 50)) * Stats.condition_factor(supply)
 	var support := (cooling + vrm + regulation) / 300.0
-	var headroom := potential * (0.75 + health * 0.0025) * (0.80 + support * 0.20)
+	# Poor cooler mounting only affects the CPU it is clamped onto: less headroom, more heat.
+	var mount := 1.0
+	var mount_headroom := 1.0
+	var mount_heat := 0.0
+	if item.get("category", "") == "cpu":
+		mount = cpu_mount_quality(modifiers)
+		if mount < 1.0:
+			mount_headroom = lerpf(0.8, 1.0, mount)
+			mount_heat = 10.0 * (1.0 - mount)
+	var headroom := potential * (0.75 + health * 0.0025) * (0.80 + support * 0.20) * mount_headroom
 	var stable := 1.0 + headroom * clampf((voltage - 1.0) / (limit - 1.0), 0, 1)
 	var excess := maxf(0, clock - stable)
 	var multiplier := (1.0 + (clock - 1.0) * 0.9) * maxf(0.25, 1.0 - excess * 5.0)
-	var temperature := 29.0 + 24.0 * float(item.get("thermal_load", 1)) * clock * voltage * voltage - cooling * 0.16
+	# Paste is a CPU-only performance multiplier (no paste = 50%), independent of the mount's
+	# headroom/heat penalty. Too much paste is never penalised.
+	var paste := 1.0
+	var paste_multiplier := 1.0
+	if item.get("category", "") == "cpu":
+		paste = cpu_paste_amount(modifiers)
+		if paste < 1.0:
+			paste_multiplier = lerpf(0.5, 1.0, paste)
+			multiplier *= paste_multiplier
+	var temperature := 29.0 + 24.0 * float(item.get("thermal_load", 1)) * clock * voltage * voltage - cooling * 0.16 + mount_heat
 	var voltage_stress := maxf(0, voltage - (limit - 0.04)) / 0.14
 	var clock_stress := maxf(0, excess - 0.025) / 0.4
 	var heat_stress := maxf(0, temperature - 82) / 35
@@ -48,7 +90,9 @@ static func evaluate(item: Dictionary, clock: float, voltage: float,
 	if voltage > HARD_VOLTAGE_LIMIT + 0.0001:
 		chance = 1.0
 	return {"stable_clock": stable, "multiplier": multiplier, "temperature": temperature, "stock_failure_chance": stock_fault,
-		"damage_chance": chance, "fire_chance": fire, "uses_luck": uses_luck,
+		"damage_chance": chance, "fire_chance": fire, "uses_luck": uses_luck, "paste_amount": paste,
+		"paste_multiplier": paste_multiplier, "cpu_mount_quality": mount, "mount_headroom_multiplier": mount_headroom,
+		"mount_temperature_penalty": mount_heat,
 		"wear": ceili(chance * 8) if chance > 0 else 0}
 
 

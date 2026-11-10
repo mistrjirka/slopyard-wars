@@ -16,7 +16,6 @@ var _match_id := -1
 
 
 func _ready() -> void:
-	theme = K.make_theme()
 	resized.connect(queue_redraw)
 	Game.changed.connect(_refresh)
 	Game.notice.connect(_toasts.show_notice)

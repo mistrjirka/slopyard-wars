@@ -5,8 +5,9 @@ const K = preload("res://src/ui/ui_kit.gd")
 const Setup = preload("res://src/ui/match_setup.gd")
 const BUDGETS = Setup.BUDGETS
 const OBJECTIVES = Setup.OBJECTIVES
-const STEPS = Setup.STEPS
+const PlayerRowScene = preload("res://src/ui/lobby_player_row.tscn")
 var _lobby_players: VBoxContainer
+var _lobby_connecting: Label
 var _lobby_sig: String = ""
 var _lobby_budget: OptionButton
 var _lobby_obj: OptionButton
@@ -16,46 +17,20 @@ var _lobby_addr: Label
 
 
 func _ready() -> void:
-	var mc := MarginContainer.new()
-	mc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	for s in ["left", "right", "top", "bottom"]:
-		mc.add_theme_constant_override("margin_" + s, 40)
-	add_child(mc)
-	var cc := CenterContainer.new()
-	mc.add_child(cc)
-	var card := K.panel("Hero")
-	card.custom_minimum_size.x = 620
-	var v := K.vbox(12)
-	v.add_child(K.lbl("LAN LOBBY", "Title"))
-	_lobby_addr = K.lbl("", "Mono", K.SKY, true)
-	v.add_child(_lobby_addr)
-	v.add_child(K.lbl("PLAYERS", "Eyebrow"))
-	_lobby_players = K.vbox(6)
-	v.add_child(_lobby_players)
-	v.add_child(K.hrule())
-	var r := K.hbox(8)
-	r.add_child(K.lbl("Budget", "Muted"))
-	_lobby_budget = OptionButton.new()
+	_lobby_players = $Margin/Center/HeroCard/Content/Players
+	_lobby_connecting = $Margin/Center/HeroCard/Content/Connecting
+	_lobby_addr = $Margin/Center/HeroCard/Content/Addr
+	_lobby_budget = $Margin/Center/HeroCard/Content/OptionsRow/Budget
+	_lobby_obj = $Margin/Center/HeroCard/Content/OptionsRow/Goal
+	_lobby_start = $Margin/Center/HeroCard/Content/StartBtn
+	_lobby_wait = $Margin/Center/HeroCard/Content/Wait
 	for b in BUDGETS:
 		_lobby_budget.add_item(K.money(b))
 	_lobby_budget.select(2)
-	_lobby_budget.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	r.add_child(_lobby_budget)
-	r.add_child(K.lbl("Goal", "Muted"))
-	_lobby_obj = OptionButton.new()
 	for o in OBJECTIVES:
 		_lobby_obj.add_item(o)
-	_lobby_obj.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	r.add_child(_lobby_obj)
-	v.add_child(r)
-	_lobby_start = K.btn("START MATCH", "PrimaryButton", func(): start_requested.emit(int(BUDGETS[_lobby_budget.selected]), _lobby_obj.get_item_text(_lobby_obj.selected)))
-	_lobby_start.custom_minimum_size.y = 46
-	v.add_child(_lobby_start)
-	_lobby_wait = K.lbl("", "Muted", null, true)
-	v.add_child(_lobby_wait)
-	v.add_child(K.btn("LEAVE LOBBY", "GhostButton", func(): leave_requested.emit()))
-	card.add_child(v)
-	cc.add_child(card)
+	_lobby_start.pressed.connect(func(): start_requested.emit(int(BUDGETS[_lobby_budget.selected]), _lobby_obj.get_item_text(_lobby_obj.selected)))
+	$Margin/Center/HeroCard/Content/LeaveBtn.pressed.connect(func(): leave_requested.emit())
 
 
 func _lobby_ips() -> String:
@@ -75,19 +50,11 @@ func refresh() -> void:
 	if sig != _lobby_sig:
 		_lobby_sig = sig
 		K.clear(_lobby_players)
-		if st.players.is_empty():
-			_lobby_players.add_child(K.lbl("Connecting to host...", "Muted"))
+		_lobby_connecting.visible = st.players.is_empty()
 		for id in st.players:
-			var p := K.panel("CardTight")
-			var r := K.hbox(8)
-			r.add_child(K.lbl(String(st.players[id].name), "Mono"))
-			r.add_child(K.spacer())
-			if id == 1:
-				r.add_child(K.pill("HOST", K.ORANGE))
-			if id == Game.local_id():
-				r.add_child(K.pill("YOU", K.LIME))
-			p.add_child(r)
-			_lobby_players.add_child(p)
+			var row = PlayerRowScene.instantiate()
+			_lobby_players.add_child(row)
+			row.configure(String(st.players[id].name), id == 1, id == Game.local_id())
 	_lobby_addr.text = ("Tell friends to join: %s  (UDP port 24680)" % _lobby_ips()) if host else "Connected to the host. Waiting for the match to start."
 	_lobby_budget.disabled = not host
 	_lobby_obj.disabled = not host

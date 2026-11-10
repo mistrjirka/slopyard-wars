@@ -1,0 +1,90 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/trading/marketplace_view.gd" id="1"]
+
+[node name="MarketplaceView" type="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("1")
+theme_override_constants/separation = 8
+
+[node name="Controls" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Search" type="LineEdit" parent="Controls"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Search parts or sellers"
+
+[node name="Filters" type="Button" parent="Controls"]
+custom_minimum_size = Vector2(96, 44)
+layout_mode = 2
+theme_type_variation = "GhostButton"
+toggle_mode = true
+text = "Filters"
+
+[node name="FilterSection" type="VBoxContainer" parent="."]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TypeRow" type="HBoxContainer" parent="FilterSection"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="FilterSection/TypeRow"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+text = "Type"
+
+[node name="Type" type="OptionButton" parent="FilterSection/TypeRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+fit_to_longest_item = false
+
+[node name="OrderRow" type="HBoxContainer" parent="FilterSection"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="FilterSection/OrderRow"]
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 2
+text = "Sort"
+
+[node name="Order" type="OptionButton" parent="FilterSection/OrderRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+fit_to_longest_item = false
+
+[node name="Reset" type="Button" parent="FilterSection/OrderRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "Reset"
+
+[node name="Count" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+
+[node name="Empty" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = "Muted"
+text = "No matching parts. Try another type or reset your filters."
+autowrap_mode = 3
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Grid" type="GridContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 1

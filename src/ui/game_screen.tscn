@@ -1,6 +1,13 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://src/ui/game_screen.gd" id="1"]
+[ext_resource type="PackedScene" path="res://src/world/town_view.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://src/trading/phone.tscn" id="3"]
+[ext_resource type="PackedScene" path="res://src/workshop/bench_view.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://src/workshop/tune_view.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://src/ui/dialog_layer.tscn" id="6"]
+[ext_resource type="Script" path="res://src/world/town_map.gd" id="7"]
+[ext_resource type="Theme" path="res://resources/ui/game_theme.tres" id="8"]
 
 [node name="GameScreen" type="Control"]
 layout_mode = 3
@@ -9,4 +16,221 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("8")
 script = ExtResource("1")
+
+[node name="World" parent="." instance=ExtResource("2")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Topbar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 52.0
+grow_horizontal = 2
+theme_type_variation = "Topbar"
+
+[node name="Row" type="HBoxContainer" parent="Topbar"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Title" type="Label" parent="Topbar/Row"]
+layout_mode = 2
+theme_type_variation = "H2"
+text = "SLOPYARD / TOWN"
+
+[node name="Clock" type="Label" parent="Topbar/Row"]
+layout_mode = 2
+theme_type_variation = "Big"
+
+[node name="Cash" type="Label" parent="Topbar/Row"]
+layout_mode = 2
+theme_type_variation = "Big"
+
+[node name="Spacer" type="Control" parent="Topbar/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="PhoneBtn" type="Button" parent="Topbar/Row"]
+layout_mode = 2
+theme_type_variation = "PrimaryButton"
+text = "PHONE [P]"
+
+[node name="MapBtn" type="Button" parent="Topbar/Row"]
+layout_mode = 2
+text = "MAP [M]"
+
+[node name="MenuBtn" type="Button" parent="Topbar/Row"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "MENU"
+
+[node name="Bottombar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -90.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_type_variation = "Topbar"
+
+[node name="Hints" type="VBoxContainer" parent="Bottombar"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Context" type="Label" parent="Bottombar/Hints"]
+layout_mode = 2
+theme_type_variation = "Mono"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="Appointment" type="Label" parent="Bottombar/Hints"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="Help" type="Label" parent="Bottombar/Hints"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+text = "WASD / arrows: move  ·  E: door / car / handoff  ·  E at town attractions  ·  P: phone  ·  M: map  ·  B/T: home workbench  ·  Space: wait (solo)"
+
+[node name="PhoneLayer" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Shade" type="ColorRect" parent="PhoneLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.04, 0.09, 0.5)
+
+[node name="Center" type="CenterContainer" parent="PhoneLayer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Phone" parent="PhoneLayer/Center" instance=ExtResource("3")]
+layout_mode = 2
+
+[node name="Workspace" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = 80.0
+offset_right = -24.0
+offset_bottom = -100.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = "Card"
+visible = false
+
+[node name="Work" type="VBoxContainer" parent="Workspace"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BackBtn" type="Button" parent="Workspace/Work"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "BACK TO ROOM [Esc]"
+
+[node name="Bench" parent="Workspace/Work" instance=ExtResource("4")]
+layout_mode = 2
+
+[node name="Tune" parent="Workspace/Work" instance=ExtResource("5")]
+visible = false
+layout_mode = 2
+
+[node name="MapLayer" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 80.0
+offset_top = 90.0
+offset_right = -80.0
+offset_bottom = -110.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_type_variation = "Card"
+visible = false
+
+[node name="Scroll" type="ScrollContainer" parent="MapLayer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="MapLayer/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Header" type="HBoxContainer" parent="MapLayer/Scroll/Content"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MapLayer/Scroll/Content/Header"]
+layout_mode = 2
+theme_type_variation = &"H2"
+text = "SLOPYARD TOWN · MEETING PLACES"
+
+[node name="Spacer" type="Control" parent="MapLayer/Scroll/Content/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Close" type="Button" parent="MapLayer/Scroll/Content/Header"]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"GhostButton"
+text = "Close [M/Esc]"
+
+[node name="Map" type="Control" parent="MapLayer/Scroll/Content"]
+custom_minimum_size = Vector2(480, 400)
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+script = ExtResource("7")
+
+[node name="Help" type="Label" parent="MapLayer/Scroll/Content"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+text = "Home: center of town. Meeting signs: harbor southwest, scrapyard northwest, Grease Alley north-center, mill northeast, suburbs east, dorms south, storage far east. The yellow world marker tracks your selected appointment."
+autowrap_mode = 3
+
+[node name="Meetings" type="VBoxContainer" parent="MapLayer/Scroll/Content"]
+layout_mode = 2
+
+[node name="Dialogs" parent="." instance=ExtResource("6")]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

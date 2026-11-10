@@ -4,121 +4,56 @@ const Overclock = preload("res://src/workshop/overclock_rules.gd")
 const Stats = preload("res://src/data/hardware_stats.gd")
 const K = preload("res://src/ui/ui_kit.gd")
 const RigRules = preload("res://src/workshop/rig_rules.gd")
-const OcDial = preload("res://src/workshop/oc_dial.gd")
 
 var ask: Callable = Callable()
 var cat: String = "cpu"
 var _draft: Dictionary = {}     # cat -> {clock, voltage}
 var _applied: Dictionary = {}   # last known applied state, to detect external changes
 var _sel_btns: Dictionary = {}
-var _sel_names: Dictionary = {}
-var _dial_c: Control
-var _dial_v: Control
-var _info: Label
-var _warn_panel: PanelContainer
-var _warn_lbl: Label
-var _run: Button
-var _stock: Button
-var _safe: Button
-var _prev: Label
-var _power: Label
-var _title: Label
-var _empty: Label
-var _outcome: Label
-var _body: VBoxContainer
 var _sig: String = ""
 var _t: float = 0.0
 
 
-func _init() -> void:
-	add_theme_constant_override("separation", 12)
-	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var a := K.vbox(8)
-	a.custom_minimum_size.x = 250
-	a.add_child(K.lbl("OVERCLOCK BENCH", "H2"))
-	var grp := ButtonGroup.new()
+@onready var _dial_c: Control = $MidPanel/MidScroll/Holder/BodyBox/DialsBox/DialClock
+@onready var _dial_v: Control = $MidPanel/MidScroll/Holder/BodyBox/DialsBox/DialVoltage
+@onready var _info: Label = $MidPanel/MidScroll/Holder/BodyBox/InfoLabel
+@onready var _warn_panel: PanelContainer = $MidPanel/MidScroll/Holder/BodyBox/WarnPanel
+@onready var _warn_lbl: Label = $MidPanel/MidScroll/Holder/BodyBox/WarnPanel/WarnLabel
+@onready var _run: Button = $MidPanel/MidScroll/Holder/BodyBox/ActionsRow/RunButton
+@onready var _safe: Button = $MidPanel/MidScroll/Holder/BodyBox/ActionsRow/SafeButton
+@onready var _stock: Button = $MidPanel/MidScroll/Holder/BodyBox/ActionsRow/StockButton
+@onready var _prev: Label = $RightColumn/ProjPanel/ProjBox/PrevLabel
+@onready var _power: Label = $RightColumn/ProjPanel/ProjBox/PowerLabel
+@onready var _title: Label = $MidPanel/MidScroll/Holder/TitleLabel
+@onready var _empty: Label = $MidPanel/MidScroll/Holder/EmptyLabel
+@onready var _outcome: Label = $MidPanel/MidScroll/Holder/OutcomeLabel
+@onready var _body: VBoxContainer = $MidPanel/MidScroll/Holder/BodyBox
+
+
+func _ready() -> void:
+	_sel_btns["cpu"] = $LeftColumn/SelCpu
+	_sel_btns["gpu"] = $LeftColumn/SelGpu
+	_sel_btns["ram"] = $LeftColumn/SelRam
 	for c in RigRules.TUNABLE:
-		var b := K.btn("", "")
+		var b: Button = _sel_btns[c]
 		b.toggle_mode = true
-		b.button_group = grp
-		b.custom_minimum_size = Vector2(240, 64)
 		b.pressed.connect(_select.bind(c))
-		_sel_btns[c] = b
-		a.add_child(b)
 	_sel_btns["cpu"].button_pressed = true
-	a.add_child(K.lbl("Storage and the rest of the parts are not tunable.", "Tiny", K.MUTED, true))
-	var rules := K.panel("Inset")
-	var rv := K.vbox(4)
-	rv.add_child(K.lbl("RULES OF THUMB", "Eyebrow"))
-	for t in ["Clock and voltage are fictional multipliers, from 1.00x to 1.60x.", "Every model has its own headroom, heat load and voltage comfort limit.", "Condition, case airflow, board VRMs and PSU regulation affect tuning.", "Risky tests can destroy a part. Surviving them still causes wear.", "Above 1.40x voltage is guaranteed destruction. Lucky cannot save it.", "Reliability flaws can fail even at stock and in the final benchmark.", "Presets show their actual risk. Each test takes 20 minutes."]:
-		rv.add_child(K.lbl("- " + t, "Tiny", K.MUTED, true))
-	rules.add_child(rv)
-	a.add_child(rules)
-	add_child(a)
-	var mid := K.panel("Card")
-	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var msc := K.scroll()
-	mid.add_child(msc)
-	var holder := K.vbox(10)
-	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	msc.add_child(holder)
-	_title = K.lbl("", "H2")
-	holder.add_child(_title)
-	_outcome = K.lbl("", "Mono", K.DANGER, true)
-	holder.add_child(_outcome)
-	_empty = K.lbl("", "Muted", null, true)
-	holder.add_child(_empty)
-	_body = K.vbox(10)
-	holder.add_child(_body)
-	var dials := K.hbox(24)
-	dials.alignment = BoxContainer.ALIGNMENT_CENTER
-	_dial_c = OcDial.new()
 	_dial_c.title = "CLOCK"
 	_dial_c.unit = "x"
-	_dial_c.custom_minimum_size = Vector2(200, 200)
 	_dial_c.warn_from = 1.26
 	_dial_c.danger_from = 1.61
 	_dial_c.value_changed.connect(func(v: float): _edit(true, v))
-	dials.add_child(_dial_c)
-	_dial_v = OcDial.new()
 	_dial_v.title = "VOLTAGE"
 	_dial_v.unit = "x"
 	_dial_v.tint = K.SKY
-	_dial_v.custom_minimum_size = Vector2(200, 200)
 	_dial_v.warn_from = 1.31
 	_dial_v.danger_from = 1.4001
 	_dial_v.value_changed.connect(func(v: float): _edit(false, v))
-	dials.add_child(_dial_v)
-	_body.add_child(dials)
-	_body.add_child(K.lbl("Drag a dial, use the mouse wheel, or focus it and press arrow keys (Shift = bigger steps).", "Tiny", K.MUTED, true))
-	_info = K.lbl("", "Mono", null, true)
-	_body.add_child(_info)
-	_warn_panel = K.panel("CardTight")
-	_warn_lbl = K.lbl("", "", K.CREAM, true)
-	_warn_panel.add_child(_warn_lbl)
-	_body.add_child(_warn_panel)
-	var row := K.hbox(8)
-	_run = K.btn("RUN STRESS TEST (20 min)", "PrimaryButton", _apply)
-	row.add_child(_run)
-	_safe = K.btn("SAFE PRESET", "GhostButton", _safe_preset)
-	_safe.tooltip_text = "Choose a zero-risk preset for this exact part, condition and cooling setup"
-	row.add_child(_safe)
-	_stock = K.btn("STOCK", "GhostButton", func(): _set_draft(1.0, 1.0))
-	row.add_child(_stock)
-	_body.add_child(row)
-	add_child(mid)
-	var right := K.vbox(8)
-	right.custom_minimum_size.x = 300
-	right.add_child(K.lbl("PROJECTION", "H2"))
-	var pp := K.panel("Card")
-	var pv := K.vbox(6)
-	_prev = K.lbl("", "Mono", null, true)
-	pv.add_child(_prev)
-	_power = K.lbl("", "Muted", null, true)
-	pv.add_child(_power)
-	pp.add_child(pv)
-	right.add_child(pp)
-	add_child(right)
+	_outcome.add_theme_color_override("font_color", K.DANGER)
+	_run.pressed.connect(_apply)
+	_safe.pressed.connect(_safe_preset)
+	_stock.pressed.connect(func(): _set_draft(1.0, 1.0))
 
 
 func _me() -> Dictionary:
@@ -229,6 +164,15 @@ func _readouts() -> void:
 	_dial_c.queue_redraw()
 	_dial_v.queue_redraw()
 	_info.text = "%s\nCondition %d/100 · stock score %d · model headroom +%d%%\nStable clock here: %.2fx · performance %.2fx\nEstimated temperature %.0f°C · destruction chance %.1f%% per test" % [item.name, item.get("condition", 100), roundi(Stats.stock_score(item)), roundi(float(item.get("oc_potential", 0)) * 100), result.stable_clock, result.multiplier, result.temperature, chance * 100]
+	if cat == "cpu":
+		var paste_loss := roundi((1.0 - float(result.paste_multiplier)) * 100)
+		var mount_loss := roundi((1.0 - float(result.mount_headroom_multiplier)) * 100)
+		if paste_loss > 0:
+			_info.text += "\nINSTALLATION: insufficient paste costs %d%% CPU performance." % paste_loss
+		if mount_loss > 0:
+			_info.text += "\nINSTALLATION: uneven mounting costs %d%% OC headroom and adds %.0f°C." % [mount_loss, result.mount_temperature_penalty]
+		if paste_loss > 0 or mount_loss > 0:
+			_info.text += "\nUse REINSTALL on the workbench CPU card to correct it."
 	var modifiers: Dictionary = me.get("workshop_modifiers", {})
 	if int(modifiers.get("cooling_bonus", 0)) > 0:
 		_info.text += "\n%s applied: +%d cooling (100-point cap)" % [modifiers.get("cooling_name", "Cooling preparation"), modifiers.cooling_bonus]

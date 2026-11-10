@@ -1,6 +1,6 @@
 # Architecture and extension guide
 
-The project targets Godot 4.7 and prioritizes solo. LAN is an optional transport around the same simulation. Open `project.godot` and run `scenes/main.tscn` as before.
+The project targets Godot 4.7 and prioritizes solo. LAN is an optional transport around the same simulation. Open `project.godot` and run `src/main.tscn` as before.
 
 ## Module map
 
@@ -18,7 +18,7 @@ The project targets Godot 4.7 and prioritizes solo. LAN is an optional transport
 | `resources/world_activities.tres` | Five encounter locations, costs, rewards and dialogue |
 | `tests/` | Offline regression suite and optional two-process LAN smoke test |
 
-`scenes/main.tscn` is the composition root. Its script mounts one independent screen scene for the current phase and connects its signals. Leaving a screen frees its subtree. The root no longer constructs the menu, lobby, workbench and HUD itself.
+`src/main.tscn` and its colocated `src/main.gd` form the composition root. The script mounts one independent screen scene for the current phase and connects its signals. Leaving a screen frees its subtree. Fixed layouts and repeated UI elements are authored as `.tscn` scenes beside their feature scripts, including phone pages, listing/message/inventory cards, workshop views, dialogs and result rows. Scripts bind state, connect behavior and instantiate templates for dynamic content; add a scene instance to the tree before calling setup methods that use its `@onready` children. Shared styling is the editor-visible `resources/ui/game_theme.tres`; the phone app has its own `resources/ui/phone_theme.tres`, explicitly bound across its capture SubViewport. UI fonts retain antialiasing. Custom world labels use the native 8px Pixel Operator 8 cut; the screen-resolution overview uses native 16px Pixel Operator. Both use aliased, whole-pixel rendering rather than shrinking UI fonts.
 
 ## Ownership
 
@@ -43,7 +43,7 @@ Views read state and submit commands. Cash, inventory, appointments and final pl
 
 The LuckyFold Duo separates its device shell (`src/trading/luckyfold_shell.gd`) from app/navigation state (`phone.gd`). Folding is local presentation state, with one selected listing and per-listing draft store shared by both modes. Both composers use `Game.act("chat")`; folding does not create a second chat or change trading rules. A weak reference protects deferred scroll-to-bottom work when a page is disposed during rapid folding/navigation. The shell preloads two replaceable PNGs and keeps its brand label as live text. Its decorative layers ignore mouse input.
 
-The phone delegates browsing to `marketplace_view.gd` and selling help to `sell_view.gd`. `marketplace_query.gd` owns pure filtering/sorting without mutating shared stock. `hardware_stats.gd` supplies public sale estimates independently of private buyer budgets. The controller preserves filters and price drafts; live browse refreshes update cards without rebuilding the focused search control. `game_config.gd` supplies the one-day clock and deadline to the session, appointment rules and UI; new contacts must still have a usable window that day.
+The phone delegates browsing to `marketplace_view.gd` and selling help to `sell_view.gd`. `marketplace_query.gd` owns pure filtering/sorting without mutating shared stock. `hardware_stats.gd` supplies public sale estimates independently of private buyer budgets. The controller preserves filters, per-part price/expansion drafts, conversation drafts, detail-view state and the originating back destination. Live browse refreshes update cards without rebuilding the focused search control. Top-level navigation sits below the app body and hides inside a conversation. Unfolded conversations show a shared inbox-row sidebar on the left and the selected chat/details on the right; folded conversations show only the selected chat. The message composer retains its authored damaged-display clearance. Pocketing preserves the current fold mode. A transient capture SubViewport and authored chassis polygons project a solid hinged fold, while cancellation generations prevent stale captures from starting a later transition. `game_config.gd` supplies the one-day clock and deadline to the session, appointment rules and UI; new contacts must still have a usable window that day.
 
 Pure rules in `rig_rules.gd`, `overclock_rules.gd`, `hardware_stats.gd`, `trade_rules.gd` and `world_rules.gd` have no scene-tree dependencies. The tuning UI, benchmark and host damage calculation share `Overclock.evaluate`; only the workshop authority rolls random damage. `Workshop.final_score` performs inherent CPU/GPU reliability checks once in a shared, deterministic test order (including connector fires), also on deadline/disconnect; `preview_score` is always pure. Market valuations calculate from current condition, avoiding stale cached prices. Keep new compatibility, scoring and geometry rules in these modules so tests need no screen.
 
@@ -54,12 +54,12 @@ Pure rules in `rig_rules.gd`, `overclock_rules.gd`, `hardware_stats.gd`, `trade_
 - **Activities:** use an existing `kind` to add a stop through data alone. A new mechanic belongs in `ActivitySystem`, routed through `world_activity`, with costs and eligibility validated before mutation. Solo advances time; LAN uses the player's busy timer.
 - **Match balance:** edit `game_config.gd`; player-facing budget/objective descriptions live in `match_setup.gd`.
 - **Controls:** use Project Settings → Input Map. World actions use named actions; assembly retains focused pointer/rotation controls.
-- **Screens:** create a scene/script beside its feature and wire outgoing signals in `src/ui/main.gd`. Reuse the dialog and toast controls.
+- **Screens:** create a scene/script beside its feature and wire outgoing signals in `src/main.gd`. Reuse the dialog and toast controls.
 - **Town:** keep `world_rules.gd` collision bounds and `world_backdrop.gd` visuals aligned. `Catalog.LOCATIONS` supplies canonical meeting coordinates to schedules and the map.
 - **Art:** register explicit preloads in `art_library.gd`, keeping dependencies visible to Godot's importer/exporter. Use nearest filtering for pixel art.
 - **Actions:** validate in the appropriate gameplay system and route through `Game.act`. Test accepted, rejected and repeated requests against cash, inventory or position consequences.
 
-Static floors, roads, buildings and decoration use a cached draw list. Actors, camera and night tint update independently. Dynamic marketplace rows and the assembly canvas remain scripted; stable screen roots and the world viewport are scenes. This follows Godot's guidance on [scene organization](https://docs.godotengine.org/en/stable/tutorials/best_practices/scene_organization.html) and [project organization](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html).
+Static floors, roads, buildings and decoration use a cached draw list. Actors, camera and night tint update independently. Dynamic UI rows instantiate reusable scene templates; the assembly canvas, rotary dials, part artwork and town map retain custom drawing and input code inside scene-authored controls. This follows Godot's guidance on [scene organization](https://docs.godotengine.org/en/stable/tutorials/best_practices/scene_organization.html) and [project organization](https://docs.godotengine.org/en/stable/tutorials/best_practices/project_organization.html).
 
 No unfinished-run save, reconnect, client prediction, NPC commute simulation or solo AI builder was added. The optional Godot AI addon remains in `addons/`, disabled by default, with no runtime helper autoload in normal play.
 
@@ -79,6 +79,6 @@ The Windows wrapper checks exit codes and logs for script errors:
 
 The regression suite disables online dialogue and uses `artifacts/test_scores.json`, leaving real player records alone. It covers Resources, graphics, compatibility, power, tuning, starter affordability, input bindings, movement, doors/cars, clock advancement, early/late/duplicate purchases, sale locking/credit, offline appointments, late replies, private snapshots, score parsing and screen/replay lifecycle. `content_tests.gd` adds per-model checks, per-character prompt/schedule checks, seeded damage/survival outcomes, condition-based resale, blessing consumption, encounter costs/limits/proximity and the new interfaces. The LAN test launches two headless localhost peers and checks authoritative movement and privacy.
 
-Logs/captures belong in `artifacts/`, excluded from Git and Godot imports. Interactive playtesting was intentionally skipped for this refactor; headless UI lifecycle checks do not replace visual review. Live-provider calls and separate-machine LAN connectivity were not re-tested.
+Logs/captures belong in `artifacts/`, excluded from Git and Godot imports. Headless UI lifecycle checks do not replace visual review: launch a fresh game after scene changes and inspect the menu, folded/unfolded phone, marketplace, messages and workshop. The regression suite runs offline; it does not establish live-provider authentication or separate-machine LAN connectivity.
 
 `phone_tests.gd` mounts the actual LuckyFold controls in a SubViewport at 1280×720 and 1440×900. It checks content bounds, cover branding, fold transitions, draft/focus retention, offline messages, pending-reply protection, sold listings and page restoration. It makes no live-provider calls.

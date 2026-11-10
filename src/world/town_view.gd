@@ -1,6 +1,7 @@
 extends Control
 ## Pixel viewport, local camera and dynamic actors. Static art lives in WorldBackdrop.
 const World = preload("res://src/world/world_rules.gd")
+const K = preload("res://src/ui/ui_kit.gd")
 const ATLAS = preload("res://assets/town/atlas.png")
 var tracked := -1
 @onready var _viewport: SubViewport = $Viewport
@@ -52,8 +53,8 @@ func _sprite(cell: Vector2i, at: Vector2, scale_factor: float = 1.0, color: Colo
 	_canvas.draw_texture_rect_region(ATLAS, Rect2((at - Vector2(16, 24) * scale_factor).round(), Vector2(32, 32) * scale_factor), Rect2(Vector2(cell) * 32, Vector2(32, 32)), color)
 
 
-func _text(at: Vector2, text: String, color: String = "f7edcb", font_size: int = 8) -> void:
-	_canvas.draw_string(ThemeDB.fallback_font, at.round(), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(color))
+func _text(at: Vector2, text: String, color: String = "f7edcb", bold: bool = false) -> void:
+	_canvas.draw_string(K.world_font(bold), at.round(), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(color))
 
 
 func _paint() -> void:
@@ -95,7 +96,7 @@ func _paint() -> void:
 		else:
 			_person(actor.pos, Vector2.DOWN, 9, str(actor.meeting.contact))
 			_r(actor.pos.x - 3, actor.pos.y - 35, 6, 9, "fff1b9")
-			_text(actor.pos + Vector2(-1, -28), "!", "8f5b56", 10)
+			_text(actor.pos + Vector2(-1, -28), "!", "8f5b56", true)
 	if p.area == "town":
 		_track(p, view)
 	# A restrained day/night tint. Appointment text/HUD stays outside the world viewport.
@@ -120,7 +121,7 @@ func _person(at: Vector2, facing: Vector2, id: int, label: String) -> void:
 	_r(at.x - 6, at.y - 2, 12, 4, "70856d")
 	_sprite(Vector2i(dir * 2 + frame, 0), at + Vector2(0, 1), 1, tint)
 	if id != Game.local_id():
-		_text(at + Vector2(-18, -26), label, "273f4a", 8)
+		_text(at + Vector2(-18, -26), label, "273f4a")
 
 
 func _car(at: Vector2, player: Dictionary, _id: int) -> void:
@@ -131,7 +132,7 @@ func _car(at: Vector2, player: Dictionary, _id: int) -> void:
 	var extent := Vector2(40, 32)
 	var rect := Rect2((at - extent * 0.5).round(), extent)
 	if key == "car_side" and facing.x > 0:
-		rect.position.x += extent.x
+		# draw_texture_rect flips negative widths without moving the destination origin.
 		rect.size.x = -extent.x
 	_canvas.draw_texture_rect(preload("res://src/ui/art_library.gd").WORLD[key], rect, false)
 
@@ -147,5 +148,5 @@ func _track(p: Dictionary, _view: Vector2) -> void:
 		if delta.length() > 40:
 			var marker: Vector2 = (pos + delta.normalized() * 44).round()
 			_canvas.draw_line(marker - delta.normalized() * 6, marker + delta.normalized() * 6, Color("fff4b8"), 3)
-			_text(marker + Vector2(4, -6), "%dm" % int(delta.length()), "fff4b8", 9)
+			_text(marker + Vector2(4, -6), "%dm" % int(delta.length()), "fff4b8")
 		break

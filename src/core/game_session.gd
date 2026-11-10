@@ -73,6 +73,15 @@ func seller_status() -> String:
 	return seller.status() if is_host() else str(state.get("seller_status", ""))
 
 
+## Local settings only: these never enter match state or the network transport.
+func openrouter_key() -> String:
+	return seller.get_api_key()
+
+
+func set_openrouter_key(value: String) -> void:
+	seller.set_api_key(value)
+
+
 func solo(player_name: String, budget: int = 1000, objective: String = "Balanced") -> void:
 	leave()
 	state.mode = "solo"
@@ -279,6 +288,7 @@ func _handle(pid: int, action: String, data: Dictionary) -> void:
 		"wait": movement.wait(pid, p)
 		"chat": dialogue.chat(pid, p, data)
 		"install": workshop.install(pid, p, data)
+		"assembly_damage": workshop.assembly_damage(pid, p, data)
 		"tune": workshop.tune(pid, p, data)
 		"finish": workshop.finish(pid, p)
 		_: notify_player(pid, "Unknown action '%s'" % action)

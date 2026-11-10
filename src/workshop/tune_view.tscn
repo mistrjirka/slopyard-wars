@@ -1,0 +1,220 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://src/workshop/oc_dial.tscn" id="1_lvikf"]
+[ext_resource type="Script" path="res://src/workshop/tune_view.gd" id="2"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_sel"]
+
+[node name="TuneView" type="HBoxContainer" unique_id=536450347]
+script = ExtResource("2")
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="LeftColumn" type="VBoxContainer" parent="." unique_id=2102473567]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="LeftColumn" unique_id=1712494971]
+layout_mode = 2
+theme_type_variation = &"H2"
+text = "OVERCLOCK BENCH"
+
+[node name="SelCpu" type="Button" parent="LeftColumn" unique_id=1485351164]
+custom_minimum_size = Vector2(240, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_sel")
+
+[node name="SelGpu" type="Button" parent="LeftColumn" unique_id=2082689083]
+custom_minimum_size = Vector2(240, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_sel")
+
+[node name="SelRam" type="Button" parent="LeftColumn" unique_id=1077922695]
+custom_minimum_size = Vector2(240, 64)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+toggle_mode = true
+button_group = SubResource("ButtonGroup_sel")
+
+[node name="StorageNoteLabel" type="Label" parent="LeftColumn" unique_id=1376790244]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Storage and the rest of the parts are not tunable."
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="RulesPanel" type="PanelContainer" parent="LeftColumn" unique_id=225720763]
+layout_mode = 2
+theme_type_variation = &"Inset"
+
+[node name="RulesBox" type="VBoxContainer" parent="LeftColumn/RulesPanel" unique_id=1393626483]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="RulesEyebrow" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=229141303]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "RULES OF THUMB"
+
+[node name="RuleClockLabel" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=1263261873]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "- Clock and voltage are fictional multipliers, from 1.00x to 1.60x."
+autowrap_mode = 3
+
+[node name="RuleHeadroomLabel" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=1091774557]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "- Every model has its own headroom, heat load and voltage comfort limit."
+autowrap_mode = 3
+
+[node name="RuleConditionLabel" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=438704166]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "- Condition, case airflow, board VRMs and PSU regulation affect tuning."
+autowrap_mode = 3
+
+[node name="RuleRiskLabel" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=1594011041]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "- Risky tests can destroy a part. Surviving them still causes wear."
+autowrap_mode = 3
+
+[node name="RuleVoltageLabel" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=1906128289]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "- Above 1.40x voltage is guaranteed destruction. Lucky cannot save it."
+autowrap_mode = 3
+
+[node name="RuleFlawsLabel" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=2073856844]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "- Reliability flaws can fail even at stock and in the final benchmark."
+autowrap_mode = 3
+
+[node name="RulePresetsLabel" type="Label" parent="LeftColumn/RulesPanel/RulesBox" unique_id=915392074]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "- Presets show their actual risk. Each test takes 20 minutes."
+autowrap_mode = 3
+
+[node name="MidPanel" type="PanelContainer" parent="." unique_id=1621836916]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"Card"
+
+[node name="MidScroll" type="ScrollContainer" parent="MidPanel" unique_id=1452217735]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Holder" type="VBoxContainer" parent="MidPanel/MidScroll" unique_id=1148166571]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="MidPanel/MidScroll/Holder" unique_id=703015871]
+layout_mode = 2
+theme_type_variation = &"H2"
+
+[node name="OutcomeLabel" type="Label" parent="MidPanel/MidScroll/Holder" unique_id=2117223966]
+layout_mode = 2
+theme_type_variation = &"Mono"
+autowrap_mode = 3
+
+[node name="EmptyLabel" type="Label" parent="MidPanel/MidScroll/Holder" unique_id=1716538358]
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 3
+
+[node name="BodyBox" type="VBoxContainer" parent="MidPanel/MidScroll/Holder" unique_id=1727299394]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DialsBox" type="HBoxContainer" parent="MidPanel/MidScroll/Holder/BodyBox" unique_id=428874085]
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="DialClock" parent="MidPanel/MidScroll/Holder/BodyBox/DialsBox" unique_id=982946915 instance=ExtResource("1_lvikf")]
+custom_minimum_size = Vector2(200, 200)
+layout_mode = 2
+
+[node name="DialVoltage" parent="MidPanel/MidScroll/Holder/BodyBox/DialsBox" unique_id=748035418 instance=ExtResource("1_lvikf")]
+custom_minimum_size = Vector2(200, 200)
+layout_mode = 2
+
+[node name="DialHintLabel" type="Label" parent="MidPanel/MidScroll/Holder/BodyBox" unique_id=224641017]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Drag a dial, use the mouse wheel, or focus it and press arrow keys (Shift = bigger steps)."
+autowrap_mode = 3
+
+[node name="InfoLabel" type="Label" parent="MidPanel/MidScroll/Holder/BodyBox" unique_id=566099472]
+layout_mode = 2
+theme_type_variation = &"Mono"
+autowrap_mode = 3
+
+[node name="WarnPanel" type="PanelContainer" parent="MidPanel/MidScroll/Holder/BodyBox" unique_id=187774823]
+layout_mode = 2
+theme_type_variation = &"CardTight"
+
+[node name="WarnLabel" type="Label" parent="MidPanel/MidScroll/Holder/BodyBox/WarnPanel" unique_id=1022752573]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="ActionsRow" type="HBoxContainer" parent="MidPanel/MidScroll/Holder/BodyBox" unique_id=1696273079]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RunButton" type="Button" parent="MidPanel/MidScroll/Holder/BodyBox/ActionsRow" unique_id=1408982338]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"PrimaryButton"
+text = "RUN STRESS TEST (20 min)"
+
+[node name="SafeButton" type="Button" parent="MidPanel/MidScroll/Holder/BodyBox/ActionsRow" unique_id=1471166022]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+tooltip_text = "Choose a zero-risk preset for this exact part, condition and cooling setup"
+theme_type_variation = &"GhostButton"
+text = "SAFE PRESET"
+
+[node name="StockButton" type="Button" parent="MidPanel/MidScroll/Holder/BodyBox/ActionsRow" unique_id=465707113]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"GhostButton"
+text = "STOCK"
+
+[node name="RightColumn" type="VBoxContainer" parent="." unique_id=1788839007]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ProjectionTitleLabel" type="Label" parent="RightColumn" unique_id=1004019217]
+layout_mode = 2
+theme_type_variation = &"H2"
+text = "PROJECTION"
+
+[node name="ProjPanel" type="PanelContainer" parent="RightColumn" unique_id=849523976]
+layout_mode = 2
+theme_type_variation = &"Card"
+
+[node name="ProjBox" type="VBoxContainer" parent="RightColumn/ProjPanel" unique_id=777654218]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PrevLabel" type="Label" parent="RightColumn/ProjPanel/ProjBox" unique_id=1603587686]
+layout_mode = 2
+theme_type_variation = &"Mono"
+autowrap_mode = 3
+
+[node name="PowerLabel" type="Label" parent="RightColumn/ProjPanel/ProjBox" unique_id=392716317]
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 3

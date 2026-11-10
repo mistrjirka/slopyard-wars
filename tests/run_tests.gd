@@ -261,7 +261,7 @@ func _test_privacy_and_lifecycle() -> void:
 
 func _test_screens() -> void:
 	game.leave()
-	var shell: Control = load("res://scenes/main.tscn").instantiate()
+	var shell: Control = load("res://src/main.tscn").instantiate()
 	root.add_child(shell)
 	await process_frame
 	expect(shell.get_node("Screens").get_child_count() == 1, "Menu mounts as an independent screen")

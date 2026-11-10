@@ -1,0 +1,41 @@
+[gd_scene load_steps=1 format=3]
+
+[node name="AssemblyDialog" type="PanelContainer"]
+layout_mode = 2
+theme_type_variation = "Card"
+
+[node name="Box" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Head" type="HBoxContainer" parent="Box"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Box/Head"]
+custom_minimum_size = Vector2(40, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+text_overrun_behavior = 3
+theme_type_variation = "H2"
+
+[node name="Spacer" type="Control" parent="Box/Head"]
+layout_mode = 2
+size_flags_horizontal = 1
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="Rotate" type="Button" parent="Box/Head"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "ROTATE (R)"
+
+[node name="Cancel" type="Button" parent="Box/Head"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "CANCEL (ESC)"
+
+[node name="Frame" type="PanelContainer" parent="Box"]
+layout_mode = 2
+theme_type_variation = "Inset"

@@ -1,0 +1,187 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/workshop/bench_view.gd" id="1"]
+
+[node name="BenchView" type="HBoxContainer" unique_id=916732602]
+script = ExtResource("1")
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="RigColumn" type="VBoxContainer" parent="." unique_id=297903333]
+custom_minimum_size = Vector2(340, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="RigTitle" type="Label" parent="RigColumn" unique_id=1541002578]
+layout_mode = 2
+theme_type_variation = &"H2"
+text = "YOUR RIG"
+
+[node name="RigHint" type="Label" parent="RigColumn" unique_id=1284508657]
+layout_mode = 2
+theme_type_variation = &"Muted"
+text = "Install order: case, then motherboard, then everything else (PSU needs only the case)."
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="RigScroll" type="ScrollContainer" parent="RigColumn" unique_id=79908461]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="SlotsBox" type="VBoxContainer" parent="RigColumn/RigScroll" unique_id=1633927767]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="InventoryColumn" type="VBoxContainer" parent="." unique_id=346952598]
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 1.15
+theme_override_constants/separation = 6
+
+[node name="InventoryTitle" type="Label" parent="InventoryColumn" unique_id=873447097]
+layout_mode = 2
+theme_type_variation = &"H2"
+text = "INVENTORY"
+
+[node name="InventoryScroll" type="ScrollContainer" parent="InventoryColumn" unique_id=249669697]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="InvBox" type="VBoxContainer" parent="InventoryColumn/InventoryScroll" unique_id=1285485053]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="CheckColumn" type="VBoxContainer" parent="." unique_id=442313965]
+custom_minimum_size = Vector2(330, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CheckTitle" type="Label" parent="CheckColumn" unique_id=1957667330]
+layout_mode = 2
+theme_type_variation = &"H2"
+text = "BUILD CHECK"
+
+[node name="CheckScroll" type="ScrollContainer" parent="CheckColumn" unique_id=1115275550]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="CheckHolder" type="VBoxContainer" parent="CheckColumn/CheckScroll" unique_id=1128322067]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="CheckCard" type="PanelContainer" parent="CheckColumn/CheckScroll/CheckHolder" unique_id=912357088]
+layout_mode = 2
+theme_type_variation = &"Card"
+
+[node name="CardBox" type="VBoxContainer" parent="CheckColumn/CheckScroll/CheckHolder/CheckCard" unique_id=912357089]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ChecklistHeading" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/CheckCard/CardBox" unique_id=912357085]
+layout_mode = 2
+theme_type_variation = "Eyebrow"
+text = "CHECKLIST"
+
+[node name="CheckBox" type="VBoxContainer" parent="CheckColumn/CheckScroll/CheckHolder/CheckCard/CardBox" unique_id=912357084]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ChecklistSuccess" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/CheckCard/CardBox" unique_id=912357086]
+layout_mode = 2
+theme_type_variation = "Mono"
+text = "All requirements met. The rig can be benchmarked."
+visible = false
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="ChecklistHint" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/CheckCard/CardBox" unique_id=912357087]
+layout_mode = 2
+theme_type_variation = "Tiny"
+text = "Install the missing parts from Inventory. Hover a card for full specifications; use Reinstall to correct paste or mounting."
+visible = false
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="PowerPanel" type="PanelContainer" parent="CheckColumn/CheckScroll/CheckHolder" unique_id=1995253731]
+layout_mode = 2
+theme_type_variation = &"Card"
+
+[node name="PowerBox" type="VBoxContainer" parent="CheckColumn/CheckScroll/CheckHolder/PowerPanel" unique_id=37022296]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PowerEyebrow" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/PowerPanel/PowerBox" unique_id=2125272449]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "POWER BUDGET"
+
+[node name="PowerBar" type="ProgressBar" parent="CheckColumn/CheckScroll/CheckHolder/PowerPanel/PowerBox" unique_id=1329546074]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+show_percentage = false
+
+[node name="PowerLabel" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/PowerPanel/PowerBox" unique_id=1584991359]
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="ScorePanel" type="PanelContainer" parent="CheckColumn/CheckScroll/CheckHolder" unique_id=1182266388]
+layout_mode = 2
+theme_type_variation = &"Card"
+
+[node name="ScoreBox" type="VBoxContainer" parent="CheckColumn/CheckScroll/CheckHolder/ScorePanel" unique_id=1438086466]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ScoreEyebrow" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/ScorePanel/ScoreBox" unique_id=961555612]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "BENCHMARK PREVIEW"
+
+[node name="ScoreLabel" type="Label" parent="CheckColumn/CheckScroll/CheckHolder/ScorePanel/ScoreBox" unique_id=1532253624]
+layout_mode = 2
+theme_type_variation = &"Mono"
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="BusyLabel" type="Label" parent="CheckColumn/CheckScroll/CheckHolder" unique_id=717033483]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+theme_override_colors/font_color = Color(1, 0.5411765, 0.16470589, 1)
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3
+
+[node name="TuningButton" type="Button" parent="CheckColumn/CheckScroll/CheckHolder"]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"GhostButton"
+text = "OPEN TUNING [T]"
+
+[node name="FinishButton" type="Button" parent="CheckColumn/CheckScroll/CheckHolder" unique_id=1077657114]
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"RiskButton"
+text = "FINISH & RUN BENCHMARK"
+
+[node name="FinishNote" type="Label" parent="CheckColumn/CheckScroll/CheckHolder" unique_id=1646735935]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "Finishing locks your rig. Review tuning first if you want more score."
+autowrap_mode = 3
+custom_minimum_size = Vector2(40, 0)
+size_flags_horizontal = 3

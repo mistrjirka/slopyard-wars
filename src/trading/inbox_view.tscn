@@ -1,0 +1,49 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/trading/inbox_view.gd" id="1"]
+
+[node name="InboxView" type="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+script = ExtResource("1")
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = "Eyebrow"
+text = "Recent conversations"
+
+[node name="Hint" type="Label" parent="."]
+layout_mode = 2
+theme_type_variation = "Muted"
+text = "Reply on the cover. Unfold to browse parts or sell a spare."
+autowrap_mode = 3
+
+[node name="Appointment" type="Label" parent="."]
+visible = false
+layout_mode = 2
+theme_type_variation = "ActionLabel"
+autowrap_mode = 3
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Box" type="VBoxContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Empty" type="Label" parent="Scroll/Box"]
+layout_mode = 2
+theme_type_variation = "Muted"
+text = "Your conversations will appear here. Browse parts to message a seller."
+autowrap_mode = 3
+
+[node name="UnfoldBtn" type="Button" parent="."]
+visible = false
+layout_mode = 2
+theme_type_variation = "PrimaryButton"
+custom_minimum_size = Vector2(0, 44)
+text = "Browse parts"

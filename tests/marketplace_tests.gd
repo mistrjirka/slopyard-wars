@@ -99,7 +99,7 @@ func _phone() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.theme = K.make_theme()
 	viewport.add_child(center)
-	var phone: Control = load("res://src/trading/phone.gd").new()
+	var phone: Control = load("res://src/trading/phone.tscn").instantiate()
 	center.add_child(phone)
 	phone.set_unfolded(true)
 	await settle()

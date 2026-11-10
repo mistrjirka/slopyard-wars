@@ -1,0 +1,48 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/trading/meeting_panel.gd" id="1"]
+
+[node name="MeetingPanel" type="VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+script = ExtResource("1")
+
+[node name="ToggleRow" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ToggleBtn" type="Button" parent="ToggleRow"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "Meeting times"
+
+[node name="TrackBtn" type="Button" parent="ToggleRow"]
+custom_minimum_size = Vector2(0, 44)
+visible = false
+layout_mode = 2
+theme_type_variation = "PrimaryButton"
+text = "Track"
+
+[node name="Choices" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ChoicesScroll" type="ScrollContainer" parent="."]
+visible = false
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="ChoicesCompact" type="VBoxContainer" parent="ChoicesScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Empty" type="Label" parent="."]
+visible = false
+layout_mode = 2
+theme_type_variation = "Tiny"
+theme_override_colors/font_color = Color(1, 0.541176, 0.164706, 1)
+text = "No meeting window remains before tonight's deadline. Try another contact or head home to build."
+autowrap_mode = 3

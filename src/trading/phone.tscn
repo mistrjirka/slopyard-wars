@@ -1,0 +1,196 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://src/trading/phone.gd" id="1"]
+[ext_resource type="PackedScene" path="res://src/trading/luckyfold_shell.tscn" id="2"]
+[ext_resource type="Shader" path="res://src/trading/fold_face.gdshader" id="3"]
+[ext_resource type="Texture2D" path="res://assets/ui/phone/browse.svg" id="4"]
+[ext_resource type="Texture2D" path="res://assets/ui/phone/messages.svg" id="5"]
+[ext_resource type="Texture2D" path="res://assets/ui/phone/sell.svg" id="6"]
+
+[sub_resource type="ButtonGroup" id="NavigationGroup"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_cover"]
+resource_local_to_scene = true
+shader = ExtResource("3")
+shader_parameter/source_rect = Vector4(0, 0, 1, 1)
+shader_parameter/blur_texels = 56.0
+shader_parameter/darken = 0.55
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_inner_left"]
+resource_local_to_scene = true
+shader = ExtResource("3")
+shader_parameter/source_rect = Vector4(0, 0, 0.5, 1)
+shader_parameter/blur_texels = 56.0
+shader_parameter/darken = 0.55
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_inner_right"]
+resource_local_to_scene = true
+shader = ExtResource("3")
+shader_parameter/source_rect = Vector4(0.5, 0, 0.5, 1)
+shader_parameter/stationary = true
+shader_parameter/blur_texels = 0.0
+shader_parameter/darken = 0.0
+
+[node name="Phone" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Screen" type="SubViewportContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="Viewport" type="SubViewport" parent="Screen"]
+transparent_bg = true
+size = Vector2i(1000, 760)
+render_target_update_mode = 2
+
+[node name="Device" parent="Screen/Viewport" instance=ExtResource("2")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Status" type="HBoxContainer" parent="Screen/Viewport/Device/Inset/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Clock" type="Label" parent="Screen/Viewport/Device/Inset/Content/Status"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+
+[node name="Spacer" type="Control" parent="Screen/Viewport/Device/Inset/Content/Status"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ModeButton" type="Button" parent="Screen/Viewport/Device/Inset/Content/Status"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_type_variation = "GhostButton"
+theme_override_font_sizes/font_size = 13
+text = "Unfold"
+
+[node name="Close" type="Button" parent="Screen/Viewport/Device/Inset/Content/Status"]
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "×"
+tooltip_text = "Pocket phone (P / Esc)"
+
+[node name="BrandRow" type="HBoxContainer" parent="Screen/Viewport/Device/Inset/Content"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="Screen/Viewport/Device/Inset/Content/BrandRow"]
+layout_mode = 2
+theme_type_variation = "H2"
+
+[node name="Spacer" type="Control" parent="Screen/Viewport/Device/Inset/Content/BrandRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Body" type="VBoxContainer" parent="Screen/Viewport/Device/Inset/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="NavSeparator" type="HSeparator" parent="Screen/Viewport/Device/Inset/Content"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Nav" type="HBoxContainer" parent="Screen/Viewport/Device/Inset/Content"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_constants/separation = 6
+visible = false
+
+[node name="Browse" type="Button" parent="Screen/Viewport/Device/Inset/Content/Nav"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "TabButton"
+toggle_mode = true
+button_group = SubResource("NavigationGroup")
+icon = ExtResource("4")
+text = "Browse"
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="Messages" type="Button" parent="Screen/Viewport/Device/Inset/Content/Nav"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "TabButton"
+toggle_mode = true
+button_group = SubResource("NavigationGroup")
+icon = ExtResource("5")
+text = "Messages"
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="Sell" type="Button" parent="Screen/Viewport/Device/Inset/Content/Nav"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = "TabButton"
+toggle_mode = true
+button_group = SubResource("NavigationGroup")
+icon = ExtResource("6")
+text = "Sell"
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+vertical_icon_alignment = 0
+
+[node name="CoverHint" type="Label" parent="Screen/Viewport/Device/Inset/Content"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+autowrap_mode = 3
+
+[node name="Fold" type="Control" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="FixedChassis" type="Polygon2D" parent="Fold"]
+antialiased = true
+
+[node name="InnerRight" type="TextureRect" parent="Fold"]
+material = SubResource("ShaderMaterial_inner_right")
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+
+[node name="HingeSpine" type="Polygon2D" parent="Fold"]
+color = Color(0.42, 0.47, 0.56, 1)
+antialiased = true
+
+[node name="MovingChassis" type="Polygon2D" parent="Fold"]
+antialiased = true
+
+[node name="Cover" type="TextureRect" parent="Fold"]
+material = SubResource("ShaderMaterial_cover")
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1
+
+[node name="InnerLeft" type="TextureRect" parent="Fold"]
+material = SubResource("ShaderMaterial_inner_left")
+layout_mode = 0
+mouse_filter = 2
+expand_mode = 1

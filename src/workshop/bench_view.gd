@@ -1,10 +1,15 @@
 extends HBoxContainer
 ## Workbench: rig slots, inventory with compatibility, build checklist, power budget, finish.
 const K = preload("res://src/ui/ui_kit.gd")
-const PartArt = preload("res://src/ui/part_art.gd")
+const SlotCardScene = preload("res://src/workshop/slot_card.tscn")
+const InventoryCardScene = preload("res://src/workshop/inventory_card.tscn")
+const BurntPanelScene = preload("res://src/workshop/burnt_panel.tscn")
+const EmptyInventoryPanelScene = preload("res://src/workshop/empty_inventory_panel.tscn")
+const ChecklistRowScene = preload("res://src/workshop/checklist_row.tscn")
 const RigRules = preload("res://src/workshop/rig_rules.gd")
 const Catalog = preload("res://src/data/catalog.gd")
 const Overclock = preload("res://src/workshop/overclock_rules.gd")
+const Stats = preload("res://src/data/hardware_stats.gd")
 
 signal install_requested(item: Dictionary)
 signal go_market
@@ -22,81 +27,25 @@ const NEED_HINT := {
 	"storage": "Required: storage is a benchmark category.",
 }
 
-var _slots_box: VBoxContainer
-var _inv_box: VBoxContainer
-var _check_box: VBoxContainer
-var _power_bar: ProgressBar
-var _power_lbl: Label
-var _busy_lbl: Label
-var _finish_btn: Button
-var _score_lbl: Label
 var _sig: String = ""
 var _install_btns: Array = []
 
+@onready var _slots_box: VBoxContainer = $RigColumn/RigScroll/SlotsBox
+@onready var _inv_box: VBoxContainer = $InventoryColumn/InventoryScroll/InvBox
+@onready var _check_box: VBoxContainer = $CheckColumn/CheckScroll/CheckHolder/CheckCard/CardBox/CheckBox
+@onready var _checklist_success: Label = $CheckColumn/CheckScroll/CheckHolder/CheckCard/CardBox/ChecklistSuccess
+@onready var _checklist_hint: Label = $CheckColumn/CheckScroll/CheckHolder/CheckCard/CardBox/ChecklistHint
+@onready var _power_bar: ProgressBar = $CheckColumn/CheckScroll/CheckHolder/PowerPanel/PowerBox/PowerBar
+@onready var _power_lbl: Label = $CheckColumn/CheckScroll/CheckHolder/PowerPanel/PowerBox/PowerLabel
+@onready var _busy_lbl: Label = $CheckColumn/CheckScroll/CheckHolder/BusyLabel
+@onready var _finish_btn: Button = $CheckColumn/CheckScroll/CheckHolder/FinishButton
+@onready var _score_lbl: Label = $CheckColumn/CheckScroll/CheckHolder/ScorePanel/ScoreBox/ScoreLabel
+@onready var _tuning_button: Button = $CheckColumn/CheckScroll/CheckHolder/TuningButton
 
-func _init() -> void:
-	add_theme_constant_override("separation", 12)
-	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var a := K.vbox(6)
-	a.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	a.size_flags_stretch_ratio = 1.0
-	a.custom_minimum_size.x = 340
-	a.add_child(K.lbl("YOUR RIG", "H2"))
-	a.add_child(K.lbl("Install order: case, then motherboard, then everything else (PSU needs only the case).", "Muted", null, true))
-	var sa := K.scroll()
-	a.add_child(sa)
-	_slots_box = K.vbox(8)
-	_slots_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sa.add_child(_slots_box)
-	add_child(a)
-	var b := K.vbox(6)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.size_flags_stretch_ratio = 1.15
-	b.custom_minimum_size.x = 380
-	b.add_child(K.lbl("INVENTORY", "H2"))
-	var sb := K.scroll()
-	b.add_child(sb)
-	_inv_box = K.vbox(8)
-	_inv_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sb.add_child(_inv_box)
-	add_child(b)
-	var c := K.vbox(8)
-	c.custom_minimum_size.x = 330
-	c.size_flags_horizontal = Control.SIZE_FILL
-	c.add_child(K.lbl("BUILD CHECK", "H2"))
-	var sc := K.scroll()
-	c.add_child(sc)
-	var cv := K.vbox(10)
-	cv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(cv)
-	_check_box = K.vbox(6)
-	var cp := K.panel("Card")
-	cp.add_child(_check_box)
-	cv.add_child(cp)
-	var pp := K.panel("Card")
-	var pv := K.vbox(4)
-	pv.add_child(K.lbl("POWER BUDGET", "Eyebrow"))
-	_power_bar = ProgressBar.new()
-	_power_bar.custom_minimum_size.y = 16
-	_power_bar.show_percentage = false
-	pv.add_child(_power_bar)
-	_power_lbl = K.lbl("", "Muted", null, true)
-	pv.add_child(_power_lbl)
-	pp.add_child(pv)
-	cv.add_child(pp)
-	var sp := K.panel("Card")
-	var sv := K.vbox(4)
-	sv.add_child(K.lbl("BENCHMARK PREVIEW", "Eyebrow"))
-	_score_lbl = K.lbl("", "Mono", null, true)
-	sv.add_child(_score_lbl)
-	sp.add_child(sv)
-	cv.add_child(sp)
-	_busy_lbl = K.lbl("", "Tiny", K.ORANGE, true)
-	cv.add_child(_busy_lbl)
-	_finish_btn = K.btn("FINISH & RUN BENCHMARK", "RiskButton", _finish)
-	cv.add_child(_finish_btn)
-	cv.add_child(K.lbl("Finishing locks your rig. Tune CPU/GPU/RAM first (TUNING tab) if you want more score.", "Tiny", K.MUTED, true))
-	add_child(c)
+
+func _ready() -> void:
+	_finish_btn.pressed.connect(_finish)
+	_tuning_button.pressed.connect(func(): go_tuning.emit())
 
 
 func _me() -> Dictionary:
@@ -112,8 +61,9 @@ func tick() -> void:
 	var locked: bool = bool(me.get("ready", false))
 	for entry in _install_btns:
 		var btn: Button = entry[0]
-		if is_instance_valid(btn) and entry[1] == "":
-			btn.disabled = busy > 0.0 or driving or locked
+		if is_instance_valid(btn):
+			btn.visible = entry[1] == "" and not driving and not locked
+			btn.disabled = busy > 0.0 or entry[1] != ""
 	if locked:
 		_busy_lbl.text = "Rig locked. Waiting for the match to end."
 	elif driving:
@@ -134,6 +84,9 @@ func refresh() -> void:
 		parts.append("%s%d" % [k, int(inst[k].id)])
 	for it in me.get("inventory", []):
 		parts.append("i%d" % int(it.id))
+	for listing: Dictionary in Game.state.get("listings", []):
+		if int(listing.get("owner", 0)) == Game.local_id() and listing.get("status") == "available":
+			parts.append("sale%d" % int(listing.get("item_id", -1)))
 	var sig := "%s|%s|%s|%s|%s|%s" % [",".join(parts), str(me.get("tuning", {})) + str(me.get("workshop_modifiers", {})) + str(inst) + str(me.get("inventory", [])), str(me.get("ready", false)), str(me.get("destroyed", []).size()), str(Game.state.objective), str(not bool(me.get("driving", false)))]
 	if sig == _sig:
 		tick()
@@ -146,73 +99,76 @@ func refresh() -> void:
 func _rebuild(me: Dictionary) -> void:
 	var inst: Dictionary = me.get("installed", {})
 	var tun: Dictionary = me.get("tuning", {})
+	_install_btns.clear()
 	K.clear(_slots_box)
 	for c in ORDER:
-		var p := K.panel("CardTight")
-		var h := K.hbox(10)
-		var art: Control = PartArt.new()
-		art.custom_minimum_size = Vector2(72, 50)
+		var card: PanelContainer = SlotCardScene.instantiate()
+		# @onready members only exist once the card is in the tree.
+		_slots_box.add_child(card)
 		var col := K.cat_color(c)
+		card.category_label.text = String(K.CAT_LABEL[c])
+		card.category_label.add_theme_color_override("font_color", col)
 		if inst.has(c):
-			art.show_item(inst[c])
-		else:
-			art.show_item({"category": c, "name": ""}, true)
-		h.add_child(art)
-		var v := K.vbox(1)
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		v.add_child(K.lbl(String(K.CAT_LABEL[c]), "Eyebrow", col))
-		if inst.has(c):
+			card.art.show_item(inst[c])
 			var it: Dictionary = inst[c]
-			var n := K.lbl(String(it.name), "Mono", null, true)
-			v.add_child(n)
-			v.add_child(K.lbl(Catalog.spec_text(it), "Tiny", null, true))
+			card.name_label.text = String(it.name)
+			card.spec_label.text = _part_summary(it)
+			card.tooltip_text = Catalog.spec_text(it, false)
 			if c in RigRules.TUNABLE and tun.has(c):
-				v.add_child(K.lbl("OC x%.2f clock @ %.2f V" % [tun[c].clock, tun[c].voltage], "Tiny", K.ORANGE))
+				card.oc_label.text = "OC x%.2f clock @ %.2f V" % [tun[c].clock, tun[c].voltage]
+				card.oc_label.add_theme_color_override("font_color", K.ORANGE)
+				card.oc_label.visible = true
+			else:
+				card.oc_label.visible = false
+			var why := _installation_reason(it, me)
+			card.ok_pill.visible = why == ""
+			card.reinstall_button.visible = why == ""
+			card.reinstall_button.disabled = why != ""
+			card.reinstall_button.pressed.connect(func(): install_requested.emit(it))
+			_install_btns.append([card.reinstall_button, why])
+			card.penalty_label.text = _installation_penalties(it, me)
+			if why != "":
+				card.penalty_label.text += ("\n" if card.penalty_label.text != "" else "") + why
+			card.penalty_label.visible = card.penalty_label.text != ""
 		else:
-			v.add_child(K.lbl("EMPTY", "Mono", K.FAINT))
-			v.add_child(K.lbl(String(NEED_HINT[c]), "Tiny", K.MUTED, true))
-		h.add_child(v)
-		if inst.has(c):
-			h.add_child(K.pill("OK", K.LIME))
-		p.add_child(h)
-		_slots_box.add_child(p)
+			card.art.show_item({"category": c, "name": ""}, true)
+			card.name_label.text = "EMPTY"
+			card.name_label.add_theme_color_override("font_color", K.FAINT)
+			card.spec_label.text = String(NEED_HINT[c])
+			card.oc_label.visible = false
+			card.ok_pill.visible = false
 	var destroyed: Array = me.get("destroyed", [])
 	if not destroyed.is_empty():
-		var dp := K.panel("CardRisk")
-		var dv := K.vbox(2)
-		dv.add_child(K.lbl("BURNT OUT", "Eyebrow", K.DANGER))
-		for d in destroyed:
-			dv.add_child(K.lbl(String(d), "Tiny", K.CREAM, true))
-		dv.add_child(K.lbl("Destroyed parts are gone for good. Buy a replacement.", "Tiny", K.MUTED, true))
-		dp.add_child(dv)
+		var dp: PanelContainer = BurntPanelScene.instantiate()
 		_slots_box.add_child(dp)
+		dp.get_node("Box/TitleLabel").add_theme_color_override("font_color", K.DANGER)
+		dp.items_label.text = "\n".join(PackedStringArray(destroyed.map(func(x): return String(x))))
+		dp.items_label.add_theme_color_override("font_color", K.CREAM)
 	# inventory
 	K.clear(_inv_box)
-	_install_btns.clear()
 	var inv: Array = me.get("inventory", [])
 	if inv.is_empty():
-		var e := K.panel("Inset")
-		var ev := K.vbox(6)
-		ev.add_child(K.lbl("Nothing in your parts box yet.", "Mono"))
-		ev.add_child(K.lbl("Use your phone to agree price, time and place; drive to the meeting and complete the handoff. Collected parts land here.", "Muted", null, true))
-		ev.add_child(K.btn("OPEN PHONE", "GhostButton", func(): go_market.emit()))
-		e.add_child(ev)
+		var e: PanelContainer = EmptyInventoryPanelScene.instantiate()
 		_inv_box.add_child(e)
+		e.phone_button.pressed.connect(func(): go_market.emit())
 	for it in inv:
-		_inv_box.add_child(_inv_card(it, me))
+		_inv_card(it, me)
 	# checklist
 	K.clear(_check_box)
-	_check_box.add_child(K.lbl("CHECKLIST", "Eyebrow"))
 	var issues: Array = Game.build_issues(me)
 	if issues.is_empty():
-		_check_box.add_child(K.lbl("All requirements met. The rig can be benchmarked.", "Mono", K.LIME, true))
+		_checklist_success.visible = true
+		_checklist_hint.visible = false
+		_checklist_success.add_theme_color_override("font_color", K.LIME)
 	else:
+		_checklist_success.visible = false
+		_checklist_hint.visible = true
 		for i in issues:
-			var r := K.hbox(6)
-			r.add_child(K.lbl("x", "Mono", K.DANGER))
-			r.add_child(K.lbl(String(i), "Muted", K.CREAM, true))
-			_check_box.add_child(r)
-		_check_box.add_child(K.lbl("Wrong socket or memory type? Sell the spare using your phone, or buy a compatible board/CPU/RAM and swap it in.", "Tiny", K.ORANGE, true))
+			var row: HBoxContainer = ChecklistRowScene.instantiate()
+			_check_box.add_child(row)
+			row.mark_label.add_theme_color_override("font_color", K.DANGER)
+			row.text_label.text = String(i)
+			row.text_label.add_theme_color_override("font_color", K.CREAM)
 	# power
 	var cap := 0
 	if inst.has("psu"):
@@ -222,40 +178,89 @@ func _rebuild(me: Dictionary) -> void:
 	_power_bar.value = draw
 	_power_bar.theme_type_variation = "RiskBar" if draw > cap else ""
 	_power_lbl.text = ("Draw about %dW of %dW PSU capacity." % [draw, cap]) if cap > 0 else "Draw about %dW. No PSU installed yet." % draw
+	_tuning_button.visible = RigRules.TUNABLE.any(func(category: String): return inst.has(category))
 	var sc: Dictionary = Game.preview_score(me)
 	_score_lbl.text = "CPU      %5d\nGPU      %5d\nRAM      %5d\nSTORAGE  %5d\nTOTAL    %5d%s" % [sc.cpu, sc.gpu, sc.ram, sc.storage, sc.total, "" if sc.valid else "  (rig invalid = 0)"]
 	_finish_btn.disabled = bool(me.get("ready", false))
 	_finish_btn.text = "RIG LOCKED" if bool(me.get("ready", false)) else ("FINISH & RUN BENCHMARK" if issues.is_empty() else "FINISH ANYWAY (SCORE 0)")
 
 
-func _inv_card(it: Dictionary, me: Dictionary) -> Control:
-	var p := K.panel("CardTight")
-	var h := K.hbox(10)
-	var art: Control = PartArt.new()
-	art.custom_minimum_size = Vector2(84, 58)
-	art.show_item(it)
-	h.add_child(art)
-	var v := K.vbox(2)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.add_child(K.lbl(String(it.name), "Mono", null, true))
-	v.add_child(K.lbl(Catalog.spec_text(it), "Tiny", null, true))
-	var why: String = Game.compatibility(it, me)
+func _inv_card(it: Dictionary, me: Dictionary) -> void:
+	var card: PanelContainer = InventoryCardScene.instantiate()
+	# @onready members only exist once the card is in the tree.
+	_inv_box.add_child(card)
+	card.art.show_item(it)
+	card.name_label.text = String(it.name)
+	card.spec_label.text = _part_summary(it)
+	card.tooltip_text = Catalog.spec_text(it, false)
+	var why := _installation_reason(it, me)
 	var inst: Dictionary = me.get("installed", {})
+	var status_text := ""
+	var status_color := K.MUTED
 	if why == "":
 		if inst.has(it.category):
-			v.add_child(K.lbl("Replaces %s (old part returns here)." % inst[it.category].name, "Tiny", K.SKY, true))
+			status_text = "Replaces %s (old part returns here)." % inst[it.category].name
+			status_color = K.SKY
 		else:
-			v.add_child(K.lbl("Compatible - ready to install.", "Tiny", K.LIME))
+			status_text = "Compatible - ready to install."
+			status_color = K.LIME
 	else:
-		v.add_child(K.lbl(why + (". Buy a matching part or swap the other one." if not why.begins_with("Install a") else "."), "Tiny", K.ORANGE if why.begins_with("Install a") else K.DANGER, true))
-	h.add_child(v)
-	var btn := K.btn("INSTALL", "PrimaryButton" if why == "" else "GhostButton", func(): install_requested.emit(it))
-	h.add_child(btn)
-	_install_btns.append([btn, why])
+		status_text = why + "."
+		status_color = K.ORANGE if why.begins_with("Install a") or why.begins_with("Cancel") else K.DANGER
+	var strikes := int(it.get("assembly_strikes", 0))
+	if strikes > 0:
+		status_text += " Assembly damage %d/5; retrying does not reset it." % strikes
+	card.status_label.text = status_text
+	card.status_label.add_theme_color_override("font_color", status_color)
+	card.install_button.theme_type_variation = "PrimaryButton" if why == "" else "GhostButton"
+	card.install_button.pressed.connect(func(): install_requested.emit(it))
+	_install_btns.append([card.install_button, why])
 	if why != "":
-		btn.disabled = true
-	p.add_child(h)
-	return p
+		card.install_button.disabled = true
+
+
+func _installation_reason(part: Dictionary, player: Dictionary) -> String:
+	var why := Game.compatibility(part, player)
+	if why != "":
+		return why
+	for listing: Dictionary in Game.state.get("listings", []):
+		if int(listing.get("owner", 0)) == Game.local_id() and int(listing.get("item_id", -1)) == int(part.id) and listing.get("status") == "available":
+			return "Cancel the sale listing before installing this part"
+	return ""
+
+
+func _part_summary(part: Dictionary) -> String:
+	var details: Array[String] = []
+	match str(part.get("category", "")):
+		"case": details.append("%s · airflow %d/100" % [part.get("form", ""), part.get("support_quality", 50)])
+		"motherboard": details.append("%s · %s · %s" % [part.get("socket", ""), part.get("memory", ""), part.get("form", "")])
+		"cpu": details.append("%s · %dW · %s" % [part.get("socket", ""), part.get("watts", 0), "integrated graphics" if part.get("integrated", false) else "needs GPU"])
+		"gpu": details.append("%dW · stock score %d" % [part.get("watts", 0), part.get("gpu", 0)])
+		"ram": details.append("%s · stock score %d" % [part.get("memory", ""), part.get("ram", 0)])
+		"storage": details.append("Stock score %d" % part.get("storage", 0))
+		"psu": details.append("%dW · regulation %d/100" % [part.get("capacity", 0), part.get("support_quality", 50)])
+	details.append("Condition %d/100" % part.get("condition", 100))
+	if Stats.has_inherent_risk(part):
+		details.append("Intrinsic reliability risk — hover for details")
+	return "\n".join(details)
+
+
+func _installation_penalties(part: Dictionary, player: Dictionary) -> String:
+	var lines: Array[String] = []
+	var strikes := int(part.get("assembly_strikes", 0))
+	if strikes > 0:
+		lines.append("Damage %d/5 · condition %d/100" % [strikes, part.get("condition", 100)])
+	if part.get("category") == "cpu":
+		var assessment := Overclock.evaluate(part, 1.0, 1.0, player.installed, player.get("workshop_modifiers", {}))
+		var paste_loss := roundi((1.0 - float(assessment.paste_multiplier)) * 100)
+		var mount_loss := roundi((1.0 - float(assessment.mount_headroom_multiplier)) * 100)
+		if paste_loss > 0:
+			lines.append("Paste: −%d%% CPU performance" % paste_loss)
+		if mount_loss > 0:
+			lines.append("Uneven mount: −%d%% OC headroom, +%.0f°C" % [mount_loss, assessment.mount_temperature_penalty])
+		if paste_loss > 0 or mount_loss > 0:
+			lines.append("Reinstall to correct these penalties.")
+	return "\n".join(lines)
 
 
 func _finish() -> void:
