@@ -13,6 +13,8 @@ const CLOSED_WIDTH := OPEN_WIDTH * 0.5
 const DISPLAY_FAULT_TOP := 648.0 / 768.0
 const DISPLAY_FAULT_BAND_BOTTOM := 660.0 / 768.0
 const DISPLAY_FAULT_COLUMN_RIGHT := 516.0 / 1024.0
+## Visual position only; retain the original strip thickness and composer layout.
+const DISPLAY_FAULT_OFFSET := DISPLAY_FAULT_TOP - 0.63
 ## Small discrete hue steps; the band drifts toward each one instead of snapping.
 const HUE_STEPS: Array[float] = [0.10, -0.08, 0.14, -0.10, 0.12, -0.13]
 const HUE_DRIFT_SECONDS := 0.8
@@ -170,6 +172,7 @@ func _apply_display_hue() -> void:
 		return
 	material.set_shader_parameter("hue_shift", _hue + _pulse * PULSE_HUE)
 	material.set_shader_parameter("band_bottom", DISPLAY_FAULT_BAND_BOTTOM)
+	material.set_shader_parameter("vertical_offset", DISPLAY_FAULT_OFFSET)
 
 
 func set_page_layout(page: String, in_thread: bool) -> void:
@@ -230,7 +233,7 @@ func _layout() -> void:
 	var nav_height := _nav.get_combined_minimum_size().y
 	_nav.position = Vector2(30, size.y - 32.0 - nav_height)
 	_nav.size = Vector2(maxf(0, size.x - 60), nav_height)
-	# Tuck the message bar's upper border into the stripe, leaving its text below it.
+	# Keep the composer at its original footer position as the visual fault moves.
 	var bottom_margin := 72 if unfolded else 96
 	if unfolded and _marketplace_layout:
 		# Mirror the gap below navigation above it, extending the listing viewport
@@ -239,8 +242,7 @@ func _layout() -> void:
 		bottom_margin = roundi(size.y - (_nav.position.y - lower_gap))
 	if unfolded and _message_layout:
 		var bar_top := _display.position.y + _display.size.y * DISPLAY_FAULT_BAND_BOTTOM - 3.0
-		# The fitted phone can be shorter than the old 760px shell. Do not let a
-		# fixed footer margin pull the composer above the physical damaged stripe.
+		# Retain the established footer placement at every fitted phone size.
 		bottom_margin = maxi(18, roundi(size.y - bar_top - _message_bar_height))
 	_inset.add_theme_constant_override("margin_bottom", bottom_margin)
 	fit_content()

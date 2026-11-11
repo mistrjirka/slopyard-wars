@@ -645,9 +645,6 @@ func _thread() -> void:
 	view.back_btn.tooltip_text = "All messages"
 	view.gone_back.text = "All messages"
 	view.send_text.connect(_send_text)
-	view.toggle_slots.connect(_on_toggle_slots)
-	view.track_requested.connect(func(): track_requested.emit(selected))
-	view.slot_chosen.connect(func(label: String): _send_text("Can we meet " + label + "?"))
 	var l := _listing(selected)
 	if l.is_empty():
 		view.setup_gone()
@@ -656,7 +653,7 @@ func _thread() -> void:
 	var pending := false
 	for msg: Dictionary in me.chats.get(selected, []):
 		pending = pending or bool(msg.get("pending", false))
-	view.setup(l, me, selected, _drafts, pending, _waiting_for_reply(), _slots, unfolded)
+	view.setup(l, me, selected, _drafts, pending, _waiting_for_reply(), unfolded)
 	_composer = view.composer
 	_send = view.send_btn
 	_log = view.log
@@ -665,12 +662,6 @@ func _thread() -> void:
 	if unfolded:
 		view.composer_row.resized.connect(_fit_message_bar.bind(weakref(view.composer_row)), CONNECT_DEFERRED)
 	view.scroll_bottom_deferred()
-
-
-func _on_toggle_slots() -> void:
-	_slots = not _slots
-	_sig = ""
-	refresh()
 
 
 func _fit_message_bar(row_reference: WeakRef) -> void:

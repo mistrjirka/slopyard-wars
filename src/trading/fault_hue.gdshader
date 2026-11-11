@@ -8,6 +8,7 @@ uniform float hue_shift : hint_range(-0.5, 0.5) = 0.0;
 uniform float saturation_floor : hint_range(0.0, 1.0) = 0.25;
 uniform float brightness_floor : hint_range(0.0, 1.0) = 0.10;
 uniform float band_bottom = 0.859375;
+uniform float vertical_offset = 0.0;
 varying vec4 modulation;
 
 void vertex() {
@@ -39,11 +40,13 @@ vec3 hsv_to_rgb(vec3 hsv) {
 }
 
 void fragment() {
-	vec2 source_uv = UV;
+	// Translate, never scale, the damaged strip. Repeat the last source row
+	// below it so the narrow vertical fault still reaches the display edge.
+	vec2 source_uv = vec2(UV.x, min(UV.y + vertical_offset, 1.0 - TEXTURE_PIXEL_SIZE.y * 0.5));
 	const float band_top = 648.0 / 768.0;
 	const float source_bottom = 656.0 / 768.0;
-	if (UV.x >= 510.0 / 1024.0 && UV.y >= band_top && UV.y < band_bottom) {
-		source_uv.y = mix(band_top, source_bottom, (UV.y - band_top) / (band_bottom - band_top));
+	if (source_uv.x >= 510.0 / 1024.0 && source_uv.y >= band_top && source_uv.y < band_bottom) {
+		source_uv.y = mix(band_top, source_bottom, (source_uv.y - band_top) / (band_bottom - band_top));
 	}
 	vec4 art = texture(TEXTURE, source_uv) * modulation;
 	vec3 rgb = art.rgb;
