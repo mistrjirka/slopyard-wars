@@ -290,6 +290,12 @@ func _test_screens() -> void:
 	await process_frame
 	var screen: Control = shell.get_node("Screens").get_child(0)
 	expect(screen.has_method("_toggle_phone"), "Solo transition mounts game screen")
+	expect(screen.get_node("Topbar/Row/Title").text == "SLOPYARD / HOME", "Home HUD identifies the current area")
+	player.area = "town"
+	screen._update_world_hud()
+	expect(screen.get_node("Topbar/Row/Title").text == "SLOPYARD / TOWN", "HUD location follows travel to town")
+	player.area = "home"
+	screen._update_world_hud()
 	var notice := "Lucky hears your prayer. One risky test gets 25% less danger."
 	game.text_player(game.local_id(), notice)
 	game.notice.emit("Walk to the door, workbench, or armchair. P opens your phone.")
@@ -300,8 +306,18 @@ func _test_screens() -> void:
 	expect(screen._phone._viewport.gui_disable_input, "Phone input is locked during entry")
 	expect(screen._phone._viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS,
 		"Off-screen cover renders before entry rather than waiting for texture visibility")
-	await create_timer(0.12).timeout
-	expect(screen._phone_slide < 0.7 and screen._phone_slide > 0.0, "Phone entry eases out rather than moving linearly")
+	# Cover preparation takes process frames; sample the actual tween, not wall time
+	# since opening, so a slow frame cannot consume the easing observation window.
+	var entry_deadline := Time.get_ticks_msec() + 4000
+	while screen._phone_tween == null and Time.get_ticks_msec() < entry_deadline:
+		await process_frame
+	var entry_tween: Tween = screen._phone_tween
+	expect(entry_tween != null and entry_tween.is_valid(), "Phone entry starts after preparing its cover")
+	if entry_tween != null and entry_tween.is_valid():
+		entry_tween.stop()
+		entry_tween.custom_step(screen.PHONE_ENTER_SECONDS * 0.25)
+		expect(screen._phone_slide < 0.7 and screen._phone_slide > 0.0 and is_equal_approx(screen._phone_slide, pow(0.75, 3)), "Phone entry eases out rather than moving linearly")
+		entry_tween.play()
 	await _wait_phone_motion(screen, "open")
 	for frame in 3:
 		await process_frame

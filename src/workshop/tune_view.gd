@@ -149,7 +149,7 @@ func _readouts() -> void:
 	_outcome.visible = last.get("failure_mode", "") == "fire"
 	_outcome.text = "CONNECTOR FIRE: %s was destroyed. Dragon Breath mode is not covered by warranty. The rest of your rig survived." % last.get("part", "GPU") if _outcome.visible else ""
 	if not has_part:
-		_empty.text = "Install a %s first (WORKBENCH tab). There is nothing here to overclock." % String(K.CAT_LABEL[cat]).to_lower()
+		_empty.text = "Install the missing part at the workbench first. Return to the room and press B."
 		_prev.text = "Install the part, then come back to see projected scores."
 		_power.text = ""
 		return

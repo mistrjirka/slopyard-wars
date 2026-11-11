@@ -1,5 +1,5 @@
 extends RefCounted
-## Marketplace usability and the shortened day's boundaries, without provider requests.
+## Marketplace usability and configurable match boundaries, without provider requests.
 const Query = preload("res://src/trading/marketplace_query.gd")
 const Stats = preload("res://src/data/hardware_stats.gd")
 const Catalog = preload("res://src/data/catalog.gd")
@@ -65,29 +65,69 @@ func _sale_values() -> void:
 	check.call(Stats.sale_guide({"reference_base": 0}).quick == 1 and Stats.sale_guide({"reference_base": 10000}).ask_high == 5000, "Suggested prices respect the host's listing limits")
 
 
+func _feasible_options(options: Array, now: float, deadline: float) -> void:
+	check.call(not options.is_empty(), "Created listing has feasible meeting choices")
+	for option: Dictionary in options:
+		check.call(option.start >= now + 60 and option.end <= deadline and option.end - option.start >= 30 and Catalog.LOCATIONS.has(option.place), "New meetings have an hour's notice, a real place and at least 30 minutes before the actual deadline")
+
+
 func _day() -> void:
+	fresh()
+	check.call(game.state.match_days == 2 and game.clock() == 480 and game.deadline() == 2760 and game.state.remaining == 2280, "Default run lasts from Day 1 08:00 to Day 2 22:00")
+	check.call(K.real_left(Config.TOTAL_MINUTES) == "50:40" and K.clock_text(Config.TOTAL_MINUTES) == "Day 1 · 08:00" and K.clock_text(0) == "Day 2 · 22:00", "Default clock and countdown use the two-day duration and real-time pace")
+	for days in range(1, 8):
+		game.solo("Duration Test", 1000, "Balanced", days)
+		game.set_process(false)
+		game.set_physics_process(false)
+		var duration := 840.0 + (days - 1) * 1440.0
+		var deadline := 1320.0 + (days - 1) * 1440.0
+		check.call(game.state.match_days == days and game.state.total_minutes == duration and game.state.remaining == duration and game.clock() == 480 and game.deadline() == deadline, "Selected %d-day duration is honored by the live session" % days)
+		check.call(K.clock_text(duration, duration) == "Day 1 · 08:00" and K.clock_text(0, duration) == "Day %d · 22:00" % days, "Clock UI honors selected %d-day duration" % days)
+		for listing: Dictionary in game.state.listings:
+			_feasible_options(game.contact_options(listing), game.clock(), deadline)
+		for contact: Resource in Characters.ALL:
+			_feasible_options(Trade.options(contact.display_name, contact.meeting_places[0], game.clock(), deadline), game.clock(), deadline)
+			check.call(Trade.options(contact.display_name, contact.meeting_places[0], deadline - 10, deadline).is_empty(), "No contact offers a meeting beyond the selected final day")
+		game.advance_time(duration - 10)
+		check.call(game.state.phase == "playing" and game.clock() == deadline - 10, "Selected duration does not finish early")
+		game.advance_time(10)
+		check.call(game.state.phase == "results" and game.clock() == deadline, "Selected duration finalizes at its actual deadline")
 	var player := fresh()
-	check.call(game.clock() == 480 and Config.DEADLINE == 1320 and Config.TOTAL_MINUTES < 1440, "Default run is a single 08:00–22:00 day")
-	check.call(K.real_left(Config.TOTAL_MINUTES) == "18:40" and K.clock_text(Config.TOTAL_MINUTES).ends_with("08:00"), "Clock UI uses the configured start and real-time pace")
+	game.advance_time(float(game.state.remaining) - 90)
+	# Each seller/model identity can appear only once. Late stock must stop when
+	# the few contacts with an hour's notice left have all listed this model.
+	var eligible := {}
 	for contact: Resource in Characters.ALL:
-		var options := Trade.options(contact.display_name, contact.meeting_places[0], Trade.START)
-		check.call(not options.is_empty(), "Every character can participate in the one-day run")
-		for option: Dictionary in options:
-			check.call(option.start >= Trade.START and option.end <= Config.DEADLINE and option.end - option.start >= 30, "Appointments are feasible and finish before the single-day deadline")
-		check.call(Trade.options(contact.display_name, contact.meeting_places[0], Config.DEADLINE - 10).is_empty(), "No contact offers a tomorrow appointment after last call")
-	game.state.remaining = 90
-	for iteration in 6:
+		if not Trade.options(contact.display_name, contact.meeting_places[0], game.clock(), game.deadline()).is_empty():
+			eligible[str(contact.id)] = true
+	for listing: Dictionary in game.state.listings:
+		if int(listing.get("owner", 0)) == 0 and listing.model_id == Catalog.PARTS[0].model_id and listing.status == "available":
+			eligible.erase(str(listing.character_id))
+	check.call(not eligible.is_empty(), "Late-stock fixture has eligible unused seller/model contacts")
+	var available_count := eligible.size()
+	for iteration in available_count:
 		var listing: Dictionary = game.market.add_listing(Catalog.PARTS[0], false)
-		check.call(not listing.is_empty() and not game.contact_options(listing).is_empty(), "Late restocks choose contacts who can still meet tonight")
-	game.act("post_sale", {"item_id": player.inventory[0].id, "price": 15})
-	check.call(not game.contact_options(game.state.listings[-1]).is_empty(), "Late sale chooses a buyer with a remaining meeting window")
-	game.act("cancel_sale", {"listing_id": game.state.listings[-1].id})
-	game.state.remaining = 10
+		check.call(not listing.is_empty(), "Late restock succeeds while an eligible distinct contact remains")
+		if listing.is_empty():
+			continue
+		check.call(eligible.has(str(listing.character_id)), "Late restock uses an eligible, not-yet-listed contact")
+		eligible.erase(str(listing.character_id))
+		_feasible_options(game.contact_options(listing), game.clock(), game.deadline())
 	var count: int = game.state.listings.size()
+	var next_id: int = game.market.next_id
+	check.call(eligible.is_empty() and game.market.add_listing(Catalog.PARTS[0], false).is_empty() and game.state.listings.size() == count and game.market.next_id == next_id, "Exhausted seller/model contacts refuse creation without consuming an identity")
 	game.act("post_sale", {"item_id": player.inventory[0].id, "price": 15})
-	check.call(game.state.listings.size() == count and game.market.add_listing(Catalog.PARTS[0], false).is_empty(), "No unusable buyer or fresh listing is created after all meeting windows close")
+	check.call(game.state.listings.size() == count + 1 and game.state.listings[-1].owner == 1, "Late sale can still choose a buyer after NPC seller/model stock is exhausted")
+	if game.state.listings.size() == count + 1:
+		_feasible_options(game.contact_options(game.state.listings[-1]), game.clock(), game.deadline())
+		game.act("cancel_sale", {"listing_id": game.state.listings[-1].id})
+	game.advance_time(80)
+	count = game.state.listings.size()
+	next_id = game.market.next_id
+	game.act("post_sale", {"item_id": player.inventory[0].id, "price": 15})
+	check.call(game.state.listings.size() == count and game.market.add_listing(Catalog.PARTS[0], false).is_empty() and game.market.next_id == next_id, "No buyer or fresh listing is created when no valid meeting slot remains")
 	game.advance_time(10)
-	check.call(game.state.phase == "results" and game.clock() == Config.DEADLINE, "Short day finalizes automatically at the configured deadline")
+	check.call(game.state.phase == "results" and game.clock() == game.deadline(), "Default two-day run finalizes automatically at its deadline")
 
 
 func _phone() -> void:

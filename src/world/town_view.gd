@@ -100,6 +100,8 @@ func _paint() -> void:
 				if m.status == "now" and not contacts.has(key):
 					contacts[key] = true
 					actors.append({"pos": m.pos, "kind": "contact", "meeting": m})
+	var local_position: Vector2 = p.car_pos if p.driving else p.pos
+	var local_body := World.car_footprint(local_position, p.facing) if p.driving else Rect2()
 	actors.sort_custom(func(a, b): return a.pos.y < b.pos.y)
 	for actor: Dictionary in actors:
 		if actor.kind == "car":
@@ -107,7 +109,7 @@ func _paint() -> void:
 		elif actor.kind == "person":
 			_person(actor.pos, actor.p.facing, actor.id, str(actor.p.name))
 		elif actor.kind != "contact":
-			var alpha := 0.42 if not p.driving and Props.obscures_local(actor, p.pos) else 1.0
+			var alpha := 0.42 if Props.obscures_local(actor, local_position, local_body) else 1.0
 			Props.draw_prop(_canvas, actor, true, alpha)
 		else:
 			_person(actor.pos, Vector2.DOWN, 9, str(actor.meeting.contact), false)

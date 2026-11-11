@@ -34,7 +34,7 @@ static func _centered_label(canvas: Node2D, at: Vector2, text: String, alpha: fl
 	canvas.draw_string(K.world_font(), (at - Vector2(width / 2, 0)).round(), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.188, 0.278, 0.306, alpha))
 
 
-static func obscures_local(prop: Dictionary, at: Vector2) -> bool:
+static func obscures_local(prop: Dictionary, at: Vector2, body: Rect2 = Rect2()) -> bool:
 	# Small props/posts remain opaque even when they overlap part of the sprite.
 	if prop.kind not in ["tree", "building", "activity", "furniture"] or at.y >= prop.pos.y:
 		return false
@@ -61,4 +61,4 @@ static func obscures_local(prop: Dictionary, at: Vector2) -> bool:
 	if cover.size.x < 32 or cover.size.y < 46:
 		return false
 	# Only near-whole body coverage yields transparency, never a mere intersection.
-	return cover.encloses(Rect2(at - Vector2(5, 25), Vector2(10, 23)))
+	return cover.encloses(body if body.has_area() else Rect2(at - Vector2(5, 25), Vector2(10, 23)))

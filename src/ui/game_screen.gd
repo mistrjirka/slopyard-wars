@@ -18,6 +18,7 @@ const BuildChecklist = preload("res://src/ui/build_checklist.gd")
 @onready var _bench: Control = $Workspace/Work/Bench
 @onready var _tune: Control = $Workspace/Work/Tune
 @onready var _world: TownView = $World
+@onready var _area_lbl: Label = $Topbar/Row/Title
 @onready var _clock_lbl: Label = $Topbar/Row/Clock
 @onready var _cash_lbl: Label = $Topbar/Row/Cash
 @onready var _context_label: Label = $Bottombar/Hints/Context
@@ -282,6 +283,7 @@ func _update_world_hud() -> void:
 	if not is_instance_valid(_clock_lbl) or Game.me().is_empty():
 		return
 	var p: Dictionary = Game.me()
+	_area_lbl.text = "SLOPYARD / " + str(p.area).to_upper()
 	var unread: int = _phone.unread_count()
 	$Topbar/Row/PhoneBtn.text = "PHONE [P] · %d" % unread if unread > 0 else "PHONE [P]"
 	$Topbar/Row/PhoneBtn.tooltip_text = "%d unread messages" % unread if unread > 0 else "Open your phone"

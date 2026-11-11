@@ -313,12 +313,25 @@ func _seed_for(chance: float, failure: bool) -> void:
 	check.call(false, "Found deterministic RNG fixture for damage outcome")
 
 
+func _activity_approach(activity: Resource) -> Vector2:
+	# Stand just south of the visible foundation, not inside the now-solid prop.
+	return activity.position + Vector2(0, 12)
+
+
 func _activities() -> void:
 	var ids := {}
 	for activity: Resource in Activities.ALL:
 		check.call(not ids.has(activity.id), "Activity IDs are unique")
 		ids[activity.id] = true
-		check.call(World.clear_at(activity.area, activity.position, 5), "Activity is reachable: " + activity.display_name)
+		var approach := _activity_approach(activity)
+		check.call(approach.distance_to(activity.position) <= activity.radius and World.clear_at(activity.area, approach, 5), "Activity has a clear nearby interaction position: " + activity.display_name)
+		var props := World.activity_props(activity.area).filter(func(prop): return prop.activity == activity)
+		check.call(props.size() == 1, "Activity has one physical base: " + activity.display_name)
+		if props.size() == 1:
+			var base: Rect2 = props[0].solid
+			check.call(not World.clear_at(activity.area, base.get_center(), 5), "Activity base is solid: " + activity.display_name)
+			var stopped := World.move(activity.area, approach, Vector2(0, -40), false)
+			check.call(stopped.y < approach.y and stopped.y >= base.end.y + 5 and World.clear_at(activity.area, stopped, 5), "Walking up to the activity stops at its base: " + activity.display_name)
 		check.call(Art.WORLD.has(activity.art_key), "Activity's replaceable artwork is registered")
 		check.call(activity.overlay_art_key == "" or Art.WORLD.has(activity.overlay_art_key), "Activity overlay artwork is registered")
 		check.call(activity.cash_cost >= 0 and activity.minutes_cost >= 0, "Activity costs are valid")
@@ -330,7 +343,7 @@ func _activities() -> void:
 	game.act("world_activity", {"activity_id": "lucky_square"})
 	check.call(player.cash == cash and player.workshop_modifiers.lucky_tests == 0, "Remote shrine use is refused")
 	player.area = "town"
-	player.pos = shrine.position
+	player.pos = _activity_approach(shrine)
 	player.driving = true
 	game.act("world_activity", {"activity_id": "lucky_square"})
 	check.call(player.cash == cash, "Cannot pray through a car window")
@@ -344,17 +357,23 @@ func _activities() -> void:
 	player.workshop_modifiers.lucky_tests = 0
 	game.act("world_activity", {"activity_id": "lucky_square"})
 	check.call(player.workshop_modifiers.lucky_tests == 0, "Daily prayer cap survives using the blessing")
-	check.call(game.state.remaining < 1440, "The single-day challenge ends before daily activities can be farmed again")
+	game.advance_time(1440.0 - game.clock())
+	time = game.state.remaining
+	game.act("world_activity", {"activity_id": "lucky_square"})
+	check.call(game.state.phase == "playing" and player.workshop_modifiers.lucky_tests == 1 and player.cash == cash - 2 * shrine.cash_cost and game.state.remaining == time - shrine.minutes_cost, "Prayer becomes usable again on the next game day after advancing session time")
 	player = fresh()
 	player.area = "town"
-	player.pos = Activities.find("dubious_bin").position
+	player.pos = _activity_approach(Activities.find("dubious_bin"))
 	var count: int = player.inventory.size()
 	game.act("world_activity", {"activity_id": "dubious_bin"})
 	var salvage: Dictionary = player.inventory[-1]
 	check.call(player.inventory.size() == count + 1 and salvage.condition >= 45 and salvage.condition <= 70, "Salvage grants one worn component")
 	game.act("world_activity", {"activity_id": "dubious_bin"})
 	check.call(player.inventory.size() == count + 1, "Cannot farm the salvage bin repeatedly")
-	player.pos = Activities.find("dust_busters").position
+	game.advance_time(1440.0 - game.clock())
+	game.act("world_activity", {"activity_id": "dubious_bin"})
+	check.call(player.inventory.size() == count + 2, "Salvage replenishes on the next game day after advancing session time")
+	player.pos = _activity_approach(Activities.find("dust_busters"))
 	var condition: int = salvage.condition
 	game.act("world_activity", {"activity_id": "dust_busters", "item_id": salvage.id})
 	check.call(salvage.condition == mini(100, condition + 12), "Cleaning improves the selected owned part")
@@ -365,7 +384,7 @@ func _activities() -> void:
 	game.act("post_sale", {"item_id": spare.id, "price": 12})
 	game.act("world_activity", {"activity_id": "dust_busters", "item_id": spare.id})
 	check.call(player.cash == cash, "Listed parts cannot be cleaned behind the listing's back")
-	player.pos = Activities.find("paste_club").position
+	player.pos = _activity_approach(Activities.find("paste_club"))
 	game.act("world_activity", {"activity_id": "paste_club"})
 	check.call(player.workshop_modifiers.cooling_bonus == 12, "Paste Club grants the declared cooling preparation")
 	check.call(player.workshop_modifiers.cooling_name == Activities.find("paste_club").reward_name, "Applied special paste retains its authored name")
@@ -375,7 +394,7 @@ func _activities() -> void:
 	player = fresh()
 	game.state.mode = "lan"
 	player.area = "town"
-	player.pos = shrine.position
+	player.pos = _activity_approach(shrine)
 	time = game.state.remaining
 	game.act("world_activity", {"activity_id": "lucky_square"})
 	check.call(game.state.remaining == time and player.busy == shrine.minutes_cost, "LAN activity uses personal busy time, never advances shared clock")
@@ -391,7 +410,7 @@ func _interfaces() -> void:
 	await game.get_tree().process_frame
 	var screen: Control = shell.get_node("Screens").get_child(0)
 	player.area = "town"
-	player.pos = Activities.find("lucky_square").position
+	player.pos = _activity_approach(Activities.find("lucky_square"))
 	screen._dialogs.open_activity(Activities.find("lucky_square"))
 	await game.get_tree().process_frame
 	check.call(screen._dialogs.visible, "Activity dialog mounts using editable content")
@@ -430,6 +449,7 @@ func _interfaces() -> void:
 	game.act("tune", {"category": "gpu", "clock": 1.0, "voltage": 1.0})
 	screen._tune.refresh()
 	check.call(screen._tune._outcome.visible and not screen._tune._body.visible and screen._tune._outcome.text.contains("CONNECTOR FIRE"), "Destroyed GPU leaves a visible fire explanation at the bench")
+	check.call(screen._tune._empty.visible and screen._tune._empty.text.contains("press B") and not screen._tune._empty.text.contains("tab"), "Missing-part guidance explains the actual route back to assembly")
 	screen._toggle_phone()
 	screen._phone.set_unfolded(true)
 	screen._phone.open_listing(game.state.listings[0].id)
