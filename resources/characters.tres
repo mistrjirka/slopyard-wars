@@ -36,7 +36,7 @@ pet_peeves = PackedStringArray("calling working parts rubbish")
 meeting_places = PackedStringArray("Suburb Cul-de-sac", "Harbor Flea Market")
 hours = Array[Vector2i]([Vector2i(8, 12), Vector2i(16, 19)])
 smalltalk = PackedStringArray("My cable-rescue charity folded. Turns out most cables wanted to be left tangled.", "Yep, available. Plenty of fight left in this little champion.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_greta"]
 script = ExtResource("2")
@@ -71,7 +71,7 @@ pet_peeves = PackedStringArray("last price??", "arriving late")
 meeting_places = PackedStringArray("Old Mill Garage", "Lakeside Storage")
 hours = Array[Vector2i]([Vector2i(17, 22)])
 smalltalk = PackedStringArray("I laminated a receipt once. That was my rebellious phase.", "Available. The receipt is filed under R, not under miracles.")
-buyer_budget_range = Vector2(1.05, 1.45)
+buyer_budget_range = Vector2(0.9, 1.15)
 
 [sub_resource type="Resource" id="Character_vic"]
 script = ExtResource("2")
@@ -106,7 +106,7 @@ pet_peeves = PackedStringArray("asking for a haunting certificate")
 meeting_places = PackedStringArray("Grease Alley", "Scrapyard Gate")
 hours = Array[Vector2i]([Vector2i(11, 15), Vector2i(20, 23)])
 smalltalk = PackedStringArray("The router said the house was haunted. Then I remembered it was unplugged.", "Still here. The coil whine is probably not a Victorian child.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_hank"]
 script = ExtResource("2")
@@ -141,7 +141,7 @@ pet_peeves = PackedStringArray("people bidding against themselves")
 meeting_places = PackedStringArray("Harbor Flea Market", "Lakeside Storage")
 hours = Array[Vector2i]([Vector2i(9, 18)])
 smalltalk = PackedStringArray("I auctioned my lunch for a profit. Then bought it back at a loss.", "Available! One component, zero mysterious subscription fees.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_dana"]
 script = ExtResource("2")
@@ -176,7 +176,7 @@ pet_peeves = PackedStringArray("long reservations")
 meeting_places = PackedStringArray("Uni Dorm Row", "Grease Alley")
 hours = Array[Vector2i]([Vector2i(6, 10), Vector2i(14, 17)])
 smalltalk = PackedStringArray("The box marked ESSENTIALS contains six DVI adapters and a decorative spoon.", "Yes! Please liberate it before I pack it inside another box.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_pixel"]
 script = ExtResource("2")
@@ -214,7 +214,7 @@ pet_peeves = PackedStringArray("guaranteed overclocks", "fake specifications")
 meeting_places = PackedStringArray("Lakeside Storage", "Uni Dorm Row")
 hours = Array[Vector2i]([Vector2i(12, 14), Vector2i(18, 23)])
 smalltalk = PackedStringArray("My last peer review was a sandwich. Excellent layering, poor thermal stability.", "Available. Sample size: one. Enthusiasm: statistically excessive.")
-buyer_budget_range = Vector2(1.05, 1.45)
+buyer_budget_range = Vector2(0.9, 1.15)
 
 [sub_resource type="Resource" id="Character_gus"]
 script = ExtResource("2")
@@ -252,7 +252,7 @@ pet_peeves = PackedStringArray("rushing Sir Buffering")
 meeting_places = PackedStringArray("Harbor Flea Market", "Suburb Cul-de-sac")
 hours = Array[Vector2i]([Vector2i(9, 18)])
 smalltalk = PackedStringArray("Sir Buffering has been rounding the final corner since Tuesday.", "Available. It rendered an entire snail race before the snail noticed.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_sally"]
 script = ExtResource("2")
@@ -287,7 +287,7 @@ pet_peeves = PackedStringArray("calling everything e-waste")
 meeting_places = PackedStringArray("Scrapyard Gate", "Old Mill Garage")
 hours = Array[Vector2i]([Vector2i(6, 10), Vector2i(14, 17)])
 smalltalk = PackedStringArray("This board survived three reorganizations and a printer named Keith.", "Available. It has served its spreadsheet sentence.")
-buyer_budget_range = Vector2(1.05, 1.45)
+buyer_budget_range = Vector2(0.9, 1.15)
 
 [sub_resource type="Resource" id="Character_eddie"]
 script = ExtResource("2")
@@ -322,7 +322,7 @@ pet_peeves = PackedStringArray("asking how fast you actually are")
 meeting_places = PackedStringArray("Scrapyard Gate", "Grease Alley")
 hours = Array[Vector2i]([Vector2i(11, 15), Vector2i(20, 23)])
 smalltalk = PackedStringArray("I fitted racing stripes to the bicycle. Now it is slow in italics.", "Yep, still available. Unlike my third gear.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_bella"]
 script = ExtResource("2")
@@ -357,7 +357,7 @@ pet_peeves = PackedStringArray("paying extra for a sticker")
 meeting_places = PackedStringArray("Lakeside Storage", "Harbor Flea Market")
 hours = Array[Vector2i]([Vector2i(8, 12), Vector2i(16, 19)])
 smalltalk = PackedStringArray("I once saved eleven cents and spent four hours documenting the manoeuvre.", "Available. The price survived three rounds of whiteboard analysis.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_brandon"]
 script = ExtResource("2")
@@ -395,7 +395,7 @@ pet_peeves = PackedStringArray("exposure as payment")
 meeting_places = PackedStringArray("Grease Alley", "Uni Dorm Row")
 hours = Array[Vector2i]([Vector2i(17, 22)])
 smalltalk = PackedStringArray("My PC has stealth RGB. The LEDs are unplugged, but the confidence is real.", "Still available. Selling it to diversify into noodles.")
-buyer_budget_range = Vector2(0.9, 1.2)
+buyer_budget_range = Vector2(0.82, 1.05)
 
 [sub_resource type="Resource" id="Character_bea"]
 script = ExtResource("2")
@@ -430,7 +430,7 @@ pet_peeves = PackedStringArray("trust me bro benchmarks")
 meeting_places = PackedStringArray("Uni Dorm Row", "Lakeside Storage")
 hours = Array[Vector2i]([Vector2i(12, 14), Vector2i(18, 23)])
 smalltalk = PackedStringArray("My kettle holds the kitchen record. We do not discuss the voltage involved.", "Available. Tested twice. The testing method was also tested.")
-buyer_budget_range = Vector2(1.05, 1.45)
+buyer_budget_range = Vector2(0.9, 1.15)
 
 [resource]
 script = ExtResource("1")

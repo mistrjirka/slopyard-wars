@@ -182,7 +182,7 @@ func _begin(budget: int, objective: String, match_days: int, assembly_test: bool
 		spare.name = "Your spare Tin Can mATX"
 		spare.status = "owned"
 		p.inventory.append(spare)
-		p.best = int(best.get(state.objective, 0)) if state.mode == "solo" else 0
+		p.best = int(best.get(ScoreStore.key(state.objective, state.budget, state.match_days), 0)) if state.mode == "solo" else 0
 	if not assembly_test:
 		for pick in Catalog.initial_picks(rng, state.players.size()):
 			market.add_listing(pick.tpl, pick.anchor)
@@ -228,10 +228,12 @@ func end_match() -> void:
 	if state.mode == "solo" and not state.get("assembly_test", false):
 		var p: Dictionary = state.players[1]
 		var best := ScoreStore.load_best(score_path)
-		if p.score.total > int(best.get(state.objective, 0)):
-			best[state.objective] = p.score.total
+		var score_key := ScoreStore.key(state.objective, state.budget, state.match_days)
+		if p.score.total > int(best.get(score_key, 0)):
+			best[score_key] = p.score.total
 			ScoreStore.save_best(best, score_path)
 			p.best = p.score.total
+			p["new_best"] = true
 			notice.emit("New solo high score: %d" % p.score.total)
 	record_event("Match over.")
 	mark_changed()

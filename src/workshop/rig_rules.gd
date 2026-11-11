@@ -7,7 +7,8 @@ const TUNABLE := ["cpu", "gpu", "ram"]
 const BOARD_MIN_SCREWS := 3
 ## Cooler screws count with the CPU; case panels and RAM clips need no screws.
 const ASSEMBLY_SCREWS := {"motherboard": 9, "cpu": 4, "gpu": 1, "psu": 4, "storage": 4, "case": 0, "ram": 0}
-const REF := {"cpu": 6000.0, "gpu": 6000.0, "ram": 4000.0, "storage": 4000.0}
+const REF := {"cpu": 10000.0, "gpu": 12000.0, "ram": 6000.0, "storage": 6000.0}
+const SCORE_EXPONENT := 0.75
 const WEIGHTS := {
 	"Balanced": {"cpu": 0.25, "gpu": 0.25, "ram": 0.25, "storage": 0.25},
 	"CPU": {"cpu": 0.45, "gpu": 0.15, "ram": 0.20, "storage": 0.20},
@@ -106,7 +107,7 @@ static func power_draw(installed: Dictionary, tuning: Dictionary) -> int:
 		var x := float(it.watts)
 		if cat in TUNABLE:
 			var t := tune_of(tuning, cat)
-			x *= t.clock * t.voltage
+			x *= t.clock * t.voltage * t.voltage
 		w += x
 	return int(ceil(w))
 
@@ -150,7 +151,9 @@ static func score(installed: Dictionary, tuning: Dictionary, objective: String, 
 	var w: Dictionary = WEIGHTS.get(objective, WEIGHTS.Balanced)
 	var total := 0.0
 	for k in s:
-		total += w[k] * s[k] / REF[k]
+		# Diminishing returns reward addressing weak components while preserving
+		# every upgrade and the selected objective's advantage.
+		total += w[k] * pow(maxf(0, s[k]) / REF[k], SCORE_EXPONENT)
 	var iss := issues(installed, tuning)
 	var ok := iss.is_empty()
 	return {"cpu": int(round(s.cpu)), "gpu": int(round(s.gpu)), "ram": int(round(s.ram)),

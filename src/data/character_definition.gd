@@ -28,7 +28,7 @@ extends Resource
 @export var pet_peeves: PackedStringArray = []
 @export_range(0.5, 1.0) var price_floor_fraction := 0.85
 @export_range(0.0, 1.0) var counter_bias := 0.4
-@export var buyer_budget_range := Vector2(1.05, 1.4)
+@export var buyer_budget_range := Vector2(0.85, 1.10)
 @export var meeting_places: PackedStringArray = []
 @export var hours: Array[Vector2i] = [Vector2i(9, 18)]
 @export var schedule_note: String

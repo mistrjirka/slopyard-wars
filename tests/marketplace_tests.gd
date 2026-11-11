@@ -56,7 +56,7 @@ func _query() -> void:
 func _sale_values() -> void:
 	var item := {"reference_base": 400, "price": 1, "condition": 20, "buyer_max": 99999}
 	var guide := Stats.sale_guide(item)
-	check.call(guide.value == 320 and guide.quick == 256 and guide.ask_high == 368, "Sale guidance uses current condition and base value, not the purchase price")
+	check.call(guide.value == 160 and guide.quick == 128 and guide.ask_high == 184, "Sale guidance uses current condition and base value, not the purchase price")
 	item.buyer_max = 1
 	check.call(Stats.sale_guide(item) == guide, "Public sale advice does not reveal or depend on the private buyer ceiling")
 	check.call(Stats.sale_advice(item, 5000).begins_with("Ambitious") and Stats.sale_advice(item, 1).begins_with("Below"), "Price feedback explains both excessive asks and underpricing")

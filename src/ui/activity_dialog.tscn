@@ -22,6 +22,7 @@ autowrap_mode = 3
 [node name="Cost" type="Label" parent="Box"]
 layout_mode = 2
 theme_type_variation = "Mono"
+autowrap_mode = 3
 
 [node name="Reason" type="Label" parent="Box"]
 layout_mode = 2

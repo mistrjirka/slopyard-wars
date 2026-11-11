@@ -131,7 +131,8 @@ func refresh() -> void:
 			_draft[c] = {"clock": t.clock, "voltage": t.voltage}
 		var b: Button = _sel_btns[c]
 		if inst.has(c):
-			b.text = "%s\n%s  x%.2f @ %.2fx" % [K.CAT_LABEL[c], String(inst[c].name).left(24), t.clock, t.voltage]
+			b.text = "%s\n%s\nx%.2f @ %.2fx" % [K.CAT_LABEL[c], String(inst[c].name).left(24), t.clock, t.voltage]
+			b.tooltip_text = str(inst[c].name)
 		else:
 			b.text = "%s\nnot installed" % K.CAT_LABEL[c]
 	_load_dials()

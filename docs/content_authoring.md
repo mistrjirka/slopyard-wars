@@ -73,7 +73,7 @@ Manufacturers and names are fictional. The current conventions are LVD LuckyForc
 | `support_quality` | Case airflow, motherboard VRM quality or PSU regulation, 0–100 |
 | `buying_notes` | Explain the model's practical tradeoffs in plain language |
 
-Condition scales rated performance and value by `0.75 + 0.25 × condition / 100`. Support-part quality is condition-adjusted too. A promising model can be a poor purchase if worn or overpriced. X5D entries deliberately combine high stock scores with modest clock headroom and lower voltage tolerance; the L-suffix LuckyCore offers more tuning room.
+Condition scales rated performance and support quality by `0.75 + 0.25 × condition / 100`. Used value depreciates more strongly: `base_price × (0.25 + 0.75 × condition / 100)`. Initial asking prices range from 85–120% of that condition-adjusted value. A promising model can be a poor purchase if worn or overpriced. X5D entries deliberately combine high stock scores with modest clock headroom and lower voltage tolerance; the L-suffix LuckyCore offers more tuning room.
 
 The Sell screen uses this same current value, not the item's old purchase price. Suggested asks run from 100–115% of the value; the quick-deal button uses 80%. These are public negotiation guides with live feedback, not guaranteed offers. Buyer personality and budget still decide the actual deal. Changing `base_price` or condition automatically changes the guidance.
 
@@ -85,10 +85,10 @@ The real-world reference is [Intel's documented 13th/14th-generation desktop ins
 
 | Fictional model | Base stock failure chance per test at condition 100 |
 | --- | --- |
-| LuckyCore L7-13700L | 12% |
-| LuckyCore L9-13900L | 18% |
-| LuckyCore L7-14700L | 15% |
-| LuckyCore L9-14900L | 22% |
+| LuckyCore L7-13700L | 20% |
+| LuckyCore L9-13900L | 28% |
+| LuckyCore L7-14700L | 24% |
+| LuckyCore L9-14900L | 34% |
 | Added 12th-generation models and 13th/14th-series mainstream L5 models | 0% |
 
 These values are fields on individual Resources; there are no model-name checks in gameplay code. Effective stock risk is `base × (1 + (100 − condition) × 0.008)`, capped at 95%. Tuning risk combines independently as `1 − (1 − stock risk) × (1 − tuning risk)`, then Lucky applies its 0.75 multiplier. Cooling and cleaning cannot erase a model flaw, although cleaning removes the extra risk from wear.
@@ -101,8 +101,8 @@ LuckyForce LTX 4090 and 5090 have an authored connector flaw, nicknamed **Dragon
 
 | Model | Pristine stock fire chance per test | `fire_power_sensitivity` |
 | --- | --- | --- |
-| LuckyForce LTX 4090 | 1.5% | 0.10 |
-| LuckyForce LTX 5090 | 2.5% | 0.14 |
+| LuckyForce LTX 4090 | 10% | 0.10 |
+| LuckyForce LTX 5090 | 14% | 0.14 |
 
 Only models with a positive `fire_base_chance` use this failure mode. Extra power is `max(0, clock × voltage² − 1)`. Poor PSU regulation increases the extra-power contribution; heat above 82 fictional degrees adds more risk. Wear multiplies the combined fire risk by `1 + (100 − condition) × 0.008`, capped at 85%. Better airflow/paste can reduce heat stress, and cleaning can reduce wear, but neither cures the stock connector flaw. The conservative preset therefore returns stock and is labeled **LOWEST RISK: STOCK**.
 
@@ -116,10 +116,10 @@ Each entry supplies an `id`, `area`, reachable `position`, interaction `radius`,
 
 | Kind | Current example | Effect |
 | --- | --- | --- |
-| `lucky` | Lucky's Silicon Shrine | $5 / 5 minutes, one/day, one non-stacking blessing |
-| `salvage` | Bin of Dubious Destiny | 25 minutes, one/day; random worn part from `loot_models`, with `loot_condition` bounds |
-| `clean` | Warranty Void Laundromat | $12 / 15 minutes; `strength` condition restored, once per owned part per run |
-| `cooling` | Thermal Paste Appreciation Society | $18 / 10 minutes; buys and immediately applies LuckyGoop Dragon Chill, +12 rig cooling, once per run |
+| `lucky` | Lucky's Silicon Shrine | $25 / 10 minutes, one/day, one non-stacking blessing |
+| `salvage` | Bin of Dubious Destiny | Free / 45 minutes, one/day; random worn part from `loot_models`, with `loot_condition` bounds |
+| `clean` | Warranty Void Laundromat | 8% of current used value, with resource `cash_cost` as the $15 minimum / 25 minutes; up to `strength` condition restored, once per owned part per run |
+| `cooling` | Thermal Paste Appreciation Society | $80 / 20 minutes; buys and immediately applies LuckyGoop Dragon Chill, +12 rig cooling, once per run |
 | `advice` | Benchmark Confessional | Free proverb plus current build advice; 30-minute cooldown |
 
 For existing mechanics, add or edit entries through data. New mechanic types need validation and an effect in `ActivitySystem`; keep that separate from UI and data. Costs are validated before granting rewards. Solo pays time immediately; LAN uses a per-player busy timer. Art does not define collision: keep interaction positions reachable in `world_rules.gd`.
@@ -128,8 +128,8 @@ Cooling activities can set `reward_name` (currently **LuckyGoop Dragon Chill**) 
 
 ## Run pacing
 
-The default challenge lasts a single day, 08:00–22:00, with about 19 real minutes before time skips. Tune the clock and market refresh interval in `src/core/game_config.gd`. Existing daily activity caps therefore permit one use during this run. Character hours must intersect the run with at least a 30-minute appointment window; newly generated contacts are filtered for a feasible meeting before the deadline. Evening build reminders are advisory, so late shopping and early finishing remain possible.
+The default challenge lasts two days, from Day 1 08:00 to Day 2 22:00, with about 51 real minutes before time skips; setup permits 1–7 days. Tune the clock and market refresh interval in `src/core/game_config.gd`. Daily activities reset each game day. Character hours must intersect the run with at least a 30-minute appointment window; newly generated contacts are filtered for a feasible meeting before the deadline. Evening build reminders are advisory, so late shopping and early finishing remain possible. See [gameplay balance](gameplay_balance.md) for price tiers, benchmark scaling and the catalog audit.
 
 ## Check changes
 
-Import first, then run `tests/run.ps1 -Godot 'C:/path/to/Godot_console.exe' -IncludeLan`. Content checks validate identities, schedules, hardware notes, branding, safe presets, destruction, price consequences and encounter rules. The suite expects the current catalogue count; update that expectation intentionally when adding/removing models. It never calls the paid dialogue provider.
+Import first, then run `tests/run.ps1 -Godot 'C:/path/to/Godot_console.exe'`. Content and balance checks validate identities, schedules, hardware notes, branding, safe presets, destruction, price consequences, quoted service costs and complete shopping/build runs. The suite expects the current catalogue count; update that expectation intentionally when adding/removing models. It never calls the paid dialogue provider. Legacy LAN checks do not apply while multiplayer is disabled.

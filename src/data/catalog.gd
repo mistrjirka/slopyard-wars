@@ -61,7 +61,9 @@ static func build_listing(rng: RandomNumberGenerator, tpl: PartDefinition, id: i
 		it[k] = tpl.stats[k]
 	for k in ["cpu", "gpu", "ram", "storage"]:
 		it[k] = float(it[k])
-	it.price = maxi(5, int(round(tpl.base_price * rng.randf_range(0.7, 1.3))))
+	# Both sides of the market price the unit's actual condition. Bargains still
+	# exist, but a worn listing no longer routinely costs pristine retail money.
+	it.price = maxi(5, roundi(Stats.reference_price(it) * rng.randf_range(0.85, 1.20)))
 	var s: Resource = contact if contact != null else Characters.pick(rng)
 	it.seller = s.display_name
 	it["character_id"] = str(s.id)
@@ -80,12 +82,18 @@ static func initial_picks(rng: RandomNumberGenerator, players: int) -> Array:
 	for k in 2 * players + 1:
 		var socket: String = ["OX3", "OX4"][k % 2]
 		var memory: String = "DDR3" if socket == "OX3" else "DDR4"
-		picks.append({"tpl": _cheap(rng, "case", 30), "anchor": true})
-		picks.append({"tpl": _cheap(rng, "psu", 35, {"min_cap": 350}), "anchor": true})
+		picks.append({"tpl": _cheap(rng, "case", 70), "anchor": true})
+		picks.append({"tpl": _cheap(rng, "psu", 75, {"min_cap": 350}), "anchor": true})
 		picks.append({"tpl": _cheap(rng, "cpu", 110, {"socket": socket, "integrated": true}), "anchor": true})
-		picks.append({"tpl": _cheap(rng, "motherboard", 70, {"socket": socket, "integrated": true}), "anchor": true})
-		picks.append({"tpl": _cheap(rng, "ram", 40, {"memory": memory}), "anchor": true})
-		picks.append({"tpl": _cheap(rng, "storage", 40), "anchor": true})
+		picks.append({"tpl": _cheap(rng, "motherboard", 85, {"socket": socket, "integrated": true}), "anchor": true})
+		picks.append({"tpl": _cheap(rng, "ram", 55, {"memory": memory}), "anchor": true})
+		picks.append({"tpl": _cheap(rng, "storage", 65), "anchor": true})
+	# Higher-budget players also need complete upgrade paths, rather than a
+	# random CPU with no matching board or memory anywhere in the initial stock.
+	for socket: String in ["NX5", "LX7"]:
+		picks.append({"tpl": _cheap(rng, "cpu", 420 if socket == "NX5" else 350, {"socket": socket, "integrated": true, "reliable": true}), "anchor": true})
+		picks.append({"tpl": _cheap(rng, "motherboard", 180 if socket == "NX5" else 150, {"socket": socket}), "anchor": true})
+		picks.append({"tpl": _cheap(rng, "ram", 250 if socket == "NX5" else 145, {"memory": "DDR5" if socket == "NX5" else "DDR4"}), "anchor": true})
 	for t in PARTS:
 		if rng.randf() < 0.5:
 			picks.append({"tpl": t, "anchor": false})
@@ -113,6 +121,8 @@ static func _cheap(rng: RandomNumberGenerator, cat: String, max_price: int, f: D
 		if f.has("integrated") and bool(st.get("integrated", false)) != f.integrated:
 			continue
 		if f.has("min_cap") and int(st.get("capacity", 0)) < f.min_cap:
+			continue
+		if f.get("reliable", false) and (t.stock_failure_chance > 0 or t.fire_base_chance > 0):
 			continue
 		pool.append(t)
 	return pool[rng.randi() % pool.size()]

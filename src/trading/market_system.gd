@@ -181,7 +181,7 @@ func post_sale(pid: int, p: Dictionary, d: Dictionary) -> void:
 	l.personality = contact.tagline
 	l.location = contact.meeting_places[0]
 	l.pos = Catalog.LOCATIONS[l.location]
-	l["first_offer"] = maxi(1, mini(ask, int(l.buyer_max * 0.65)))
+	l["first_offer"] = maxi(1, mini(ask, int(l.buyer_max * 0.80)))
 	l["buyer_contacted"] = false
 	state.listings.append(l)
 	anchors[l.id] = true
@@ -253,7 +253,10 @@ func refresh() -> void:
 			if not l.is_empty():
 				session.record_event("Restocked: %s - $%d" % [l.name, l.price])
 	for l in pool.slice(2, 3):
-		var cut := int(l.price * 0.9)
+		# Waiting is useful, but cannot turn a premium part into a $1 listing.
+		var cut := maxi(maxi(5, roundi(Stats.reference_price(l) * 0.75)), roundi(l.price * 0.9))
+		if cut >= int(l.price):
+			continue
 		l.price = cut
 		floors[l.id] = mini(floors[l.id], cut)
 		session.record_event("Price drop: %s now $%d" % [l.name, cut])

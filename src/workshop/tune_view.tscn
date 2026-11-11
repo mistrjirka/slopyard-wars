@@ -168,9 +168,10 @@ theme_type_variation = &"CardTight"
 layout_mode = 2
 autowrap_mode = 3
 
-[node name="ActionsRow" type="HBoxContainer" parent="MidPanel/MidScroll/Holder/BodyBox" unique_id=1696273079]
+[node name="ActionsRow" type="HFlowContainer" parent="MidPanel/MidScroll/Holder/BodyBox" unique_id=1696273079]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
 
 [node name="RunButton" type="Button" parent="MidPanel/MidScroll/Holder/BodyBox/ActionsRow" unique_id=1408982338]
 layout_mode = 2

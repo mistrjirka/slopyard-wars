@@ -7,7 +7,7 @@ signal menu
 
 const CATS4: Array = ["cpu", "gpu", "ram", "storage"]
 const LABELS := {"cpu": "CPU", "gpu": "GPU", "ram": "RAM", "storage": "STORAGE"}
-const REFS := {"cpu": 6000.0, "gpu": 6000.0, "ram": 4000.0, "storage": 4000.0}
+const REFS = preload("res://src/workshop/rig_rules.gd").REF
 
 var _sig: String = ""
 var _t: float = 0.0

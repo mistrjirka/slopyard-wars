@@ -26,5 +26,7 @@ static func nearby(player: Dictionary) -> ActivityDefinition:
 
 
 static func cost_text(activity: ActivityDefinition) -> String:
+	if activity.kind == "clean":
+		return "From $%d · %d game minutes · once per part/run" % [activity.cash_cost, activity.minutes_cost]
 	var limit := " · once per run" if activity.once_per_run else (" · %d/day" % activity.uses_per_day if activity.uses_per_day > 0 else "")
 	return "$%d · %d game minutes%s" % [activity.cash_cost, activity.minutes_cost, limit]

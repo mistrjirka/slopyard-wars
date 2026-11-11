@@ -17,7 +17,10 @@ static func stock_failure_chance(item: Dictionary) -> float:
 
 
 static func reference_price(item: Dictionary) -> int:
-	return maxi(1, roundi(float(item.get("reference_base", item.get("price", 1))) * condition_factor(item)))
+	# Cosmetic/performance wear and resale depreciation are different curves. A
+	# nearly wrecked component must not retain 75% of a pristine unit's value.
+	var health := clampf(float(item.get("condition", 100)), 0, 100) / 100.0
+	return maxi(1, roundi(float(item.get("reference_base", item.get("price", 1))) * (0.25 + 0.75 * health)))
 
 
 static func stock_fire_chance(item: Dictionary) -> float:

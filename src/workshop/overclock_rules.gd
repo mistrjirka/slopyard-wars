@@ -40,7 +40,7 @@ static func evaluate(item: Dictionary, clock: float, voltage: float,
 	cooling = clampf(cooling + float(modifiers.get("cooling_bonus", 0)), 0, 100)
 	var vrm := float(board.get("support_quality", 50)) * Stats.condition_factor(board)
 	var regulation := float(supply.get("support_quality", 50)) * Stats.condition_factor(supply)
-	var support := (cooling + vrm + regulation) / 300.0
+	var support := (cooling * 0.40 + vrm * 0.35 + regulation * 0.25) / 100.0
 	# Poor cooler mounting only affects the CPU it is clamped onto: less headroom, more heat.
 	var mount := 1.0
 	var mount_headroom := 1.0
@@ -50,7 +50,7 @@ static func evaluate(item: Dictionary, clock: float, voltage: float,
 		if mount < 1.0:
 			mount_headroom = lerpf(0.8, 1.0, mount)
 			mount_heat = 10.0 * (1.0 - mount)
-	var headroom := potential * (0.75 + health * 0.0025) * (0.80 + support * 0.20) * mount_headroom
+	var headroom := potential * (0.75 + health * 0.0025) * (0.40 + support * 0.60) * mount_headroom
 	var stable := 1.0 + headroom * clampf((voltage - 1.0) / (limit - 1.0), 0, 1)
 	var excess := maxf(0, clock - stable)
 	var multiplier := (1.0 + (clock - 1.0) * 0.9) * maxf(0.25, 1.0 - excess * 5.0)

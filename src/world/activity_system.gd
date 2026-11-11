@@ -3,6 +3,7 @@ extends RefCounted
 const Activities = preload("res://src/world/activities.gd")
 const Catalog = preload("res://src/data/catalog.gd")
 const Rig = preload("res://src/workshop/rig_rules.gd")
+const Stats = preload("res://src/data/hardware_stats.gd")
 var session: Node
 
 
@@ -25,15 +26,22 @@ func _listed(item_id: int) -> bool:
 	return false
 
 
-func unavailable_reason(player: Dictionary, activity: Resource) -> String:
+func cash_cost(activity: Resource, item: Dictionary = {}) -> int:
+	if activity.kind == "clean" and not item.is_empty():
+		return maxi(activity.cash_cost, roundi(Stats.reference_price(item) * 0.08))
+	return int(activity.cash_cost)
+
+
+func unavailable_reason(player: Dictionary, activity: Resource, item: Dictionary = {}) -> String:
 	if activity == null:
 		return "That activity is not available."
 	if player.area != activity.area or player.driving or Vector2(player.pos).distance_to(activity.position) > activity.radius:
 		return "Park and walk up to the activity first."
 	if player.ready or float(player.busy) > 0:
 		return "Finish your current job before starting another."
-	if int(player.cash) < activity.cash_cost:
-		return "You need $%d for this." % activity.cash_cost
+	var cost := cash_cost(activity, item)
+	if int(player.cash) < cost:
+		return "You need $%d for this." % cost
 	var day := int(session.clock()) / 1440
 	var visit: Dictionary = player.world_visits.get(str(activity.id), {})
 	if activity.once_per_run and not visit.is_empty():
@@ -72,8 +80,13 @@ func use(pid: int, player: Dictionary, data: Dictionary) -> void:
 			session.notify_player(pid, "The bin is empty today.")
 			return
 		loot = pool[session.rng.randi_range(0, pool.size() - 1)]
+	# Quote again from the current owned item, never from a client-supplied fee.
+	var cost := cash_cost(activity, selected)
+	if int(player.cash) < cost:
+		session.notify_player(pid, "You need $%d for this." % cost)
+		return
 	# All validation has completed. Charge, record use and grant once in one synchronous action.
-	player.cash -= activity.cash_cost
+	player.cash -= cost
 	var day := int(session.clock()) / 1440
 	var previous: Dictionary = player.world_visits.get(str(activity.id), {})
 	player.world_visits[str(activity.id)] = {"day": day,

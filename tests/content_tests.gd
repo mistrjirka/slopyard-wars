@@ -155,8 +155,8 @@ func _overclocking() -> void:
 
 
 func _stock_reliability() -> void:
-	var fault_rates := {"luckycore_l7_13700l": 0.12, "luckycore_l9_13900l": 0.18,
-		"luckycore_l7_14700l": 0.15, "luckycore_l9_14900l": 0.22}
+	var fault_rates := {"luckycore_l7_13700l": 0.20, "luckycore_l9_13900l": 0.28,
+		"luckycore_l7_14700l": 0.24, "luckycore_l9_14900l": 0.34}
 	for model: String in fault_rates:
 		var player := _reliability_rig(model)
 		var item: Dictionary = player.installed.cpu
@@ -179,30 +179,30 @@ func _stock_reliability() -> void:
 	game.preview_score(player)
 	game.preview_score(player)
 	check.call(game.rng.state == rng_state and not player.benchmark_checked and player.installed.cpu.condition == 100, "Score previews neither test nor wear a faulty CPU")
-	_seed_for(0.18, true)
+	_seed_for(0.28, true)
 	game.act("tune", {"category": "cpu", "clock": 1.0, "voltage": 1.0})
 	check.call(not player.installed.has("cpu"), "Stock stress test can actually destroy a faulty CPU")
 	player = _reliability_rig("luckycore_l9_13900l")
-	_seed_for(0.18, true)
+	_seed_for(0.28, true)
 	game.act("finish")
 	check.call(game.state.phase == "results" and player.score.total == 0 and not player.installed.has("cpu"), "Skipping tuning cannot bypass final benchmark reliability risk")
 	player = _reliability_rig("luckycore_l9_13900l")
 	player.workshop_modifiers.lucky_tests = 1
-	_seed_for(0.18 * 0.75, false)
+	_seed_for(0.28 * 0.75, false)
 	game.act("finish")
 	check.call(player.score.total > 0 and player.installed.cpu.condition == 98 and player.workshop_modifiers.lucky_tests == 0, "Successful final test consumes blessing and applies wear exactly once")
 	rng_state = game.rng.state
 	game.workshop.final_score(1, player)
 	check.call(game.rng.state == rng_state and player.installed.cpu.condition == 98, "Repeated final scoring does not reroll or wear hardware")
 	player = _reliability_rig("luckycore_l9_13900l")
-	_seed_for(0.18, true)
+	_seed_for(0.28, true)
 	game.state.remaining = 0.1
 	game.advance_time(1)
 	check.call(game.state.phase == "results" and player.score.total == 0 and not player.installed.has("cpu"), "Waiting for the deadline cannot bypass the reliability test")
 
 
 func _gpu_fires() -> void:
-	var rates := {"luckyforce_ltx_4090": 0.015, "luckyforce_ltx_5090": 0.025}
+	var rates := {"luckyforce_ltx_4090": 0.10, "luckyforce_ltx_5090": 0.14}
 	check.call(Catalog.PARTS.filter(func(part): return part.fire_base_chance > 0).size() == 2, "Only the two authored flagship models have connector fire risk")
 	for model: String in rates:
 		var player := _fire_rig(model)
@@ -252,10 +252,11 @@ func _gpu_fires() -> void:
 		player = _fire_rig(model)
 		_seed_for(rates[model], false)
 		game.act("finish")
-		check.call(player.score.valid and player.installed.gpu.condition == 99, "Successful final GPU test applies wear")
+		var expected_condition := 100 - ceili(float(rates[model]) * 8)
+		check.call(player.score.valid and player.installed.gpu.condition == expected_condition, "Successful final GPU test applies wear")
 		rng_state = game.rng.state
 		game.workshop.final_score(1, player)
-		check.call(game.rng.state == rng_state and player.installed.gpu.condition == 99, "Final GPU test cannot reroll or apply wear twice")
+		check.call(game.rng.state == rng_state and player.installed.gpu.condition == expected_condition, "Final GPU test cannot reroll or apply wear twice")
 		player = _fire_rig(model)
 		_seed_for(rates[model], true)
 		game.act("finish")
@@ -269,7 +270,7 @@ func _gpu_fires() -> void:
 	var player := _fire_rig("luckyforce_ltx_5090", "luckycore_l9_13900l")
 	player.workshop_modifiers.lucky_tests = 1
 	var tests := Overclock.final_tests(player.installed, player.tuning, player.workshop_modifiers)
-	check.call(tests.size() == 2 and tests[0].category == "cpu" and tests[0].result.uses_luck and not tests[1].result.uses_luck and is_equal_approx(tests[1].result.fire_chance, 0.025), "Final plan assigns a single blessing in CPU then GPU order")
+	check.call(tests.size() == 2 and tests[0].category == "cpu" and tests[0].result.uses_luck and not tests[1].result.uses_luck and is_equal_approx(tests[1].result.fire_chance, 0.14), "Final plan assigns a single blessing in CPU then GPU order")
 	_seed_for(tests[0].result.damage_chance, true)
 	game.act("finish")
 	check.call(not player.installed.has("cpu") and player.installed.gpu.condition == 100, "Final tests stop if CPU failure prevents the rig from running")
@@ -441,11 +442,11 @@ func _interfaces() -> void:
 	player.workshop_modifiers["cooling_name"] = Activities.find("paste_club").reward_name
 	screen._tune._select("gpu")
 	screen._tune._safe_preset()
-	check.call(screen._tune._safe.text == "LOWEST RISK: STOCK" and screen._tune._warn_lbl.text.contains("CONNECTOR FIRE: 2.5%"), "GPU UI discloses exact stock fire chance and never calls it safe")
+	check.call(screen._tune._safe.text == "LOWEST RISK: STOCK" and screen._tune._warn_lbl.text.contains("CONNECTOR FIRE: 14.0%"), "GPU UI discloses exact stock fire chance and never calls it safe")
 	check.call(screen._tune._info.text.contains("LuckyGoop Dragon Chill applied: +12 cooling"), "Tuning displays the applied named paste")
 	screen._tune._apply()
-	check.call(confirmations.size() == 2 and confirmations[-1].contains("CONNECTOR FIRE: 2.5%"), "Stress-test confirmation includes fire probability")
-	_seed_for(0.025, true)
+	check.call(confirmations.size() == 2 and confirmations[-1].contains("CONNECTOR FIRE: 14.0%"), "Stress-test confirmation includes fire probability")
+	_seed_for(0.14, true)
 	game.act("tune", {"category": "gpu", "clock": 1.0, "voltage": 1.0})
 	screen._tune.refresh()
 	check.call(screen._tune._outcome.visible and not screen._tune._body.visible and screen._tune._outcome.text.contains("CONNECTOR FIRE"), "Destroyed GPU leaves a visible fire explanation at the bench")
@@ -463,7 +464,7 @@ func _interfaces() -> void:
 	confirmations.clear()
 	bench.ask = func(_title, body, _label, _action): confirmations.append(body)
 	bench._finish()
-	check.call(confirmations.size() == 1 and confirmations[0].contains("13.5% destruction chance") and confirmations[0].contains("2.5% CONNECTOR FIRE"), "Finish dialog quotes a blessed CPU and unblessed GPU in test order")
+	check.call(confirmations.size() == 1 and confirmations[0].contains("21.0% destruction chance") and confirmations[0].contains("14.0% CONNECTOR FIRE"), "Finish dialog quotes a blessed CPU and unblessed GPU in test order")
 	bench.free()
 
 

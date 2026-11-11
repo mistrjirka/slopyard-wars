@@ -51,6 +51,7 @@ func _run() -> void:
 	await preload("res://tests/phone_tests.gd").new().run(game, expect)
 	await preload("res://tests/notice_tests.gd").new().run(game, expect)
 	await preload("res://tests/marketplace_tests.gd").new().run(game, expect)
+	await preload("res://tests/balance_tests.gd").new().run(game, expect)
 	preload("res://tests/audio_tests.gd").new().run(game, expect)
 	preload("res://tests/conversation_tests.gd").new().run(game, expect)
 	await _test_screens()
