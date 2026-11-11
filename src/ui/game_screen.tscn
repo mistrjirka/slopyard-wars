@@ -1,6 +1,7 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://src/ui/game_screen.gd" id="1"]
+[ext_resource type="Script" path="res://src/audio/audio_button.gd" id="AudioButton"]
 [ext_resource type="PackedScene" path="res://src/world/town_view.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://src/trading/phone.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://src/workshop/bench_view.tscn" id="4"]
@@ -102,6 +103,12 @@ text = "MAP [M]"
 layout_mode = 2
 theme_type_variation = "GhostButton"
 text = "MENU"
+
+[node name="SoundBtn" type="Button" parent="Topbar/Row"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "♪"
+script = ExtResource("AudioButton")
 
 [node name="Bottombar" type="PanelContainer" parent="."]
 layout_mode = 1

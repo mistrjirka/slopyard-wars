@@ -1,0 +1,122 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/audio/audio_settings.gd" id="1"]
+[ext_resource type="Theme" path="res://resources/ui/game_theme.tres" id="2"]
+
+[node name="AudioSettings" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme = ExtResource("2")
+script = ExtResource("1")
+
+[node name="Shade" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.02, 0.04, 0.08, 0.8)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(390, 0)
+layout_mode = 2
+theme_type_variation = "Card"
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Content" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_type_variation = "H2"
+text = "Sound"
+
+[node name="Master" type="HBoxContainer" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="Center/Panel/Margin/Content/Master"]
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+text = "Master"
+
+[node name="Slider" type="HSlider" parent="Center/Panel/Margin/Content/Master"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 100.0
+value = 80.0
+
+[node name="Value" type="Label" parent="Center/Panel/Margin/Content/Master"]
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+text = "80%"
+horizontal_alignment = 2
+
+[node name="Music" type="HBoxContainer" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="Center/Panel/Margin/Content/Music"]
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+text = "Music"
+
+[node name="Slider" type="HSlider" parent="Center/Panel/Margin/Content/Music"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 100.0
+value = 65.0
+
+[node name="Value" type="Label" parent="Center/Panel/Margin/Content/Music"]
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+text = "65%"
+horizontal_alignment = 2
+
+[node name="Effects" type="HBoxContainer" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Label" type="Label" parent="Center/Panel/Margin/Content/Effects"]
+custom_minimum_size = Vector2(70, 0)
+layout_mode = 2
+text = "Effects"
+
+[node name="Slider" type="HSlider" parent="Center/Panel/Margin/Content/Effects"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 100.0
+value = 80.0
+
+[node name="Value" type="Label" parent="Center/Panel/Margin/Content/Effects"]
+custom_minimum_size = Vector2(44, 0)
+layout_mode = 2
+text = "80%"
+horizontal_alignment = 2
+
+[node name="Mute" type="CheckButton" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+text = "Mute all audio [F8]"
+
+[node name="Close" type="Button" parent="Center/Panel/Margin/Content"]
+layout_mode = 2
+text = "Done"

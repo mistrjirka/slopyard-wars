@@ -51,6 +51,9 @@ func run(session: Node, assertion: Callable) -> void:
 	while screen._phone_motion != "open" and Time.get_ticks_msec() < deadline:
 		await game.get_tree().process_frame
 	await settle()
+	phone._body.get_child(0).get_node("Unfold").pressed.emit()
+	phone.set_unfolded(false)
+	await settle()
 	var inbox: Control = phone._body.get_child(0)
 	check.call(inbox.box.get_child_count() == 2 and inbox.box.get_child(1).seller_label.text.begins_with("Lucky"),
 		"Lucky magically appears as a separate inbox contact on the cover")

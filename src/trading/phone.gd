@@ -1,6 +1,7 @@
 extends Control
 ## LuckyFold app controller. Cover messages and unfolded marketplace share one conversation/draft state.
 const Device = preload("res://src/trading/luckyfold_shell.gd")
+const IntroViewScene = preload("res://src/trading/phone_intro.tscn")
 const MarketplaceViewScene = preload("res://src/trading/marketplace_view.tscn")
 const SellViewScene = preload("res://src/trading/sell_view.tscn")
 const InboxViewScene = preload("res://src/trading/inbox_view.tscn")
@@ -54,6 +55,7 @@ var _drafts := {}
 var _device: Control
 var _nav: HBoxContainer
 var _mode_button: Button
+var _intro_button: Button
 var _heading: Label
 var _cover_footer_space: Control
 var _screen: SubViewportContainer
@@ -67,12 +69,14 @@ var _folding := false
 var _pocket_transition := false
 var _fold_generation := 0
 # Main recreates GameScreen (and this phone) for each match.
+var _intro_pending := true
 var _first_unfold_pending := true
 var _first_unfold_active := false
 var _failure_burst_active := false
 var _fold_opening := false
 var _fold_progress := 0.0
 var _fold_tween: Tween
+var _hinge_voice := -1
 var _fold_old: ImageTexture
 var _fold_new: ImageTexture
 var _fold_target_size := Vector2.ZERO
@@ -213,6 +217,8 @@ func set_unfolded(value: bool) -> void:
 	if _folding:
 		_finish_fold()
 	_save_draft()
+	if value:
+		_intro_pending = false
 	_device.set_unfolded(value)
 	_mode_button.text = "Fold" if value else "Unfold"
 	_mode_button.tooltip_text = "Use the cover screen for messages" if value else "Open the full marketplace"
@@ -293,6 +299,7 @@ func _capture_fold_target(generation: int) -> void:
 		_fold_tween.tween_callback(_begin_display_failure)
 		_fold_tween.tween_interval(0.10)
 	else:
+		_hinge_voice = Sound.play("hinge_open" if _fold_opening else "hinge_close")
 		_fold_tween.tween_method(_apply_fold, 0.0, 1.0, FOLD_DURATION)
 	_fold_tween.finished.connect(_finish_fold)
 
@@ -435,6 +442,8 @@ func _update_hinge(panel: Vector2, hinge: float) -> void:
 func _begin_display_failure() -> void:
 	if not _folding or not _first_unfold_active:
 		return
+	# The glass fractures on this exact frame, together with the white signal-loss burst.
+	Sound.play("screen_crack")
 	# Replace the clean cached image with a live, opaque signal-loss burst.
 	# Keep fold input blocked until the normal image and fault lines return.
 	_failure_burst_active = true
@@ -452,6 +461,8 @@ func _restore_display_fault() -> void:
 
 
 func _finish_fold() -> void:
+	Sound.stop_voice(_hinge_voice)
+	_hinge_voice = -1
 	var was_folding := _folding
 	_failure_burst_active = false
 	_device.set_failure_burst(false)
@@ -505,7 +516,7 @@ func move_keyboard_focus(backwards: bool) -> void:
 	if _folding or _pocket_transition or not is_visible_in_tree():
 		return
 	var owner := _viewport.gui_get_focus_owner()
-	var target: Control = _mode_button
+	var target: Control = _intro_button if is_instance_valid(_intro_button) else _mode_button
 	if owner != null:
 		target = owner.find_prev_valid_focus() if backwards else owner.find_next_valid_focus()
 	if target != null:
@@ -656,7 +667,8 @@ func refresh() -> void:
 		return
 	_clock.text = Trade.stamp(Game.clock()) + "   ·   $%d" % int(Game.me().cash)
 	var me: Dictionary = Game.me()
-	var active_page := page if unfolded else "messages"
+	var in_intro := _intro_pending and not unfolded
+	var active_page := "intro" if in_intro else (page if unfolded else "messages")
 	var in_lucky := active_page == "messages" and selected == LUCKY_CONTACT_ID
 	var in_thread := active_page == "messages" and selected >= 0
 	var lucky_messages: Array = me.get("lucky_messages", [])
@@ -667,7 +679,8 @@ func refresh() -> void:
 			_mark_contact_read(selected)
 	var unread := unread_count()
 	(_tabs["messages"] as Button).title = "Messages · %d" % unread if unread > 0 else "Messages"
-	_heading.text = {"browse": "Marketplace", "messages": "Messages", "sell": "Sell"}.get(active_page, "Messages")
+	_mode_button.visible = not in_intro
+	_heading.text = {"intro": "Welcome", "browse": "Marketplace", "messages": "Messages", "sell": "Sell"}.get(active_page, "Messages")
 	_heading.tooltip_text = _heading.text
 	_layout_heading()
 	_cover_footer_space.visible = not unfolded
@@ -676,7 +689,10 @@ func refresh() -> void:
 	var sig := str(unfolded) + active_page + str(selected) + str(_message_category)
 	sig += str(_waiting_for_reply()) + str(me.ready)
 	sig += str(me.get("contact_relations", {}))
-	if in_lucky:
+	if in_intro:
+		# World updates and incoming messages must not rebuild the welcome screen.
+		sig = "intro"
+	elif in_lucky:
 		sig += str(lucky_messages.size())
 	elif active_page == "messages" and selected >= 0:
 		# Compatibility references may change when another part is bought, agreed,
@@ -716,6 +732,7 @@ func refresh() -> void:
 	_save_draft()
 	_sig = sig
 	_clear(_body)
+	_intro_button = null
 	_thread_view = null
 	_lucky_view = null
 	_composer = null
@@ -725,7 +742,9 @@ func refresh() -> void:
 	_context = null
 	for key in _tabs:
 		(_tabs[key] as Button).button_pressed = key == active_page
-	if active_page == "browse":
+	if in_intro:
+		_intro()
+	elif active_page == "browse":
 		_browse()
 	elif active_page == "sell":
 		_sell()
@@ -738,6 +757,13 @@ func refresh() -> void:
 	if refocus and is_instance_valid(_composer) and _composer.editable:
 		_composer.grab_focus()
 		_composer.caret_column = caret
+
+
+func _intro() -> void:
+	var view: VBoxContainer = IntroViewScene.instantiate()
+	_body.add_child(view)
+	_intro_button = view.get_node("Unfold")
+	_intro_button.pressed.connect(_open_marketplace_animated)
 
 
 func _browse() -> void:

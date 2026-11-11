@@ -1,0 +1,26 @@
+Slopyard Wars — original generated audio
+=======================================
+
+All WAV files in assets/audio/ were synthesized specifically for this project
+using scripts/generate_audio.cjs. No audio samples, recordings, sound packs,
+third-party compositions, synthesis libraries or downloaded music were used.
+
+Source / authoring method: original project code; deterministic waveform,
+noise, envelope, modulation and delay synthesis. The music is an original
+16-bar downtempo arrangement (80 BPM) titled "Slopyard Afterhours".
+
+Third-party sources and third-party audio licenses: none.
+These are project-authored assets; this note does not assign a new license
+to the project or change the owner's existing licensing terms.
+
+The complete asset inventory, durations and signal levels are recorded in
+assets/audio/manifest.json. Regenerate with:
+
+    node scripts/generate_audio.cjs
+
+Files covered:
+activity.wav, car_start.wav, cash.wav, damage.wav, door.wav, engine_loop.wav,
+failure.wav, feedback.wav, hinge_close.wav, hinge_open.wav, match_end.wav,
+message.wav, paste.wav, phone_away.wav, phone_out.wav, screen_crack.wav,
+screw.wav, send.wav, slopyard_afterhours.wav, snap.wav, step_a.wav, step_b.wav,
+success.wav, ui_click.wav.

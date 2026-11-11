@@ -1,0 +1,221 @@
+{
+  "generator": "scripts/generate_audio.cjs",
+  "assets": [
+    {
+      "file": "ui_click.wav",
+      "seconds": 0.07501133786848073,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -3.1,
+      "rms_db": -19
+    },
+    {
+      "file": "feedback.wav",
+      "seconds": 0.22,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -15.5
+    },
+    {
+      "file": "screen_crack.wav",
+      "seconds": 0.64,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -22.8
+    },
+    {
+      "file": "hinge_open.wav",
+      "seconds": 1.15,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -15.2
+    },
+    {
+      "file": "hinge_close.wav",
+      "seconds": 1.15,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -14.9
+    },
+    {
+      "file": "phone_out.wav",
+      "seconds": 0.25,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -16.3
+    },
+    {
+      "file": "phone_away.wav",
+      "seconds": 0.25,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -15.9
+    },
+    {
+      "file": "step_a.wav",
+      "seconds": 0.15,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -22.9
+    },
+    {
+      "file": "step_b.wav",
+      "seconds": 0.15,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -22.1
+    },
+    {
+      "file": "door.wav",
+      "seconds": 0.32,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -22.7
+    },
+    {
+      "file": "snap.wav",
+      "seconds": 0.11,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -3.9,
+      "rms_db": -22.1
+    },
+    {
+      "file": "screw.wav",
+      "seconds": 0.15,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -3.1,
+      "rms_db": -22.5
+    },
+    {
+      "file": "paste.wav",
+      "seconds": 0.19,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -15.6
+    },
+    {
+      "file": "damage.wav",
+      "seconds": 0.24,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -21.3
+    },
+    {
+      "file": "failure.wav",
+      "seconds": 0.85,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -20.6
+    },
+    {
+      "file": "car_start.wav",
+      "seconds": 0.7,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -14.3
+    },
+    {
+      "file": "engine_loop.wav",
+      "seconds": 0.8,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": true,
+      "peak_db": -2.9,
+      "rms_db": -8.7
+    },
+    {
+      "file": "message.wav",
+      "seconds": 0.55,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -13.8
+    },
+    {
+      "file": "send.wav",
+      "seconds": 0.28,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -12.5
+    },
+    {
+      "file": "cash.wav",
+      "seconds": 0.68,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -15.2
+    },
+    {
+      "file": "activity.wav",
+      "seconds": 1.25,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -16
+    },
+    {
+      "file": "success.wav",
+      "seconds": 0.65,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -16.4
+    },
+    {
+      "file": "match_end.wav",
+      "seconds": 1.8,
+      "channels": 1,
+      "sample_rate": 44100,
+      "loop": false,
+      "peak_db": -2.9,
+      "rms_db": -15.6
+    },
+    {
+      "file": "slopyard_afterhours.wav",
+      "seconds": 48,
+      "channels": 2,
+      "sample_rate": 44100,
+      "loop": true,
+      "peak_db": -2.9,
+      "rms_db": -14.7
+    }
+  ]
+}

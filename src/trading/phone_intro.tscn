@@ -1,0 +1,48 @@
+[gd_scene format=3]
+
+[node name="PhoneIntro" type="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Copy" type="VBoxContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 14
+
+[node name="Eyebrow" type="Label" parent="Scroll/Copy"]
+layout_mode = 2
+theme_type_variation = "Eyebrow"
+theme_override_colors/font_color = Color(0.435, 0.706, 1, 1)
+text = "INTRODUCING"
+
+[node name="Title" type="Label" parent="Scroll/Copy"]
+layout_mode = 2
+theme_type_variation = "H1"
+theme_override_font_sizes/font_size = 28
+text = "LuckyFold Duo"
+autowrap_mode = 3
+
+[node name="Pitch" type="Label" parent="Scroll/Copy"]
+layout_mode = 2
+text = "The new top-of-the-class folding phone.\n\nTwice the screen. Twice the price. Twice the opportunity for quality control to take a day off."
+autowrap_mode = 3
+
+[node name="Divider" type="HSeparator" parent="Scroll/Copy"]
+layout_mode = 2
+
+[node name="Uses" type="Label" parent="Scroll/Copy"]
+layout_mode = 2
+text = "Browse parts. Sell your spares. Message buyers and sellers."
+autowrap_mode = 3
+
+[node name="Unfold" type="Button" parent="."]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+theme_type_variation = "PrimaryButton"
+text = "Unfold"

@@ -16,6 +16,7 @@ var _match_id := -1
 
 
 func _ready() -> void:
+	Sound.start_music()
 	resized.connect(queue_redraw)
 	Game.changed.connect(_refresh)
 	Game.notice.connect(_show_notice)

@@ -88,7 +88,7 @@ func _fit_bottom_bar() -> void:
 
 
 func _overlay_open() -> bool:
-	return _dialogs.visible or _phone_layer.visible or _workspace.visible or _map_layer.visible
+	return _dialogs.visible or _phone_layer.visible or _workspace.visible or _map_layer.visible or Sound.is_settings_open()
 
 
 func _toggle_phone() -> void:
@@ -108,6 +108,7 @@ func _toggle_phone() -> void:
 
 
 func _open_phone() -> void:
+	Sound.play("phone_out")
 	_phone_reveal_generation += 1
 	_phone_motion = "opening"
 	_phone.set_unfolded(false)
@@ -167,6 +168,7 @@ func _advance_phone_close() -> void:
 		if _phone.is_folding():
 			return
 	_phone_motion = "closing_slide"
+	Sound.play("phone_away")
 	_phone_tween = create_tween()
 	_phone_tween.tween_method(_set_phone_slide, _phone_slide, 1.0, PHONE_EXIT_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	_phone_tween.finished.connect(_finish_phone_pocket)
@@ -199,6 +201,7 @@ func _toggle_map() -> void:
 		return
 	_workspace.visible = false
 	_map_layer.visible = not _map_layer.visible
+	Sound.play("ui_click")
 	if not _map_layer.visible:
 		return
 	$MapLayer/Scroll/Content/Map.tracked = _tracked
@@ -233,6 +236,7 @@ func _open_workspace(which: String) -> void:
 		return
 	_map_layer.visible = false
 	_workspace.visible = true
+	Sound.play("ui_click")
 	_bench.visible = which == "bench"
 	_tune.visible = which == "tune"
 	if which == "bench":
@@ -321,6 +325,8 @@ func _update_world_hud() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if Sound.is_settings_open():
+		return
 	if _dialogs.visible or not _phone_layer.visible or event is not InputEventKey or not event.pressed:
 		return
 	if event.is_action_pressed("ui_focus_next", true) or event.is_action_pressed("ui_focus_prev", true):
@@ -331,6 +337,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Sound.is_settings_open():
+		return
 	# SubViewportContainer forwards keys in unhandled_input. Running game shortcuts
 	# in the earlier unhandled_key_input stage steals letters from phone text fields.
 	if event is not InputEventKey or not event.pressed or event.echo:

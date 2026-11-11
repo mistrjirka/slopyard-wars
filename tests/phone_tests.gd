@@ -24,16 +24,33 @@ func run(session: Node, assertion: Callable) -> void:
 	center.add_child(phone)
 	phone.refresh()
 	await settle()
-	check.call(not phone.unfolded and not phone._nav.visible, "LuckyFold opens on the cover inbox")
+	check.call(not phone.unfolded and not phone._nav.visible and phone._body.get_child(0).name == "PhoneIntro",
+		"LuckyFold first opens on its folded introduction")
+	var intro: Control = phone._body.get_child(0)
+	var unfold_button: Button = intro.get_node("Unfold")
+	check.call(unfold_button.text == "Unfold" and is_equal_approx(unfold_button.size.x, intro.size.x),
+		"Introduction has a full-width Unfold button")
+	check.call(phone._device._display.get_global_rect().encloses(unfold_button.get_global_rect()),
+		"Introduction button stays inside the cover display at 1280x720")
+	phone._viewport.gui_release_focus()
+	phone.move_keyboard_focus(false)
+	check.call(unfold_button.has_focus(), "Keyboard navigation reaches the introduction's Unfold button")
+	phone.hide()
+	phone.show()
+	phone.refresh()
+	check.call(phone._intro_pending and phone._body.get_child(0) == intro,
+		"Putting away the phone before unfolding preserves its introduction")
 	check.call(phone._device._brand.visible and phone._device._brand.text == "LuckyFold Duo", "Cover has the requested live brand label")
 	check.call(phone._device._brand.position.y >= phone._device._display.get_rect().end.y, "Brand occupies the free space below the cover display")
 	check.call(not phone._device._fault.visible, "Healthy cover display hides the inner-screen fault")
 	check.call(phone._device._fault.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Display fault cannot steal clicks")
 	check.call(phone.size.x < 500 and phone.size.y <= viewport.size.y, "Cover fits a 1280x720 viewport")
 	var cover_size: Vector2 = phone.size
-	phone._open_marketplace()
+	unfold_button.pressed.emit()
 	await settle()
 	check.call(phone.unfolded and phone.page == "browse" and phone._nav.visible, "Unfolding exposes the full marketplace")
+	check.call(not phone._intro_pending and phone._mode_button.visible,
+		"Introduction ends after its Unfold button is pressed")
 	check.call(phone._device._fault.visible and not phone._device._brand.visible, "Inner display shows its fault without the cover label")
 	check.call(is_equal_approx(phone.size.x, cover_size.x * 2.0) and is_equal_approx(phone.size.y, cover_size.y), "Unfolded device keeps two equal leaves at the cover's physical scale")
 	var listing: Dictionary = game.state.listings[0]
@@ -44,6 +61,7 @@ func run(session: Node, assertion: Callable) -> void:
 	phone._composer.caret_column = 8
 	phone.set_unfolded(false)
 	await settle()
+	check.call(phone._body.get_child(0).name != "PhoneIntro", "Folding again never restores the introduction")
 	check.call(phone.selected == listing.id and phone._composer.text == "Does Lucky approve of this one?", "Folding preserves the selected conversation and draft")
 	check.call(phone._composer.has_focus() and phone._composer.caret_column == 8, "Folding preserves composer focus and caret")
 	check_layout("Cover conversation")

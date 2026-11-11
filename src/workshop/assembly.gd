@@ -331,6 +331,7 @@ func _stop_holding() -> void:
 
 
 func _advance() -> void:
+	Sound.play("snap")
 	si += 1
 	# A soundly supported board can go straight to fastening. Lift Board stays
 	# available there, so an empty inspection step need not block the flow.
@@ -373,6 +374,7 @@ func _request_damage(reason: String, message: String) -> void:
 	_stop_holding()
 	note = message
 	note_err = true
+	Sound.play("damage")
 	damage_requested.emit(_damage_target_id, _expected_strike, reason)
 	_refresh_controls()
 
@@ -686,6 +688,8 @@ func _press(step: Dictionary, right: bool) -> void:
 				return
 	elif step.kind == "paste":
 		_held_paste = CPU_PASTE_RECT.has_point(_mouse)
+		if _held_paste:
+			Sound.play("paste")
 	elif step.kind == "clicks":
 		for point: Dictionary in step.pts:
 			if float(point.c) < float(point.n) and _mouse.distance_to(point.p) <= float(point.r) + 4:
@@ -788,6 +792,8 @@ func _process(delta: float) -> void:
 			_held_screw = -1
 			_screw_direction = 0.0
 		var next_tightness := clampf(float(point.c) + _screw_direction * SCREW_RATE * delta, 0, 200)
+		if not is_equal_approx(next_tightness, float(point.c)):
+			Sound.play("screw")
 		if cat == "motherboard" and _screw_direction > 0.0:
 			if _board_fault:
 				_stop_holding()
