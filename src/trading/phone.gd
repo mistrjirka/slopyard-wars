@@ -58,6 +58,7 @@ var _fold_generation := 0
 # Main recreates GameScreen (and this phone) for each match.
 var _first_unfold_pending := true
 var _first_unfold_active := false
+var _failure_burst_active := false
 var _fold_opening := false
 var _fold_progress := 0.0
 var _fold_tween: Tween
@@ -155,7 +156,7 @@ func _update_render_mode() -> void:
 		return
 	# Visibility-based texture updates can miss a cover that starts off screen.
 	# Freeze only after the fold's target snapshot is ready, never before layout.
-	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED if not is_visible_in_tree() or (_folding and _fold_new != null) else SubViewport.UPDATE_ALWAYS
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED if not is_visible_in_tree() or (_folding and _fold_new != null and not _failure_burst_active) else SubViewport.UPDATE_ALWAYS
 
 
 func prepare_for_reveal() -> void:
@@ -275,6 +276,8 @@ func _capture_fold_target(generation: int) -> void:
 		_fold_tween.tween_method(_apply_fold, 0.63, 0.66, 0.12)
 		_fold_tween.tween_interval(0.18)
 		_fold_tween.tween_method(_apply_fold, 0.66, 1.0, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		_fold_tween.tween_callback(_begin_display_failure)
+		_fold_tween.tween_interval(0.10)
 	else:
 		_fold_tween.tween_method(_apply_fold, 0.0, 1.0, FOLD_DURATION)
 	_fold_tween.finished.connect(_finish_fold)
@@ -415,6 +418,18 @@ func _update_hinge(panel: Vector2, hinge: float) -> void:
 	_hinge_spine.polygon = points
 
 
+func _begin_display_failure() -> void:
+	if not _folding or not _first_unfold_active:
+		return
+	# Replace the clean cached image with a live, opaque signal-loss burst.
+	# Keep fold input blocked until the normal image and fault lines return.
+	_failure_burst_active = true
+	_device.set_failure_burst(true)
+	_fold.hide()
+	_screen.modulate = Color.WHITE
+	_update_render_mode()
+
+
 func _restore_display_fault() -> void:
 	if not _first_unfold_active:
 		return
@@ -424,6 +439,8 @@ func _restore_display_fault() -> void:
 
 func _finish_fold() -> void:
 	var was_folding := _folding
+	_failure_burst_active = false
+	_device.set_failure_burst(false)
 	_restore_display_fault()
 	if _fold_tween != null and _fold_tween.is_valid():
 		_fold_tween.kill()

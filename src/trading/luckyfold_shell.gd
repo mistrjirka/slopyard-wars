@@ -19,12 +19,12 @@ const DISPLAY_FAULT_OFFSET := DISPLAY_FAULT_TOP - 0.63
 const HUE_STEPS: Array[float] = [0.10, -0.08, 0.14, -0.10, 0.12, -0.13]
 const HUE_DRIFT_SECONDS := 0.8
 const PULSE_HUE := 0.2
-const DISPLAY_CASTS: Array[Color] = [Color("26f8a2"), Color("e245fa"), Color("38d9ff")]
 @export var closed_shape: StyleBoxFlat
 @export var open_shape: StyleBoxFlat
 var unfolded := false
 var _message_layout := false
 var _display_fault_enabled := true
+var _failure_burst_active := false
 var _display_fault_offset := DISPLAY_FAULT_OFFSET
 var _marketplace_layout := false
 var _message_bar_height := 36.0
@@ -36,7 +36,6 @@ var _hue_tween: Tween
 var _pulse_tween: Tween
 var _display_shape: StyleBoxFlat
 var _tint_shape: StyleBoxFlat
-var _display_cast := Color.WHITE
 @onready var content: VBoxContainer = $Inset/Content
 @onready var _inset: MarginContainer = $Inset
 @onready var _display: Panel = $Display
@@ -51,7 +50,6 @@ var _display_cast := Color.WHITE
 func _ready() -> void:
 	# A device lives for one match. Folding/pocketing never rerolls its damage.
 	_display_fault_offset += randf_range(-0.05, 0.05)
-	_display_cast = DISPLAY_CASTS[randi_range(0, DISPLAY_CASTS.size() - 1)]
 	custom_minimum_size = Vector2(CLOSED_WIDTH, MAX_HEIGHT)
 	var frame: Panel = $Frame
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -186,14 +184,12 @@ func set_display_fault_enabled(enabled: bool) -> void:
 		_pulse_display()
 
 
+func set_failure_burst(active: bool) -> void:
+	_failure_burst_active = active
+	_display_tint.visible = unfolded and active
+
+
 func _apply_display_hue() -> void:
-	var cast_material := _display_tint.material as ShaderMaterial
-	if cast_material != null:
-		var hue := fposmod(_display_cast.h + _hue * 0.12, 1.0)
-		cast_material.set_shader_parameter("primary_color", Color.from_hsv(hue, _display_cast.s, _display_cast.v))
-		cast_material.set_shader_parameter("secondary_color", Color.from_hsv(fposmod(hue + 0.42, 1.0), 0.8, 1.0))
-		# Visible discoloration, not an opaque screen or repeated flashing.
-		cast_material.set_shader_parameter("strength", 0.12 + _pulse * 0.10)
 	var material := _fault.material as ShaderMaterial
 	if material == null:
 		return
@@ -258,7 +254,7 @@ func _layout() -> void:
 	_display.size = Vector2(maxf(0, size.x - 36), maxf(0, size.y - (36 if unfolded else 110)))
 	_display_tint.position = _display.position
 	_display_tint.size = _display.size
-	_display_tint.visible = unfolded
+	_display_tint.visible = unfolded and _failure_burst_active
 	var cast_material := _display_tint.material as ShaderMaterial
 	if cast_material != null:
 		cast_material.set_shader_parameter("display_size", _display.size)
