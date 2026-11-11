@@ -23,6 +23,8 @@ const PULSE_HUE := 0.2
 @export var open_shape: StyleBoxFlat
 var unfolded := false
 var _message_layout := false
+var _display_fault_enabled := true
+var _display_fault_offset := DISPLAY_FAULT_OFFSET
 var _marketplace_layout := false
 var _message_bar_height := 36.0
 var _hue := 0.0
@@ -43,6 +45,8 @@ var _display_shape: StyleBoxFlat
 
 
 func _ready() -> void:
+	# A device lives for one match. Folding/pocketing never rerolls its damage.
+	_display_fault_offset += randf_range(-0.05, 0.05)
 	custom_minimum_size = Vector2(CLOSED_WIDTH, MAX_HEIGHT)
 	var frame: Panel = $Frame
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -166,13 +170,22 @@ func _set_pulse(value: float) -> void:
 	_apply_display_hue()
 
 
+func set_display_fault_enabled(enabled: bool) -> void:
+	if _display_fault_enabled == enabled:
+		return
+	_display_fault_enabled = enabled
+	_fault.visible = unfolded and enabled
+	if enabled:
+		_pulse_display()
+
+
 func _apply_display_hue() -> void:
 	var material := _fault.material as ShaderMaterial
 	if material == null:
 		return
 	material.set_shader_parameter("hue_shift", _hue + _pulse * PULSE_HUE)
 	material.set_shader_parameter("band_bottom", DISPLAY_FAULT_BAND_BOTTOM)
-	material.set_shader_parameter("vertical_offset", DISPLAY_FAULT_OFFSET)
+	material.set_shader_parameter("vertical_offset", _display_fault_offset)
 
 
 func set_page_layout(page: String, in_thread: bool) -> void:
@@ -229,7 +242,7 @@ func _layout() -> void:
 	_display.size = Vector2(maxf(0, size.x - 36), maxf(0, size.y - (36 if unfolded else 110)))
 	_fault.position = _display.position
 	_fault.size = _display.size
-	_fault.visible = unfolded
+	_fault.visible = unfolded and _display_fault_enabled
 	var nav_height := _nav.get_combined_minimum_size().y
 	_nav.position = Vector2(30, size.y - 32.0 - nav_height)
 	_nav.size = Vector2(maxf(0, size.x - 60), nav_height)

@@ -25,6 +25,7 @@ signal fold_finished
 signal track_requested(listing_id: int)
 var page := "browse"
 var selected := -1
+var _thread_origin := "messages"
 var _body: VBoxContainer
 var _clock: Label
 var _tabs := {}
@@ -54,6 +55,9 @@ var _hinge_spine: Polygon2D
 var _folding := false
 var _pocket_transition := false
 var _fold_generation := 0
+# Main recreates GameScreen (and this phone) for each match.
+var _first_unfold_pending := true
+var _first_unfold_active := false
 var _fold_opening := false
 var _fold_progress := 0.0
 var _fold_tween: Tween
@@ -181,7 +185,13 @@ func set_unfolded_animated(value: bool) -> void:
 	if _folding:
 		_finish_fold()
 	set_unfolded(value)
+	if value and _first_unfold_pending:
+		_first_unfold_pending = false
+		_first_unfold_active = true
+		_device.set_display_fault_enabled(false)
 	_begin_fold(previous, value, _device.custom_minimum_size, previous_screen)
+	if not _folding:
+		_restore_display_fault()
 
 
 func set_unfolded(value: bool) -> void:
@@ -256,7 +266,17 @@ func _capture_fold_target(generation: int) -> void:
 		_fold_cover_screen = _device_screen_rect()
 	_assign_fold_textures()
 	_fold_tween = create_tween()
-	_fold_tween.tween_method(_apply_fold, 0.0, 1.0, FOLD_DURATION)
+	if _first_unfold_active:
+		# Catch just beyond half open: a pause and a small resisted movement,
+		# then a much faster final swing. Both inner faces are still undamaged.
+		_fold_tween.tween_method(_apply_fold, 0.0, 0.65, 0.62).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		_fold_tween.tween_interval(0.18)
+		_fold_tween.tween_method(_apply_fold, 0.65, 0.63, 0.10)
+		_fold_tween.tween_method(_apply_fold, 0.63, 0.66, 0.12)
+		_fold_tween.tween_interval(0.18)
+		_fold_tween.tween_method(_apply_fold, 0.66, 1.0, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	else:
+		_fold_tween.tween_method(_apply_fold, 0.0, 1.0, FOLD_DURATION)
 	_fold_tween.finished.connect(_finish_fold)
 
 
@@ -395,8 +415,16 @@ func _update_hinge(panel: Vector2, hinge: float) -> void:
 	_hinge_spine.polygon = points
 
 
+func _restore_display_fault() -> void:
+	if not _first_unfold_active:
+		return
+	_first_unfold_active = false
+	_device.set_display_fault_enabled(true)
+
+
 func _finish_fold() -> void:
 	var was_folding := _folding
+	_restore_display_fault()
 	if _fold_tween != null and _fold_tween.is_valid():
 		_fold_tween.kill()
 	_fold_tween = null
@@ -509,11 +537,21 @@ func _inbox() -> void:
 
 
 func open_listing(id: int) -> void:
+	# Switching contacts inside a thread must retain the original Back destination.
+	if page != "messages" or selected < 0:
+		_thread_origin = page
 	_save_draft()
 	_composer = null
 	selected = id
 	_slots = false
 	_show("messages")
+
+
+func _back_from_thread() -> void:
+	_save_draft()
+	_composer = null
+	selected = -1
+	_show(_thread_origin)
 
 
 func _show(which: String) -> void:
@@ -640,10 +678,11 @@ func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 func _thread() -> void:
 	var view: VBoxContainer = ThreadViewScene.instantiate()
 	_body.add_child(view)
-	view.back_pressed.connect(_inbox)
+	view.back_pressed.connect(_back_from_thread)
 	view.back_btn.text = "‹"
-	view.back_btn.tooltip_text = "All messages"
-	view.gone_back.text = "All messages"
+	var back_label: String = {"browse": "Back to marketplace", "sell": "Back to your listings", "messages": "All messages"}.get(_thread_origin, "All messages")
+	view.back_btn.tooltip_text = back_label
+	view.gone_back.text = back_label
 	view.send_text.connect(_send_text)
 	var l := _listing(selected)
 	if l.is_empty():
