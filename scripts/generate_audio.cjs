@@ -1,4 +1,4 @@
-/* Original, deterministic audio for Slopyard Wars. No samples or dependencies.
+/* Original, deterministic audio for Slopyard Wars; preserves the recorded hinges.
  * Run: node scripts/generate_audio.cjs
  * PCM WAV, 44.1 kHz / 16 bit. Music and engine loops are periodic at the seam.
  */
@@ -67,18 +67,10 @@ effect('screen_crack', 0.64, t => {
   });
   return value;
 });
-for (const [name, opening] of [['hinge_open', true], ['hinge_close', false]]) {
-  let phase = 0, friction = 0;
-  effect(name, 1.15, (t, x) => {
-    const u = opening ? x : 1 - x;
-    const frequency = 830 + 790 * u + 85 * Math.sin(t * 63) + 35 * Math.sin(t * 191);
-    phase += TAU * frequency / RATE;
-    friction = friction * 0.79 + noise() * 0.21;
-    const pressure = Math.sin(Math.PI * x) ** 0.8;
-    const stiction = 0.22 + 0.78 * Math.max(0, Math.sin(t * 21 + Math.sin(t * 5)));
-    return pressure * (stiction * (Math.sin(phase + 0.55 * Math.sin(phase * 0.51)) + 0.15 * Math.sin(phase * 2)) + friction * 0.4);
-  });
-}
+// Preserve the random-stream position so replacing the hinges does not change
+// any existing music or other effects. The recordings are never overwritten.
+for (let i = 0; i < 2 * Math.round(1.15 * RATE); i++) noise();
+for (const name of ['hinge_open', 'hinge_close']) manifest.push(recordedHinge(name));
 for (const [name, upward] of [['phone_out', true], ['phone_away', false]]) {
   let air = 0;
   effect(name, 0.25, (t, x) => {
@@ -174,4 +166,25 @@ for (let i = 0; i < N; i++) {
 }
 write('slopyard_afterhours', left, right, true);
 fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify({generator: 'scripts/generate_audio.cjs', assets: manifest}, null, 2) + '\n');
-console.log('Generated ' + manifest.length + ' original WAV assets; music loop: ' + LENGTH + ' seconds.');
+console.log('Generated ' + (manifest.length - 2) + ' original WAV assets; preserved 2 recorded hinges; music loop: ' + LENGTH + ' seconds.');
+
+function recordedHinge(name) {
+  const wav = fs.readFileSync(path.join(OUT, name + '.wav'));
+  let offset = 12, pcm, rate, channels;
+  while (offset < wav.length - 8) {
+    const tag = wav.toString('ascii', offset, offset + 4), size = wav.readUInt32LE(offset + 4);
+    if (tag === 'fmt ') { channels = wav.readUInt16LE(offset + 10); rate = wav.readUInt32LE(offset + 12); }
+    if (tag === 'data') pcm = wav.subarray(offset + 8, offset + 8 + size);
+    offset += 8 + size + (size % 2);
+  }
+  let peak = 0, energy = 0;
+  for (let i = 0; i < pcm.length; i += 2) {
+    const value = pcm.readInt16LE(i) / 32768;
+    peak = Math.max(peak, Math.abs(value)); energy += value * value;
+  }
+  return {file: name + '.wav', seconds: pcm.length / (channels * 2 * rate), channels,
+    sample_rate: rate, loop: false, peak_db: Math.round(200 * Math.log10(peak)) / 10,
+    rms_db: Math.round(200 * Math.log10(Math.sqrt(energy / (pcm.length / 2)))) / 10,
+    origin: 'Recorded hinge, edited from chonkdonk / Freesound 619819', license: 'CC0-1.0',
+    source_url: 'https://freesound.org/people/chonkdonk/sounds/619819/'};
+}

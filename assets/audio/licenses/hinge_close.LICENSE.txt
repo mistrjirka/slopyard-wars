@@ -1,0 +1,27 @@
+Asset: assets/audio/hinge_close.wav
+Source recording: "creaky door hinge.wav" by chonkdonk
+Author: https://freesound.org/people/chonkdonk/
+Source page: https://freesound.org/people/chonkdonk/sounds/619819/
+Published by source author: 2022-02-14
+Downloaded: 2026-11-11
+License: CC0 1.0 Universal (public domain dedication)
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Full license text: CC0-1.0.txt in this directory
+
+Downloaded file (public HQ MP3 preview):
+https://cdn.freesound.org/previews/619/619819_13093778-hq.mp3
+Preserved source: assets/audio/sources/chonkdonk_619819_hinge.mp3
+The source author's Freesound page explicitly identifies the recording as CC0.
+This license record also covers the preserved source MP3.
+
+Edits: excerpt from 15.90 to 16.70 seconds, converted to mono, mild 150 Hz
+high-pass / 2800 Hz low-pass filtering, resampled into 0.85 seconds of motion,
+25 ms attack / 80 ms release fades, gentle transient compression, peak level
+0.56, 44.1 kHz / 16-bit PCM.
+An initial 0.035-second pause aligns the creak with the closing rotation.
+Total file duration: 1.15 seconds. No synthesized hinge tones added.
+
+Reproduce: godot --headless --path . --script res://scripts/prepare_hinges.gd
+
+Credit (included voluntarily): "creaky door hinge.wav" by chonkdonk,
+Freesound sound 619819, CC0 1.0; edited for Slopyard Wars.

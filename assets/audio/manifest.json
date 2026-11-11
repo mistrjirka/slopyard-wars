@@ -34,8 +34,11 @@
       "channels": 1,
       "sample_rate": 44100,
       "loop": false,
-      "peak_db": -2.9,
-      "rms_db": -15.2
+      "peak_db": -5,
+      "rms_db": -16.6,
+      "origin": "Recorded hinge, edited from chonkdonk / Freesound 619819",
+      "license": "CC0-1.0",
+      "source_url": "https://freesound.org/people/chonkdonk/sounds/619819/"
     },
     {
       "file": "hinge_close.wav",
@@ -43,8 +46,11 @@
       "channels": 1,
       "sample_rate": 44100,
       "loop": false,
-      "peak_db": -2.9,
-      "rms_db": -14.9
+      "peak_db": -5,
+      "rms_db": -17.7,
+      "origin": "Recorded hinge, edited from chonkdonk / Freesound 619819",
+      "license": "CC0-1.0",
+      "source_url": "https://freesound.org/people/chonkdonk/sounds/619819/"
     },
     {
       "file": "phone_out.wav",
