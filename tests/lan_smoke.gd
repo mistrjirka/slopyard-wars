@@ -48,6 +48,10 @@ func _host_tick(delta: float) -> void:
 	if not started and game.state.players.size() == 2:
 		game.start_match()
 		game.me().chats[99] = [{"speaker": "private", "text": "host only"}]
+		game.text_player(1, "Private host text from Lucky.")
+		for pid in game.state.players:
+			if pid != 1:
+				game.text_player(pid, "Private client text from Lucky.")
 		game.act("post_sale", {"item_id": game.me().inventory[0].id, "price": 15})
 		started = true
 	if not started:
@@ -72,6 +76,10 @@ func _client_tick(delta: float) -> void:
 	if game.me().pos.distance_to(World.SPAWN) > 24:
 		if not game.state.players[1].chats.is_empty():
 			push_error("Host private chat leaked to client")
+			quit(1)
+			return
+		if not game.state.players[1].lucky_messages.is_empty() or game.me().lucky_messages.size() != 1 or game.me().lucky_messages[0].text != "Private client text from Lucky.":
+			push_error("Lucky texts were not delivered privately to the client")
 			quit(1)
 			return
 		for listing: Dictionary in game.state.listings:

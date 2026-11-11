@@ -106,4 +106,4 @@ func use(pid: int, player: Dictionary, data: Dictionary) -> void:
 	else:
 		player.busy = float(activity.minutes_cost)
 	session.record_event("%s visited %s." % [player.name, activity.display_name])
-	session.notify_player(pid, line)
+	session.text_player(pid, line, activity.display_name)

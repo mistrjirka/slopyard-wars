@@ -132,7 +132,7 @@ func handoff(pid: int, p: Dictionary, lid: int) -> void:
 	l.buyer = pid
 	p.offers.erase(lid)
 	p.meetings.erase(lid)
-	session.notify_player(pid, "Handoff complete: %s for $%d." % [l.name, price])
+	session.text_player(pid, "Handoff complete: %s for $%d." % [l.name, price], str(m.get("place", l.location)))
 
 
 func post_sale(pid: int, p: Dictionary, d: Dictionary) -> void:

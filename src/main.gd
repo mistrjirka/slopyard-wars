@@ -18,7 +18,7 @@ var _match_id := -1
 func _ready() -> void:
 	resized.connect(queue_redraw)
 	Game.changed.connect(_refresh)
-	Game.notice.connect(_toasts.show_notice)
+	Game.notice.connect(_show_notice)
 	_refresh()
 
 
@@ -41,12 +41,19 @@ func _refresh() -> void:
 				_screen.start_requested.connect(Game.start_match)
 				_screen.leave_requested.connect(Game.leave)
 			"playing":
-				_screen.notice_requested.connect(_toasts.show_notice)
+				_screen.notice_requested.connect(_show_notice)
 				_screen.leave_requested.connect(Game.leave)
 			"results":
 				_screen.menu.connect(Game.leave)
 				_screen.replay.connect(_replay)
 	_screen.refresh()
+
+
+func _show_notice(message: String) -> void:
+	if Game.state.phase == "playing" and _phase == "playing" and is_instance_valid(_screen):
+		_screen.show_notice(message)
+	else:
+		_toasts.show_notice(message)
 
 
 func _replay() -> void:

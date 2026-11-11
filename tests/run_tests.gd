@@ -49,6 +49,7 @@ func _run() -> void:
 	_test_privacy_and_lifecycle()
 	await preload("res://tests/content_tests.gd").new().run(game, expect)
 	await preload("res://tests/phone_tests.gd").new().run(game, expect)
+	await preload("res://tests/notice_tests.gd").new().run(game, expect)
 	await preload("res://tests/marketplace_tests.gd").new().run(game, expect)
 	preload("res://tests/conversation_tests.gd").new().run(game, expect)
 	await _test_screens()
@@ -289,6 +290,11 @@ func _test_screens() -> void:
 	await process_frame
 	var screen: Control = shell.get_node("Screens").get_child(0)
 	expect(screen.has_method("_toggle_phone"), "Solo transition mounts game screen")
+	var notice := "Lucky hears your prayer. One risky test gets 25% less danger."
+	game.text_player(game.local_id(), notice)
+	game.notice.emit("Walk to the door, workbench, or armchair. P opens your phone.")
+	expect(game.me().lucky_messages.back().text == notice and screen._context_label.text.begins_with("Walk to"),
+		"World texts reach Lucky while action feedback stays in the bottom bar")
 	screen._toggle_phone()
 	expect(screen._phone_motion == "opening" and screen._phone_slide == 1.0, "Phone starts below the viewport")
 	expect(screen._phone._viewport.gui_disable_input, "Phone input is locked during entry")
@@ -316,11 +322,24 @@ func _test_screens() -> void:
 	screen._phone.set_unfolded(true)
 	screen._toggle_phone()
 	screen._toggle_phone()
+	await _wait_phone_motion(screen, "opening")
+	expect(not screen._phone.unfolded and not screen._phone.is_folding(),
+		"Previously unfolded phone starts entry closed without unfolding during the slide")
+	await create_timer(0.12).timeout
+	expect(screen._phone_motion == "opening" and not screen._phone.unfolded,
+		"Previously unfolded phone stays closed throughout entry")
 	await _wait_phone_motion(screen, "open")
 	for frame in 3:
 		await process_frame
 	expect(screen._phone.unfolded and screen._phone.size.x > 500 and device._fault.visible,
-		"Taking the phone out again preserves the unfolded display")
+		"Taking the phone out again automatically unfolds the remembered display after entry")
+	screen._phone.set_unfolded(false)
+	screen._close_phone()
+	await _wait_phone_motion(screen, "hidden")
+	screen._toggle_phone()
+	await _wait_phone_motion(screen, "open")
+	expect(not screen._phone.unfolded and not screen._phone.is_folding(),
+		"Phone put away folded remains closed after entry")
 	screen._phone.set_unfolded(true)
 	var listing_id: int = game.state.listings[0].id
 	screen._phone.open_listing(listing_id)
@@ -366,13 +385,17 @@ func _test_screens() -> void:
 	screen._close_phone()
 	await _wait_phone_motion(screen, "hidden")
 	expect(not screen._phone_layer.visible, "Closing before the first render cancels the pending reveal")
+	expect(screen._phone_reopen_unfolded, "Cancelling before the first render retains the remembered unfolded mode")
 	screen._toggle_phone()
 	await create_timer(0.08).timeout
+	expect(not screen._phone.unfolded, "Interrupted entry still shows the closed phone")
 	screen._close_phone()
 	await _wait_phone_motion(screen, "hidden")
 	expect(not screen._phone_layer.visible, "Closing during entry cancels the old entry tween")
+	expect(screen._phone_reopen_unfolded, "Cancelling during entry retains the remembered unfolded mode")
 	screen._toggle_phone()
 	await _wait_phone_motion(screen, "open")
+	expect(screen._phone.unfolded, "Reopening after interrupted entries restores the remembered unfolded mode")
 	expect(is_zero_approx(screen._phone_slide) and not screen._phone._viewport.gui_disable_input, "Reopening restores position and input")
 	screen._toggle_map()
 	await _wait_phone_motion(screen, "hidden")
@@ -389,9 +412,11 @@ func _test_screens() -> void:
 	game.changed.emit()
 	await process_frame
 	expect(shell.get_node("Screens").get_child(0).has_signal("replay"), "Results screen mounts")
+	expect(game.me().lucky_messages[0].text == notice, "Lucky's texts remain in match history after the deadline")
 	game.solo("Replay", 600, "CPU")
 	game.changed.emit()
 	await process_frame
 	expect(shell.get_node("Screens").get_child_count() == 1, "Replay disposes previous screen subtree")
+	expect(game.me().lucky_messages.is_empty(), "Replay starts a fresh Lucky conversation")
 	shell.queue_free()
 	await process_frame

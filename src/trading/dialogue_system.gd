@@ -25,7 +25,9 @@ func say(p: Dictionary, lid: int, speaker: String, text: String, pending: bool =
 	if not p.chats.has(lid):
 		p.chats[lid] = []
 	var arr: Array = p.chats[lid]
-	var m := {"speaker": speaker, "text": text}
+	# Stable IDs keep unread tracking correct when the capped history drops old messages.
+	p["chat_serial"] = int(p.get("chat_serial", 0)) + 1
+	var m := {"speaker": speaker, "text": text, "id": p.chat_serial}
 	if pending:
 		m["pending"] = true
 	arr.append(m)

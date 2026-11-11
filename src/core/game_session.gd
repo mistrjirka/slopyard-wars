@@ -241,7 +241,7 @@ func _host_tick(dt: float) -> void:
 			record_event(message)
 			for pid in state.players:
 				if not state.players[pid].ready:
-					notify_player(pid, message)
+					text_player(pid, message)
 			break
 	_refresh -= dt
 	while _refresh <= 0.0:
@@ -261,6 +261,18 @@ func notify_player(pid: int, msg: String) -> void:
 		notice.emit(msg)
 	elif pid > 1:
 		_network.send_notice(pid, msg)
+
+
+## World-event texts are private match history, separate from immediate action feedback.
+func text_player(pid: int, msg: String, place: String = "") -> void:
+	if not state.players.has(pid) or msg.strip_edges().is_empty():
+		return
+	var player: Dictionary = state.players[pid]
+	var origin := place.strip_edges()
+	if origin.is_empty():
+		origin = "Home" if player.area == "home" else "Town"
+	player.lucky_messages.append({"speaker": "Lucky", "text": msg, "minute": clock(), "place": origin})
+	mark_changed()
 
 
 func _handle(pid: int, action: String, data: Dictionary) -> void:

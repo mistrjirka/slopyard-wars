@@ -7,6 +7,8 @@ static func for_player(state: Dictionary, pid: int) -> Dictionary:
 	for id in v.players:
 		if id != pid:
 			v.players[id].chats = {}
+			v.players[id]["chat_serial"] = 0
+			v.players[id]["lucky_messages"] = []
 			v.players[id].offers = {}
 			v.players[id].counters = {}
 			v.players[id].meeting_proposals = {}

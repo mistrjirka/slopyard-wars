@@ -37,6 +37,8 @@ var _phone_slide := 1.0
 var _phone_tween: Tween
 var _phone_reveal_generation := 0
 var _after_phone_pocket := Callable()
+var _feedback_message := ""
+var _feedback_remaining := 0.0
 
 @onready var _dialogs: Control = $Dialogs
 @onready var _meetings: VBoxContainer = $MapLayer/Scroll/Content/Meetings
@@ -93,7 +95,7 @@ func _toggle_phone() -> void:
 func _open_phone() -> void:
 	_phone_reveal_generation += 1
 	_phone_motion = "opening"
-	_phone.set_unfolded(_phone_reopen_unfolded)
+	_phone.set_unfolded(false)
 	_phone.set_pocket_transition(true)
 	_set_phone_slide(1.0)
 	_phone_layer.show()
@@ -110,7 +112,9 @@ func _start_phone_entry(generation: int) -> void:
 	_phone_tween.tween_method(_set_phone_slide, 1.0, 0.0, PHONE_ENTER_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_phone_tween.finished.connect(func():
 		_phone_motion = "open"
-		_phone.set_pocket_transition(false))
+		_phone.set_pocket_transition(false)
+		if _phone_reopen_unfolded:
+			_phone.set_unfolded_animated(true))
 
 
 func _close_phone(after: Callable = Callable()) -> void:
@@ -123,8 +127,10 @@ func _close_phone(after: Callable = Callable()) -> void:
 		return
 	if _phone_motion in ["closing_fold", "closing_slide"]:
 		return
-	# Remember the player's mode before the physical fold-to-pocket animation.
-	_phone_reopen_unfolded = _phone.unfolded
+	# Entry temporarily shows the cover; interrupting it must retain the saved mode.
+	# Otherwise remember the player's mode before the fold-to-pocket animation.
+	if _phone_motion != "opening":
+		_phone_reopen_unfolded = _phone.unfolded
 	if _phone_tween != null and _phone_tween.is_valid():
 		_phone_tween.kill()
 	_phone.set_pocket_transition(true)
@@ -234,9 +240,16 @@ func refresh() -> void:
 	_update_world_hud()
 
 
+func show_notice(message: String) -> void:
+	_feedback_message = message
+	_feedback_remaining = 5.5
+	_update_world_hud()
+
+
 func _process(delta: float) -> void:
 	if Game.state.phase != "playing" or not is_instance_valid(_world) or Game.me().is_empty():
 		return
+	_feedback_remaining = maxf(0.0, _feedback_remaining - delta)
 	_move_t += delta
 	if _move_t >= 0.10:
 		_move_t = 0
@@ -256,6 +269,9 @@ func _update_world_hud() -> void:
 	if not is_instance_valid(_clock_lbl) or Game.me().is_empty():
 		return
 	var p: Dictionary = Game.me()
+	var unread: int = _phone.unread_count()
+	$Topbar/Row/PhoneBtn.text = "PHONE [P] · %d" % unread if unread > 0 else "PHONE [P]"
+	$Topbar/Row/PhoneBtn.tooltip_text = "%d unread messages" % unread if unread > 0 else "Open your phone"
 	_world_hud.visible = not _overlay_open()
 	_minimap.visible = p.area == "town"
 	_clock_lbl.text = Trade.stamp(Game.clock()) + " · ~" + K.real_left(Game.state.remaining) + " left"
@@ -268,7 +284,8 @@ func _update_world_hud() -> void:
 		hint = "E: " + nearby.display_name + " · " + Activities.cost_text(nearby)
 	if p.ready:
 		hint = "Rig locked. Waiting for the other builders or the deadline."
-	_context_label.text = hint
+	_context_label.text = _feedback_message if _feedback_remaining > 0.0 else hint
+	_context_label.add_theme_color_override("font_color", K.ORANGE if _feedback_remaining > 0.0 else K.CREAM)
 	var meetings: Array = Game.active_meetings(p)
 	var line := "Tonight's deadline: " + Trade.stamp(Config.DEADLINE) + " · " + str(Game.state.objective) + " objective · P opens your phone."
 	if not meetings.is_empty():

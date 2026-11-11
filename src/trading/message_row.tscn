@@ -11,6 +11,25 @@ size_flags_horizontal = 3
 layout_mode = 2
 size_flags_horizontal = 0
 
-[node name="Label" type="Label" parent="Bubble"]
+[node name="Content" type="VBoxContainer" parent="Bubble"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Header" type="Label" parent="Bubble/Content"]
+visible = false
+layout_mode = 2
+theme_type_variation = "H2"
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.435, 0.706, 1, 1)
+autowrap_mode = 3
+
+[node name="Place" type="Label" parent="Bubble/Content"]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.647, 0.78, 0.91, 1)
+autowrap_mode = 3
+
+[node name="Label" type="Label" parent="Bubble/Content"]
 layout_mode = 2
 autowrap_mode = 3

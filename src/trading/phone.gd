@@ -6,6 +6,8 @@ const SellViewScene = preload("res://src/trading/sell_view.tscn")
 const InboxViewScene = preload("res://src/trading/inbox_view.tscn")
 const InboxRowScene = preload("res://src/trading/inbox_row.tscn")
 const ThreadViewScene = preload("res://src/trading/thread_view.tscn")
+const LuckyThreadViewScene = preload("res://src/trading/lucky_thread_view.tscn")
+const LUCKY_CONTACT_ID := -2
 const K = preload("res://src/ui/ui_kit.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
 const Relationships = preload("res://src/trading/contact_relationships.gd")
@@ -38,6 +40,9 @@ var _scroll: ScrollContainer
 var _context: Label
 var _fault_fit_queued := false
 var _thread_view: Control
+var _lucky_view: Control
+var _lucky_read_count := 0
+var _read_message_ids: Dictionary = {}
 var _browse_filters := {"query": "", "category": "", "sort": "price_asc"}
 var _browse_view: Control
 var _sale_prices: Dictionary = {}
@@ -570,6 +575,47 @@ func open_listing(id: int) -> void:
 	_show("messages")
 
 
+func lucky_unread_count() -> int:
+	return maxi(0, Game.me().get("lucky_messages", []).size() - _lucky_read_count)
+
+
+func _contact_unread_count(id: int) -> int:
+	var me: Dictionary = Game.me()
+	var count := 0
+	var messages: Array = me.get("chats", {}).get(id, [])
+	for index in messages.size():
+		var message: Dictionary = messages[index]
+		if message.speaker == me.name or message.speaker == "system" or message.get("pending", false):
+			continue
+		if int(message.get("id", index + 1)) > int(_read_message_ids.get(id, 0)):
+			count += 1
+	return count
+
+
+func unread_count() -> int:
+	var count := lucky_unread_count()
+	for id in Game.me().get("chats", {}):
+		if not _listing(int(id)).is_empty():
+			count += _contact_unread_count(int(id))
+	return count
+
+
+func _mark_contact_read(id: int) -> void:
+	var messages: Array = Game.me().get("chats", {}).get(id, [])
+	var latest := int(_read_message_ids.get(id, 0))
+	for index in messages.size():
+		latest = maxi(latest, int(messages[index].get("id", index + 1)))
+	_read_message_ids[id] = latest
+
+
+func open_lucky() -> void:
+	_save_draft()
+	_composer = null
+	_thread_origin = "messages"
+	selected = LUCKY_CONTACT_ID
+	_show("messages")
+
+
 func _back_from_thread() -> void:
 	_save_draft()
 	_composer = null
@@ -605,7 +651,16 @@ func refresh() -> void:
 	_clock.text = Trade.stamp(Game.clock()) + "   ·   $%d" % int(Game.me().cash)
 	var me: Dictionary = Game.me()
 	var active_page := page if unfolded else "messages"
+	var in_lucky := active_page == "messages" and selected == LUCKY_CONTACT_ID
 	var in_thread := active_page == "messages" and selected >= 0
+	var lucky_messages: Array = me.get("lucky_messages", [])
+	if not _pocket_transition and not _folding:
+		if in_lucky:
+			_lucky_read_count = lucky_messages.size()
+		elif in_thread:
+			_mark_contact_read(selected)
+	var unread := unread_count()
+	(_tabs["messages"] as Button).title = "Messages · %d" % unread if unread > 0 else "Messages"
 	_heading.text = {"browse": "Marketplace", "messages": "Messages", "sell": "Sell"}.get(active_page, "Messages")
 	_heading.tooltip_text = _heading.text
 	_layout_heading()
@@ -615,7 +670,9 @@ func refresh() -> void:
 	var sig := str(unfolded) + active_page + str(selected)
 	sig += str(_waiting_for_reply()) + str(me.ready)
 	sig += str(me.get("contact_relations", {}))
-	if active_page == "messages" and selected >= 0:
+	if in_lucky:
+		sig += str(lucky_messages.size())
+	elif active_page == "messages" and selected >= 0:
 		# Compatibility references may change when another part is bought, agreed,
 		# blocked or sold, not just when this selected conversation changes.
 		sig += str(Progress.tracked_parts(me, Game.state.listings)).sha256_text()
@@ -631,8 +688,13 @@ func refresh() -> void:
 		for l in Game.state.listings:
 			sig += "%d%s%d" % [l.id, l.status, l.price]
 		if active_page == "messages":
+			sig += str(lucky_messages.size()) + str(unread)
 			sig += str(me.chats) + str(me.meetings) + str(me.offers) + str(Game.active_meetings(me))
 	if sig == _sig:
+		return
+	if in_lucky and is_instance_valid(_lucky_view) and _lucky_view.get_parent() == _body and _lucky_view.portrait_panel.visible == unfolded:
+		_sig = sig
+		_lucky_view.update_messages(lucky_messages)
 		return
 	if active_page == "browse" and is_instance_valid(_browse_view) and _browse_view.get_parent() == _body:
 		_sig = sig
@@ -644,13 +706,20 @@ func refresh() -> void:
 	_sig = sig
 	_clear(_body)
 	_thread_view = null
+	_lucky_view = null
 	_composer = null
+	_send = null
+	_log = null
+	_scroll = null
+	_context = null
 	for key in _tabs:
 		(_tabs[key] as Button).button_pressed = key == active_page
 	if active_page == "browse":
 		_browse()
 	elif active_page == "sell":
 		_sell()
+	elif in_lucky:
+		_lucky_thread()
 	elif selected < 0:
 		_threads()
 	else:
@@ -678,12 +747,22 @@ func _threads() -> void:
 	else:
 		view.set_appointment("")
 	var me: Dictionary = Game.me()
-	view.set_empty_visible(me.chats.is_empty())
+	view.set_empty_visible(me.chats.is_empty() and me.get("lucky_messages", []).is_empty())
 	_populate_threads(view.box)
 
 
 func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 	var me: Dictionary = Game.me()
+	var lucky_messages: Array = me.get("lucky_messages", [])
+	if not lucky_messages.is_empty():
+		var row: Button = InboxRowScene.instantiate()
+		box.add_child(row)
+		var unread := lucky_unread_count()
+		row.setup("Lucky · %d new" % unread if unread > 0 else "Lucky", false,
+			"Appeared by magic · Read-only", str(lucky_messages.back().text))
+		row.set_current(current == LUCKY_CONTACT_ID)
+		row.set_unread(unread)
+		row.pressed.connect(open_lucky)
 	var ids: Array = me.chats.keys()
 	ids.reverse()
 	if current >= 0 and not ids.has(current):
@@ -699,11 +778,21 @@ func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 		box.add_child(row)
 		row.setup(str(l.seller), int(l.get("owner", 0)) > 0, str(l.name).left(width), last.left(width))
 		row.set_current(int(id) == current)
+		row.set_unread(_contact_unread_count(int(id)))
 		var meeting: Dictionary = me.meetings.get(id, {})
 		var confirmed := not meeting.is_empty() and Game.clock() <= float(meeting.end)
 		confirmed = confirmed and int(me.offers.get(id, 0)) > 0 and l.status == "available" and not Relationships.blocked(me, l)
 		row.set_meeting_confirmed(confirmed)
 		row.pressed.connect(open_listing.bind(int(id)))
+
+
+func _lucky_thread() -> void:
+	_lucky_view = LuckyThreadViewScene.instantiate()
+	_body.add_child(_lucky_view)
+	_lucky_view.back_pressed.connect(_back_from_thread)
+	_lucky_view.setup(Game.me().get("lucky_messages", []), unfolded)
+	_log = _lucky_view.log
+	_scroll = _lucky_view.history_scroll
 
 
 func _thread() -> void:
