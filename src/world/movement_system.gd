@@ -21,15 +21,22 @@ func _init(game_session: Node) -> void:
 func tick(delta: float) -> void:
 	if not session.is_host() or state.get("phase") != "playing":
 		return
-	for pid in state.players:
+	var ids: Array = state.players.keys()
+	ids.sort()
+	for pid in ids:
 		var p: Dictionary = state.players[pid]
 		motion_age[pid] = float(motion_age.get(pid, 0.0)) + delta
 		var direction: Vector2 = motion.get(pid, Vector2.ZERO) if float(motion_age[pid]) < 0.4 else Vector2.ZERO
 		if p.ready:
 			direction = Vector2.ZERO
 		if direction.length_squared() > 0.01:
-			p.facing = direction.normalized()
-			p.pos = World.move(p.area, p.pos, direction.limit_length() * (World.CAR_SPEED if p.driving else World.WALK_SPEED) * delta, p.driving)
+			var obstacles := _obstacles(int(pid), p.driving) if p.area == "town" else []
+			var facing := direction.normalized()
+			# Turning changes the artwork footprint; never rotate into a solid.
+			if p.driving and not World.clear_at("town", p.pos, 0, obstacles, World.car_footprint(p.pos, facing)):
+				continue
+			p.facing = facing
+			p.pos = World.move(p.area, p.pos, direction.limit_length() * (World.CAR_SPEED if p.driving else World.WALK_SPEED) * delta, p.driving, obstacles, facing)
 			if p.driving:
 				p.car_pos = p.pos
 	spatial_tick += delta
@@ -38,20 +45,46 @@ func tick(delta: float) -> void:
 		session.mark_changed()
 
 
+## Cars live in town even while their owner is indoors. Only a driver's own
+## vehicle is excluded; walkers also collide with their own parked vehicle.
+func _obstacles(pid: int, driving: bool = false) -> Array:
+	var out: Array = []
+	for other_id in state.players:
+		var other: Dictionary = state.players[other_id]
+		if not driving or int(other_id) != pid:
+			out.append(World.car_footprint(other.car_pos, other.facing if other.driving else Vector2.LEFT))
+		# Do not let a moving car embed a pedestrian in its footprint.
+		if driving and int(other_id) != pid and other.area == "town" and not other.driving:
+			out.append(Rect2(other.pos - Vector2(5, 5), Vector2(10, 10)))
+	return out
+
+
 func interact(pid: int, p: Dictionary) -> void:
 	if p.area == "home":
 		if p.pos.distance_to(World.DOOR_INSIDE) < 27:
-			p.area = "town"
-			p.pos = World.DOOR_OUTSIDE
+			var obstacles := _obstacles(pid)
+			for offset: Vector2 in [Vector2.ZERO, Vector2(0, 26), Vector2(26, 0), Vector2(-26, 0)]:
+				var exit := World.DOOR_OUTSIDE + offset
+				if World.clear_at("town", exit, 5, obstacles):
+					p.area = "town"
+					p.pos = exit
+					return
+			session.notify_player(pid, "The doorway is blocked by cars. Wait for a clear exit.")
 		elif p.pos.distance_to(World.BENCH) < 50:
 			session.notify_player(pid, "Workbench ready. Open the workbench with B; T opens tuning.")
 		else:
 			session.notify_player(pid, "Walk to the door, workbench, or armchair. P opens your phone.")
 		return
 	if p.driving:
-		# Park, then step out beside the vehicle only where a pedestrian can stand.
-		for off in [Vector2(0, 22), Vector2(22, 0), Vector2(-22, 0), Vector2(0, -22)]:
-			if World.clear_at("town", p.car_pos + off, 5):
+		# Parking uses side artwork, so check that shape before changing state.
+		var parked: Rect2 = World.car_footprint(p.car_pos)
+		if not World.clear_at("town", p.car_pos, 0, _obstacles(pid, true), parked):
+			session.notify_player(pid, "No room to park. Move the car to an open spot.")
+			return
+		var obstacles := _obstacles(pid, true)
+		obstacles.append(parked)
+		for off in [Vector2(0, 26), Vector2(26, 0), Vector2(-26, 0), Vector2(0, -26)]:
+			if World.clear_at("town", p.car_pos + off, 5, obstacles):
 				p.driving = false
 				p.pos = p.car_pos + off
 				return
@@ -69,7 +102,12 @@ func interact(pid: int, p: Dictionary) -> void:
 		if p.cash < 3:
 			session.notify_player(pid, "Need $3 for fuel. You can still walk to a meeting.")
 			return
+		# Entry preserves the parked shape rather than inheriting a walker's facing.
+		if not World.clear_at("town", p.car_pos, 0, _obstacles(pid, true), World.car_footprint(p.car_pos)):
+			session.notify_player(pid, "The car is blocked. Wait for the way to clear.")
+			return
 		p.cash -= 3
+		p.facing = Vector2.LEFT
 		p.driving = true
 		p.pos = p.car_pos
 		session.notify_player(pid, "In the car. WASD / arrows to drive; E to park and get out. Fuel $3.")
@@ -83,6 +121,12 @@ func wait(pid: int, p: Dictionary) -> void:
 		return
 	if p.driving:
 		session.notify_player(pid, "Park before waiting.")
+		return
+	if bool(state.get("assembly_test", false)):
+		var busy := float(p.busy)
+		if busy > 0:
+			session.advance_time(busy)
+		session.notify_player(pid, "Practice job completed; the clock stays paused." if busy > 0 else "The practice clock is paused. There is no need to wait.")
 		return
 	var skip := 30.0
 	for m: Dictionary in session.market.active_meetings(p):

@@ -2,8 +2,10 @@ extends VBoxContainer
 ## Listing details and chat share the unfolded display; the cover shows chat alone.
 signal back_pressed
 signal send_text(text: String)
+signal slot_chosen(meeting_id: String)
 signal messages_settled
 
+const Trade = preload("res://src/trading/trade_rules.gd")
 const Stats = preload("res://src/data/hardware_stats.gd")
 const Progress = preload("res://src/trading/part_progress.gd")
 const PartArt = preload("res://src/ui/part_art.gd")
@@ -35,7 +37,8 @@ const MessageRow = preload("res://src/trading/message_row.gd")
 @onready var fault_clearance: Control = $Split/Right/Panes/Conversation/ComposerRow/FaultClearance
 @onready var composer: LineEdit = $Split/Right/Panes/Conversation/ComposerRow/Composer
 @onready var send_btn: Button = $Split/Right/Panes/Conversation/ComposerRow/Send
-@onready var quick_row: HBoxContainer = $Split/Right/Panes/Conversation/QuickRow
+@onready var meeting_panel: VBoxContainer = $Split/Right/Panes/Conversation/QuickRow/MeetingPanel
+@onready var quick_row: VBoxContainer = $Split/Right/Panes/Conversation/QuickRow
 @onready var quick_a: Button = $Split/Right/Panes/Conversation/QuickRow/QuickA
 
 var _messages_ready := false
@@ -52,6 +55,7 @@ func _ready() -> void:
 	composer.text_submitted.connect(_submit)
 	send_btn.pressed.connect(func() -> void: _submit(composer.text))
 	quick_a.pressed.connect(func() -> void: _submit(_quick_a_text))
+	meeting_panel.slot_chosen.connect(func(id: String) -> void: slot_chosen.emit(id))
 
 
 func _update_send() -> void:
@@ -102,11 +106,9 @@ func _compatibility_text(item: Dictionary, me: Dictionary) -> String:
 		"ram":
 			return "Motherboards: " + _compatibility_reference(str(item.memory) + " memory slots", "motherboard", "memory", str(item.memory), parts)
 		"gpu", "storage":
-			return "Motherboards: " + _compatibility_reference("any model", "motherboard", "", "", parts)
+			return "Motherboards: any model"
 		"psu":
-			return "Cases: %s, %s\nCapacity must cover total build power." % [
-				_compatibility_reference("ATX", "case", "form", "ATX", parts),
-				_compatibility_reference("mATX", "case", "form", "mATX", parts)]
+			return "Cases: any model\nCapacity must cover total build power."
 	return ""
 
 
@@ -196,13 +198,37 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	specs.visible = unfolded
 	conversation.visible = true
 	var blocked := Relationships.blocked(me, listing)
-	var terminal: bool = blocked or listing.status != "available" or bool(me.ready) or private_thread
-	_locked = pending or waiting or terminal or waiting_for_buyer
+	var terminal: bool = blocked or listing.status != "available" or bool(me.ready) or private_thread or Game.state.phase != "playing"
+	var meeting: Dictionary = me.meetings.get(selected, {})
+	var live_meeting := not meeting.is_empty() and float(meeting.end) > Game.clock()
+	var proposal: Dictionary = me.get("meeting_proposals", {}).get(selected, {})
+	var live_proposal := Trade.can_agree(proposal, Game.clock())
+	var slots: Array = []
+	if not terminal and not waiting_for_buyer and not pending and not waiting and ((agreed_price > 0 and not live_meeting) or live_proposal):
+		slots = Game.contact_options(listing)
+		if live_proposal and Trade.find_option(slots, str(proposal.id)).is_empty() and not Game.market.meeting_conflict(str(listing.seller), selected, proposal):
+			slots.append(proposal.duplicate(true))
+		for slot: Dictionary in slots:
+			slot["proposed"] = live_proposal and str(slot.id) == str(proposal.id)
+			slot["overlap_count"] = Trade.player_overlap_count(me, Game.state.listings, selected, slot, Game.clock())
+	var selecting := not slots.is_empty() and agreed_price > 0
+	meeting_panel.setup(slots, agreed_price > 0)
+	_locked = pending or waiting or terminal or waiting_for_buyer or selecting
 	var context_text := ""
 	if selling and buyer_offer > 0 and agreed_price <= 0:
 		context_text = "Buyer offers $%d · Accept or negotiate." % buyer_offer
 	if agreed_price > 0:
 		context_text = "Agreed: $%d" % agreed_price
+	if live_meeting:
+		context_text += " · Pickup arranged"
+	elif live_proposal and agreed_price <= 0:
+		context_text += (" · " if context_text != "" else "") + "Agree a price to choose a time"
+	elif not proposal.is_empty() and not live_proposal and not terminal:
+		context_text += (" · " if context_text != "" else "") + "Choose a new time (at least an hour ahead)"
+	if selecting:
+		context_text += " · Choose a time & place below."
+	elif agreed_price > 0 and not live_meeting and not terminal and slots.is_empty() and not pending and not waiting:
+		context_text += " · No available times. Message the contact or try another listing."
 	if pending or waiting:
 		context_text = "Waiting for reply."
 	if waiting_for_buyer:
@@ -225,9 +251,11 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 		var row: HBoxContainer = MessageRowScene.instantiate()
 		log.add_child(row)
 		row.setup(msg, str(me.name))
-	composer.placeholder_text = "Read-only conversation" if terminal else ("Waiting for buyer" if waiting_for_buyer else "Message…")
+	composer.placeholder_text = "Choose a meeting time" if selecting else ("Read-only conversation" if terminal else ("Waiting for buyer" if waiting_for_buyer else "Message…"))
 	composer.text = str(drafts.get(selected, ""))
-	composer.editable = not terminal and not waiting_for_buyer
+	composer.editable = not terminal and not waiting_for_buyer and not selecting
+	if not composer.editable and composer.has_focus():
+		composer.release_focus()
 	_update_send()
 	_quick_a_text = ""
 	quick_a.visible = not terminal and not waiting_for_buyer and agreed_price <= 0 and (not selling or buyer_offer > 0)
@@ -237,12 +265,18 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 		if quick_a.visible:
 			_quick_a_text = "Deal"
 	else:
-		quick_a.text = "Available?"
-		quick_a.tooltip_text = "Is it still available?"
+		var has_reply := false
+		for message: Dictionary in messages:
+			if str(message.speaker) == str(listing.seller):
+				has_reply = true
+				break
+		var price := int(me.get("counters", {}).get(selected, listing.price))
+		quick_a.text = "Agree $%d" % price if has_reply else "Available?"
+		quick_a.tooltip_text = "Send an explicit offer to pay $%d; the seller must still agree." % price if has_reply else "Is it still available?"
 		if quick_a.visible:
-			_quick_a_text = "Is it still available?"
+			_quick_a_text = "I'll pay $%d for it." % price if has_reply else "Is it still available?"
 	quick_a.disabled = _locked
-	quick_row.visible = quick_a.visible
+	quick_row.visible = quick_a.visible or meeting_panel.visible
 	conversation.move_child(composer_row if unfolded else quick_row, conversation.get_child_count() - 1)
 	fault_clearance.visible = unfolded
 	fault_clearance.mouse_filter = Control.MOUSE_FILTER_IGNORE

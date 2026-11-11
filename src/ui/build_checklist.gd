@@ -3,6 +3,20 @@ extends PanelContainer
 const Entry = preload("res://src/ui/build_checklist_item.gd")
 const Progress = preload("res://src/trading/part_progress.gd")
 const RigRules = preload("res://src/workshop/rig_rules.gd")
+var _phone_mode := false
+@onready var _parts: GridContainer = $Box/Parts
+
+
+func set_phone_mode(open: bool) -> void:
+	if _phone_mode == open:
+		return
+	_phone_mode = open
+	_parts.columns = 2 if open else 7
+	_fit_size.call_deferred()
+
+
+func _fit_size() -> void:
+	size = Vector2(100 if _phone_mode else 270, get_combined_minimum_size().y)
 
 
 func _ready() -> void:

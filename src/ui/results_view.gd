@@ -1,5 +1,5 @@
 extends VBoxContainer
-## Animated benchmark run-off: CPU, GPU, RAM, STORAGE bars fill in sequence, then totals and ranking.
+## Solo benchmark results: component bars fill in sequence, then the final score.
 const K = preload("res://src/ui/ui_kit.gd")
 
 signal replay
@@ -80,6 +80,7 @@ func _build(ids: Array) -> void:
 		var row = RowScene.instantiate()
 		_body.add_child(row)
 		row.configure(rank, String(p.name), mine, K.money(int(p.cash)), sc, maxes, bool(sc.get("valid", false)), sc.get("issues", []))
+		row.rank_label.visible = false
 		_rows.append({"bars": row.bars, "total": row.total_label, "total_val": int(sc.get("total", 0))})
 	# footer details
 	var me: Dictionary = Game.me()
@@ -91,13 +92,14 @@ func _build(ids: Array) -> void:
 			_actions.remove_child(ch)
 			ch.queue_free()
 	_replay_btn.visible = false
+	_replay_btn.text = "REPLAY ASSEMBLY TEST" if st.get("assembly_test", false) else "REPLAY - NEW MARKET"
 	_back_btn.visible = true
 	if st.mode == "solo":
 		_replay_btn.visible = true
 	var top_id: int = ids[0] if not ids.is_empty() else -1
 	if top_id >= 0:
 		var wp: Dictionary = st.players[top_id]
-		_winner.text = ("WINNER: %s with %d" % [wp.name, int(wp.score.get("total", 0))]) if int(wp.score.get("total", 0)) > 0 else "No valid rig finished. Nobody scores."
+		_winner.text = ("YOUR SCORE: %d" % int(wp.score.get("total", 0))) if int(wp.score.get("total", 0)) > 0 else "No valid rig finished. Score: 0."
 		_winner.visible = true
 
 
@@ -123,7 +125,7 @@ func tick(delta: float) -> void:
 			r.total.text = tt
 	var idx: int = clampi(int(_t / 1.2), 0, 3)
 	if _t >= CATS4.size() * 1.2 + 0.3:
-		stage = "FINAL RANKING"
+		stage = "FINAL SCORE"
 		_skip.visible = false
 	else:
 		stage = "TESTING %s..." % LABELS[CATS4[idx]]

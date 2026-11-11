@@ -74,7 +74,7 @@ autowrap_mode = 3
 
 [node name="SetupCard" type="PanelContainer" parent="Scroll/Margins/Columns"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(440, 580)
+custom_minimum_size = Vector2(440, 660)
 layout_mode = 2
 size_flags_vertical = 4
 
@@ -82,7 +82,7 @@ size_flags_vertical = 4
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="Pages" type="Control" parent="Scroll/Margins/Columns/SetupCard/PanelContent"]
+[node name="Pages" type="MarginContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
@@ -90,17 +90,14 @@ mouse_filter = 2
 
 [node name="SoloControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
 [node name="Eyebrow" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
 layout_mode = 2
 theme_type_variation = &"Eyebrow"
-text = "ONE DAY. ONE BUDGET."
+text = "YOUR RUN. YOUR BUDGET."
 autowrap_mode = 3
 
 
@@ -114,7 +111,7 @@ autowrap_mode = 3
 [node name="Intro" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
 layout_mode = 2
 theme_type_variation = &"Tiny"
-text = "Haggle for used parts. Build a questionable PC. Push it until the numbers look good."
+text = "Haggle for used parts. Build a questionable PC. Beat your local high score."
 autowrap_mode = 3
 
 
@@ -172,6 +169,20 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="DurationRow" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Label" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/DurationRow"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "RUN LENGTH"
+
+[node name="MatchDays" type="OptionButton" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/DurationRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="ObjectiveDescription" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls"]
 layout_mode = 2
 theme_type_variation = &"Tiny"
@@ -198,28 +209,19 @@ unique_name_in_owner = true
 [node name="HelpControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+layout_mode = 2
 theme_override_constants/separation = 14
 
 [node name="SellerControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+layout_mode = 2
 theme_override_constants/separation = 14
 
 [node name="LanControls" type="VBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+layout_mode = 2
 theme_override_constants/separation = 14
 
 [node name="Title" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls"]
@@ -232,7 +234,7 @@ autowrap_mode = 3
 [node name="Help" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls"]
 layout_mode = 2
 theme_type_variation = &"Tiny"
-text = "Use your OpenRouter key for live conversations, or leave it empty for offline sellers. Only the solo player or LAN host needs a key."
+text = "Use your OpenRouter key for live conversations, or leave it empty for offline sellers."
 autowrap_mode = 3
 
 
@@ -254,9 +256,18 @@ autowrap_mode = 3
 [node name="Title" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
 layout_mode = 2
 theme_type_variation = &"Eyebrow"
-text = "LAN MULTIPLAYER · EXPERIMENTAL"
+text = "MULTIPLAYER DISABLED · SOLO ONLY"
 autowrap_mode = 3
 
+
+[node name="DurationLabel" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
+layout_mode = 2
+theme_type_variation = &"Eyebrow"
+text = "HOST MATCH LENGTH"
+
+[node name="HostMatchDays" type="OptionButton" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="Host" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
 layout_mode = 2
@@ -278,7 +289,7 @@ text = "Join"
 [node name="Help" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/LanControls"]
 layout_mode = 2
 theme_type_variation = &"Tiny"
-text = "Same network, UDP 24680. Shared listings: whoever arrives first gets the part."
+text = "Multiplayer is disabled. Start a solo high-score run from Play."
 autowrap_mode = 3
 
 
@@ -298,7 +309,7 @@ theme_override_font_sizes/font_size = 24
 [node name="Intro" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
 layout_mode = 2
 theme_type_variation = &"Tiny"
-text = "Your one-day survival guide."
+text = "Your bargain-hunting survival guide."
 
 [node name="Step1" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls"]
 layout_mode = 2
@@ -447,7 +458,21 @@ theme_override_font_sizes/font_size = 14
 [node name="Description" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/HelpControls/Step6/Text"]
 layout_mode = 2
 theme_type_variation = &"Tiny"
-text = "Head home by 19:00. Finish your build and benchmark before 22:00."
+text = "On the final day, head home by 19:00. Finish your build and benchmark before 22:00."
+autowrap_mode = 3
+
+[node name="AssemblyTest" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "ASSEMBLY TEST"
+tooltip_text = "Local practice at your workbench with every catalog part. No deadline; scores are not saved."
+mouse_default_cursor_shape = 2
+
+[node name="AssemblyTestHelp" type="Label" parent="Scroll/Margins/Columns/SetupCard/PanelContent"]
+layout_mode = 2
+theme_type_variation = &"Tiny"
+text = "All parts. No shopping. No deadline. Unsaved scores."
 autowrap_mode = 3
 
 [node name="Navigation" type="HBoxContainer" parent="Scroll/Margins/Columns/SetupCard/PanelContent"]
@@ -483,6 +508,7 @@ mouse_default_cursor_shape = 2
 
 [node name="LanToggle" type="Button" parent="Scroll/Margins/Columns/SetupCard/PanelContent/Navigation"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 12
@@ -490,6 +516,7 @@ text = "LAN"
 toggle_mode = true
 mouse_default_cursor_shape = 2
 
+[connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/AssemblyTest" to="." method="_start_assembly_test"]
 [connection signal="text_changed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SellerControls/OpenRouterKey" to="." method="_on_key_changed"]
 [connection signal="item_selected" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/Choices/ObjectiveColumn/Objective" to="." method="_on_objective_selected"]
 [connection signal="pressed" from="Scroll/Margins/Columns/SetupCard/PanelContent/Pages/SoloControls/PlaySolo" to="." method="_start_solo"]

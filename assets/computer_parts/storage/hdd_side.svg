@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="112" viewBox="0 0 360 112">
+<!-- Original side elevation: 147 mm long / 26 mm high; mounting centres 64,61 and 296,61. -->
+<path d="M18 22H338L348 30V80L340 86H18L12 80V30Z" fill="#263948" stroke="#718c9c" stroke-width="2"/>
+<path d="M18 22H338L348 30H12Z" fill="#b9c6cd"/>
+<path d="M14 32H346M18 81H340" stroke="#0b1428" stroke-width="3"/>
+<path d="M28 38H74L84 44H274L286 38H330M26 74H92L102 69H258L268 74H332" fill="none" stroke="#506b7d" stroke-width="2"/>
+<path d="M116 37H244V44H116Z" fill="#172b3b"/>
+<path d="M24 85H334V91H24Z" fill="#244c43"/>
+<path d="M348 43H357V74H348Z" fill="#111c2c" stroke="#70808d"/>
+<path d="M352 48V55M352 61V69" stroke="#d3ad65" stroke-width="3"/>
+<g fill="#101c2b" stroke="#a0b3bf" stroke-width="2"><circle cx="64" cy="61" r="7"/><circle cx="296" cy="61" r="7"/></g>
+<path d="M34 38V45M324 38V45" stroke="#0b1428" stroke-width="3"/>
+</svg>

@@ -19,10 +19,12 @@ layout_mode = 2
 theme_type_variation = "Tiny"
 text = "BUILD"
 
-[node name="Parts" type="HBoxContainer" parent="Box"]
+[node name="Parts" type="GridContainer" parent="Box"]
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 3
+theme_override_constants/h_separation = 3
+theme_override_constants/v_separation = 3
+columns = 7
 
 [node name="Case" parent="Box/Parts" instance=ExtResource("2")]
 layout_mode = 2

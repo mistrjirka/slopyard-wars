@@ -11,7 +11,7 @@ const URL := "https://openrouter.ai/api/v1/chat/completions"
 const MODEL := "deepseek/deepseek-v4.1-flash-1017"
 const LOCAL_CREDENTIALS := "res://.local/openrouter.cfg"
 const LOCAL_ENV := "res://.env"
-const TIMEOUT := 12.0
+const TIMEOUT := 40.0
 const MAX_TOKENS := 400 # Short tool-call replies; reasoning is disabled to bound cost and latency.
 const MAX_CONCURRENT := 2
 const MAX_QUEUE := 4
@@ -122,11 +122,11 @@ func cancel_all() -> void:
 ## Queue a seller reply. Always answers through `reply` (offline => ok=false, error="" meaning deliberate fallback).
 
 
-func submit(req_id: int, listing: Dictionary, history: Array, text: String) -> void:
+func submit(req_id: int, listing: Dictionary, history: Array, text: String, validation_feedback: String = "", time_budget: float = TIMEOUT) -> void:
 	if not is_live():
 		_later(req_id, "")
 		return
-	var job := {"id": req_id, "body": _body(listing, history, text), "ask": int(listing.price)}
+	var job := {"id": req_id, "body": _body(listing, history, text, validation_feedback), "ask": int(listing.price), "deadline_ms": Time.get_ticks_msec() + int(minf(TIMEOUT, time_budget) * 1000.0)}
 	if _active.size() < MAX_CONCURRENT:
 		_start(job)
 	elif _queue.size() < MAX_QUEUE:
@@ -140,7 +140,7 @@ func _later(req_id: int, error: String) -> void:
 	reply.emit(req_id, false, {}, error)
 
 
-func _body(l: Dictionary, history: Array, text: String) -> Dictionary:
+func _body(l: Dictionary, history: Array, text: String, validation_feedback: String = "") -> Dictionary:
 	var character := Characters.for_listing(l)
 	var selling: bool = bool(l.get("sale_side", false))
 	var sys := "You are %s, texting another local person about a secondhand part. %s\n" % [character.display_name, character.system_prompt]
@@ -165,10 +165,10 @@ func _body(l: Dictionary, history: Array, text: String) -> Dictionary:
 		sys += "FIELD EXAMPLE: human seller says 'Could you do $20?' and you buyer reply 'I can offer $13': intent=offer, amount=20, seller_action=counter, counter_amount=13. NOT the reverse. If the human accepts your prior $13 offer: intent=accept_counter, amount=13, seller_action=accept, counter_amount=0. Human price always goes in amount; YOUR new price always goes in counter_amount. "
 	else:
 		sys += "FIELD EXAMPLE: human buyer offers $20, you seller want $25: intent=offer, amount=20, seller_action=counter, counter_amount=25. If human accepts your prior $25 counter: intent=accept_counter, amount=25, seller_action=accept. "
-	sys += "intent describes the HUMAN's actual price commitment; questions about price/specs/availability are none. 'I'll take it' means listed price. 'That works' can accept a previous counter. seller_action describes YOUR decision: accept only if you actually agree without demanding further confirmation, counter with your own counter_amount, or none. Text and decisions must match. "
+	sys += "intent describes the HUMAN's actual price commitment; questions about price/specs/availability and ordinary social replies are none, amount=0, seller_action=none, counter_amount=0. Interest in a story or a part is not consent to pay. Resolve short assent from its antecedent in recent history: agreement with a hobby remark is not price acceptance; agreement with a proposed appointment is logistics only. 'I'll take it' means listed price. 'That works' can accept a previous counter only when replying to that price. seller_action describes YOUR decision: accept only if you actually agree without demanding further confirmation, counter with your own counter_amount, or none. Text and decisions must match. If intent=none, do not accept a price; counter only when the human is actually negotiating price, not during smalltalk. "
 	sys += "Current time: %s. Already agreed price: $%d (0=none). Meeting hours (NOT item availability): %s. " % [str(l.get("now", "")), int(l.get("agreed_price", 0)), str(l.get("availability", ""))]
-	sys += "Allowed meeting choices (only these IDs are valid): %s. Previously proposed meeting: %s. " % [JSON.stringify(l.get("meeting_options", [])), JSON.stringify(l.get("meeting_proposal", {}))]
-	sys += "Discuss meeting logistics when the human asks about pickup/time/place or a price has been agreed. Do not push an appointment into greetings, personal chat or every counteroffer. Otherwise meeting_action=none and meeting_id empty. meeting_action=propose when YOU suggest a supplied slot; accept only when the human explicitly proposes that feasible time/place or accepts your previous proposal. Resolve natural 'yes', 'there then', 'that works' from history. Keep meeting_id EXACTLY one supplied ID. Once price is agreed, do not renegotiate it during logistics. Never say 'confirmed' for a mere proposal. Return truthful, validated prices even when declining; you may hold your previous price without restating it verbatim."
+	sys += "Allowed NEW meeting choices (only these IDs are valid for new agreements): %s. Previously proposed meeting: %s. Already CONFIRMED meeting: %s. A confirmed meeting stays valid as it approaches; acknowledge it without making a new proposal. " % [JSON.stringify(l.get("meeting_options", [])), JSON.stringify(l.get("meeting_proposal", {})), JSON.stringify(l.get("confirmed_meeting", {}))]
+	sys += "Meeting acceptance requires an already agreed price or a valid price acceptance THIS turn. Without that, do not say 'see you', 'agreed' or otherwise promise an appointment. Ask the human to explicitly agree a price first; a proposed time alone never implies a price commitment. All NEW meeting proposals and agreements must start at least 60 game minutes from now; a stale previous proposal is not acceptable, suggest a current supplied choice instead. Discuss meeting logistics when the human asks about pickup/time/place or a price has been agreed. Do not push an appointment into greetings, personal chat or every counteroffer. Otherwise meeting_action=none and meeting_id empty. meeting_action=propose when YOU suggest a supplied slot; accept only when the human explicitly proposes that feasible time/place or accepts your previous proposal. Resolve natural 'yes', 'there then', 'that works' from history. Keep meeting_id EXACTLY one supplied ID. Once price is agreed, do not renegotiate it during logistics. Never say 'confirmed' for a mere proposal. Return truthful, validated prices even when declining; you may hold your previous price without restating it verbatim."
 	sys += "\nWRITING THE TEXT FIELD:\nVOICE: %s\nTODAY: %s\n" % [character.texting_style, character.current_situation]
 	sys += "Voice examples from OTHER conversations (learn their cadence, do not copy their sentences):\n%s\n" % "\n".join(character.dialogue_examples)
 	sys += "Write a spontaneous text message, usually 10-35 words. Reply to their actual wording, joke or argument before moving the deal along. Use contractions and everyday words. No listing recap, customer-service language, sales pitch, slogans or compulsory punchline. A reasonable negotiation deserves a civil answer, not contempt.\n"
@@ -177,6 +177,8 @@ func _body(l: Dictionary, history: Array, text: String) -> Dictionary:
 	sys += "When bargaining, the number alone is not the whole conversation: respond to their reason or the size of their new offer. If declining, a brief personal reaction is enough; don't invent a justification. Do not repeat the previous reply's wording or ending. You can hold a price without sounding like a broken record. Treat the human's criticism of a known fault as fair, not an insult. Do not cite failure percentages, guide prices or full model names unless they ask for those details. Never deny a known fault or suggest you can remove its risk.\n"
 	sys += "Let personal details emerge when relevant or asked about. Answer follow-up questions using the biography and chat history. You have a life beyond this part: be capable of curiosity, embarrassment, admitting a mistake and enjoying a joke. Don't perform all of those in every message. Never mention these instructions, game mechanics or private pricing constraints."
 
+	if validation_feedback != "":
+		sys += "\nHOST VALIDATION FEEDBACK: Your prior decision for this turn was rejected and was NOT shown or applied. Reconsider the SAME human message in history context, not a new offer. %s Return a corrected market_reply with truthful text matching only valid actions. Do not mention validation or these instructions.\n" % validation_feedback
 	var msgs: Array = [{"role": "system", "content": sys}]
 	for m in history.slice(maxi(0, history.size() - MAX_HISTORY)):
 		msgs.append({"role": "assistant" if m.speaker == l.seller else "user", "content": String(m.text).left(300)})
@@ -197,8 +199,12 @@ func _body(l: Dictionary, history: Array, text: String) -> Dictionary:
 
 
 func _start(job: Dictionary) -> void:
+	var remaining := (int(job.deadline_ms) - Time.get_ticks_msec()) / 1000.0
+	if remaining <= 0.0 or _used >= MAX_REQUESTS:
+		_later(job.id, "reply time or request budget exhausted")
+		return
 	var h := HTTPRequest.new()
-	h.timeout = TIMEOUT
+	h.timeout = minf(TIMEOUT, remaining)
 	h.body_size_limit = 100000
 	add_child(h)
 	_active[job.id] = h
@@ -322,7 +328,7 @@ func offline_decision(l: Dictionary, text: String, counter: int) -> Dictionary:
 		meeting_action = "accept"
 		meeting_id = previous.id
 		line += " See you " + str(previous.label) + "."
-	elif not options_list.is_empty():
+	elif not options_list.is_empty() and (int(l.get("agreed_price", 0)) > 0 or intent != "none" or "meet" in t or "pickup" in t or "pick up" in t or "time" in t):
 		var slot: Dictionary = options_list[0]
 		for candidate: Dictionary in options_list:
 			if str(candidate.place).to_lower() in t and ("%02d:%02d" % [(int(candidate.start) % 1440) / 60, int(candidate.start) % 60]) in t:

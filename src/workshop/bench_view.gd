@@ -66,11 +66,11 @@ func tick() -> void:
 			btn.visible = entry[1] == "" and not driving and not locked
 			btn.disabled = busy > 0.0 or entry[1] != ""
 	if locked:
-		_busy_lbl.text = "Rig locked. Waiting for the match to end."
+		_busy_lbl.text = "Rig locked. Your final benchmark score is ready."
 	elif driving:
 		_busy_lbl.text = "You are out driving - the workbench is unavailable until you return home."
 	elif busy > 0.0:
-		_busy_lbl.text = "Workbench busy: %d game min left (installing/stress testing)." % ceili(busy)
+		_busy_lbl.text = "Workbench busy: %d game min left (stress testing)." % ceili(busy)
 	else:
 		_busy_lbl.text = ""
 
@@ -127,6 +127,9 @@ func _rebuild(me: Dictionary) -> void:
 			card.reinstall_button.disabled = why != ""
 			card.reinstall_button.pressed.connect(func(): install_requested.emit(it))
 			_install_btns.append([card.reinstall_button, why])
+			card.uninstall_button.visible = true
+			card.uninstall_button.pressed.connect(func(): Game.act("uninstall", {"category": c, "item_id": int(it.id)}))
+			_install_btns.append([card.uninstall_button, ""])
 			card.penalty_label.text = _installation_penalties(it, me)
 			if why != "":
 				card.penalty_label.text += ("\n" if card.penalty_label.text != "" else "") + why
@@ -149,12 +152,23 @@ func _rebuild(me: Dictionary) -> void:
 	# inventory
 	K.clear(_inv_box)
 	var inv: Array = me.get("inventory", [])
-	if inv.is_empty():
+	var visible_parts := 0
+	for it in inv:
+		if inst.has(str(it.get("category", ""))):
+			continue
+		_inv_card(it, me)
+		visible_parts += 1
+	if visible_parts == 0:
 		var e: PanelContainer = EmptyInventoryPanelScene.instantiate()
 		_inv_box.add_child(e)
+		if ORDER.all(func(category: String): return inst.has(category)):
+			e.get_node("Box/TitleLabel").text = "No unfilled slots."
+			e.get_node("Box/BodyLabel").text = "Your installed parts live in Your Rig. Uninstall a part there to see inventory alternatives for that category. Your spare parts are still owned."
+			e.phone_button.visible = false
+		elif not inv.is_empty():
+			e.get_node("Box/TitleLabel").text = "No parts for unfilled slots."
+			e.get_node("Box/BodyLabel").text = "Your spares fit categories already mounted in Your Rig. Uninstall one there to see its alternatives, or open your phone to find parts for empty slots."
 		e.phone_button.pressed.connect(func(): go_market.emit())
-	for it in inv:
-		_inv_card(it, me)
 	# checklist
 	K.clear(_check_box)
 	var issues: Array = Game.build_issues(me)
@@ -202,16 +216,11 @@ func _inv_card(it: Dictionary, me: Dictionary) -> void:
 	card.spec_label.text = _part_summary(it)
 	card.tooltip_text = Catalog.spec_text(it, false)
 	var why := _installation_reason(it, me)
-	var inst: Dictionary = me.get("installed", {})
 	var status_text := ""
 	var status_color := K.MUTED
 	if why == "":
-		if inst.has(it.category):
-			status_text = "Replaces %s (old part returns here)." % inst[it.category].name
-			status_color = K.SKY
-		else:
-			status_text = "Compatible - ready to install."
-			status_color = K.LIME
+		status_text = "Compatible - ready to install."
+		status_color = K.LIME
 	else:
 		status_text = why + "."
 		status_color = K.ORANGE if why.begins_with("Install a") or why.begins_with("Cancel") else K.DANGER
@@ -228,6 +237,9 @@ func _inv_card(it: Dictionary, me: Dictionary) -> void:
 
 
 func _installation_reason(part: Dictionary, player: Dictionary) -> String:
+	var mounted: Dictionary = player.get("installed", {}).get(part.get("category", ""), {})
+	if not mounted.is_empty() and int(mounted.get("id", -1)) != int(part.get("id", -2)):
+		return "Uninstall the mounted part from Your Rig first"
 	var why := Game.compatibility(part, player)
 	if why != "":
 		return why

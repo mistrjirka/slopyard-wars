@@ -97,8 +97,15 @@ func update_listings(listings: Array, player: Dictionary) -> void:
 	for item: Dictionary in _visible_listings:
 		var card: PanelContainer = _card(item)
 		_grid.add_child(card)
-		card.setup(item, Relationships.blocked(_player, item))
+		card.setup(item, Relationships.blocked(_player, item), _has_messaged(int(item.id)))
 	_scroll.set_deferred("scroll_vertical", scroll_position)
+
+
+func _has_messaged(listing_id: int) -> bool:
+	for message: Dictionary in _player.get("chats", {}).get(listing_id, []):
+		if str(message.get("speaker", "")) == str(_player.get("name", "")) and not str(message.get("text", "")).strip_edges().is_empty():
+			return true
+	return false
 
 
 func _card(item: Dictionary) -> Control:

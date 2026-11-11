@@ -6,7 +6,7 @@ const Catalog = preload("res://src/data/catalog.gd")
 const TUNABLE := ["cpu", "gpu", "ram"]
 const BOARD_MIN_SCREWS := 3
 ## Cooler screws count with the CPU; case panels and RAM clips need no screws.
-const ASSEMBLY_SCREWS := {"motherboard": 9, "cpu": 4, "gpu": 2, "psu": 4, "storage": 4, "case": 0, "ram": 0}
+const ASSEMBLY_SCREWS := {"motherboard": 9, "cpu": 4, "gpu": 1, "psu": 4, "storage": 4, "case": 0, "ram": 0}
 const REF := {"cpu": 6000.0, "gpu": 6000.0, "ram": 4000.0, "storage": 4000.0}
 const WEIGHTS := {
 	"Balanced": {"cpu": 0.25, "gpu": 0.25, "ram": 0.25, "storage": 0.25},
@@ -55,6 +55,14 @@ static func compat(item: Dictionary, installed: Dictionary) -> String:
 	return ""
 
 
+## Bolt NVMe drives mount to the motherboard with one end-retention screw.
+static func expected_fasteners(item: Dictionary) -> int:
+	var category := str(item.get("category", ""))
+	if category == "storage" and str(item.get("product_family", "")) == "Bolt":
+		return 1
+	return int(ASSEMBLY_SCREWS.get(category, 0))
+
+
 ## Installation coverage belongs to this build, and never follows a tradeable part.
 static func assembly_quality(player: Dictionary) -> Dictionary:
 	var installed: Dictionary = player.get("installed", {})
@@ -64,11 +72,13 @@ static func assembly_quality(player: Dictionary) -> Dictionary:
 	var required := 0
 	var unrecorded := 0
 	for cat in ASSEMBLY_SCREWS:
-		var expected: int = ASSEMBLY_SCREWS[cat]
-		if expected == 0 or not installed.has(cat):
+		if not installed.has(cat):
+			continue
+		var item: Dictionary = installed[cat]
+		var expected := expected_fasteners(item)
+		if expected == 0:
 			continue
 		required += expected
-		var item: Dictionary = installed[cat]
 		var coverage: Dictionary = fasteners.get(cat, {})
 		if not coverage.has("item_id") or coverage.item_id != item.get("id"):
 			unrecorded += 1

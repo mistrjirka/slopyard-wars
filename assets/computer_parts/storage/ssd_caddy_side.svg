@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="112" viewBox="0 0 360 112">
+<!-- Thin 2.5-inch SSD on a game-schematic bay carrier; not a full-height HDD. -->
+<path d="M12 77H348V88H12Z" fill="#617b8a" stroke="#b4c3cb" stroke-width="2"/>
+<path d="M12 77V44H28V77M332 77V44H348V77" fill="#334d60" stroke="#8fa8b8" stroke-width="2"/>
+<path d="M46 52H284L290 58V71H46Z" fill="#253c53" stroke="#7d9faf" stroke-width="2"/>
+<path d="M48 52H283L290 58H48Z" fill="#91a8b8"/>
+<path d="M290 60H300V69H290" fill="#d4af6d"/>
+<path d="M42 73H308V77H42Z" fill="#0b1730"/>
+<path d="M54 42V51M274 42V51M70 70V76M266 70V76" stroke="#a9becb" stroke-width="3"/>
+<g fill="#334d60" stroke="#b4c3cb" stroke-width="2"><path d="M50 78V49H78V78M282 78V49H310V78"/></g>
+<g fill="#101c2b" stroke="#a0b3bf" stroke-width="2"><circle cx="64" cy="61" r="7"/><circle cx="296" cy="61" r="7"/></g>
+</svg>

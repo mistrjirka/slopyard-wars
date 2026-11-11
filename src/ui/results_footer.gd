@@ -10,10 +10,13 @@ func _ready() -> void:
 	pass
 
 func configure(st: Dictionary, me: Dictionary) -> void:
-	if st.mode == "solo":
+	if st.get("assembly_test", false):
+		_solo.text = "Assembly test: practice score only. Scores are not saved."
+		_solo.visible = true
+	elif st.mode == "solo":
 		var total: int = int(me.get("score", {}).get("total", 0))
 		var best: int = int(me.get("best", 0))
-		_solo.text = "Solo high score for objective %s: %d%s" % [st.objective, maxi(best, total), "  - NEW BEST!" if total >= best and total > 0 else ""]
+		_solo.text = "Local high score for %s: %d%s" % [st.objective, maxi(best, total), "  - NEW BEST!" if total >= best and total > 0 else ""]
 		_solo.visible = true
 	else:
 		_solo.visible = false

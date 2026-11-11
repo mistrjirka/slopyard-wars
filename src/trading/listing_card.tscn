@@ -40,6 +40,13 @@ layout_mode = 2
 mouse_filter = 2
 autowrap_mode = 3
 
+[node name="Socket" type="Label" parent="Content"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3
+
 [node name="Detail" type="Label" parent="Content"]
 layout_mode = 2
 mouse_filter = 2
@@ -73,6 +80,15 @@ autowrap_mode = 3
 layout_mode = 2
 mouse_filter = 2
 theme_type_variation = "Tiny"
+autowrap_mode = 3
+
+[node name="Contacted" type="Label" parent="Content"]
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = "Tiny"
+theme_override_colors/font_color = Color(0.55, 0.75, 0.83, 1)
+text = "✓ Messaged"
 autowrap_mode = 3
 
 [node name="Action" type="Label" parent="Content"]

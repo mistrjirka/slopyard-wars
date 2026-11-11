@@ -1,5 +1,7 @@
 extends RefCounted
 ## Player-facing match choices.
+const Config = preload("res://src/core/game_config.gd")
+const MATCH_DAYS: Array = [1, 2, 3, 4, 5, 6, 7]
 const BUDGETS: Array = [600, 800, 1000, 1500, 2500, 5000]
 const OBJECTIVES := {
 	"Balanced": "Equal weight on CPU, GPU, RAM and storage.",

@@ -8,19 +8,24 @@ const Stats = preload("res://src/data/hardware_stats.gd")
 @onready var art: PartArt = $Content/Art
 @onready var price_label: Label = $Content/Price
 @onready var name_label: Label = $Content/Name
+@onready var socket_label: Label = $Content/Socket
 @onready var detail_label: Label = $Content/Detail
 @onready var fault_label: Label = $Content/Fault
 @onready var fire_label: Label = $Content/Fire
 @onready var value_label: Label = $Content/Value
 @onready var seller_label: Label = $Content/Seller
 @onready var action_label: Label = $Content/Action
+@onready var contacted_label: Label = $Content/Contacted
 
 
-func setup(item: Dictionary, blocked: bool) -> void:
+func setup(item: Dictionary, blocked: bool, contacted: bool = false) -> void:
 	tooltip_text = Stats.performance_text(item) + "\n" + Stats.value_text(item)
 	if blocked:
 		tooltip_text += "\nThis seller blocked you for this run. View the conversation only; messaging and buying are unavailable."
-	action_label.text = "View conversation  ›" if blocked else "Message seller  ›"
+	contacted_label.visible = contacted
+	if contacted:
+		tooltip_text += "\nYou already messaged this seller about this listing. Open your existing conversation."
+	action_label.text = "View conversation  ›" if blocked or contacted else "Message seller  ›"
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	blocked_banner.visible = blocked
@@ -28,6 +33,9 @@ func setup(item: Dictionary, blocked: bool) -> void:
 	art.modulate = Color(0.55, 0.55, 0.55) if blocked else Color.WHITE
 	price_label.text = "$%d" % int(item.price)
 	name_label.text = str(item.get("manufacturer", "")) + " " + str(item.name)
+	var socket := str(item.get("socket", ""))
+	socket_label.visible = str(item.category) == "cpu" and not socket.is_empty()
+	socket_label.text = "Socket: " + socket if socket_label.visible else ""
 	var detail := "Condition %d/100" % int(item.get("condition", 100))
 	if str(item.category) in ["cpu", "gpu", "ram", "storage"]:
 		detail += " · stock %d" % roundi(Stats.stock_score(item))

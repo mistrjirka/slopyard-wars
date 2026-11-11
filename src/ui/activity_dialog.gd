@@ -28,7 +28,7 @@ func setup(activity: Resource) -> void:
 	_title.text = activity.display_name
 	_title.add_theme_color_override("font_color", K.LIME)
 	_description.text = activity.description
-	_cost.text = Activities.cost_text(activity)
+	_cost.text = "$%d · Practice clock paused" % int(activity.cash_cost) if bool(Game.state.get("assembly_test", false)) else Activities.cost_text(activity)
 	_cost.add_theme_color_override("font_color", K.SKY)
 	var reason: String = Game.activities.unavailable_reason(Game.me(), activity)
 	_items = []

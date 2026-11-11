@@ -4,33 +4,18 @@
 
 [node name="MeetingPanel" type="VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 6
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
 script = ExtResource("1")
 
-[node name="ToggleRow" type="HBoxContainer" parent="."]
+[node name="Hint" type="Label" parent="."]
 layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="ToggleBtn" type="Button" parent="ToggleRow"]
-custom_minimum_size = Vector2(0, 0)
-layout_mode = 2
-theme_type_variation = "GhostButton"
-text = "Meeting times"
-
-[node name="TrackBtn" type="Button" parent="ToggleRow"]
-custom_minimum_size = Vector2(0, 0)
-visible = false
-layout_mode = 2
-theme_type_variation = "PrimaryButton"
-text = "Track"
-
-[node name="Choices" type="VBoxContainer" parent="."]
-layout_mode = 2
-theme_override_constants/separation = 4
+theme_type_variation = "Tiny"
+text = "Choose a time & place · Not reserved"
+autowrap_mode = 3
 
 [node name="ChoicesScroll" type="ScrollContainer" parent="."]
-visible = false
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 horizontal_scroll_mode = 0
 
@@ -38,11 +23,3 @@ horizontal_scroll_mode = 0
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
-
-[node name="Empty" type="Label" parent="."]
-visible = false
-layout_mode = 2
-theme_type_variation = "Tiny"
-theme_override_colors/font_color = Color(1, 0.541176, 0.164706, 1)
-text = "No meeting window remains before tonight's deadline. Try another contact or head home to build."
-autowrap_mode = 3

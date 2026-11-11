@@ -7,10 +7,32 @@ layout_mode = 2
 theme_override_constants/separation = 8
 script = ExtResource("1")
 
+[node name="Categories" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Active" type="Button" parent="Categories"]
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "Active"
+
+[node name="Agreed" type="Button" parent="Categories"]
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "Agreed"
+
+[node name="Finished" type="Button" parent="Categories"]
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "Finished"
+
 [node name="Title" type="Label" parent="."]
 layout_mode = 2
 theme_type_variation = "Eyebrow"
-text = "Recent conversations"
+text = "Active conversations"
 
 [node name="Appointment" type="Label" parent="."]
 visible = false
@@ -35,7 +57,7 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_type_variation = "H2"
 theme_override_font_sizes/font_size = 24
-text = "No messages left"
+text = "No active conversations"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 3

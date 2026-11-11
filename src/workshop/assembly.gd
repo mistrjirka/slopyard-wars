@@ -12,7 +12,7 @@ const Art = preload("res://src/ui/art_library.gd")
 const Overclock = preload("res://src/workshop/overclock_rules.gd")
 const RigRules = preload("res://src/workshop/rig_rules.gd")
 const W := 780.0
-const H := 540.0
+const H := 580.0
 const CASE_RECT := Rect2(30, 40, 480, 330)
 const BOARD_RECT := Rect2(100, 65, 340, 270)
 const BOARD_TARGET := BOARD_RECT.position + BOARD_RECT.size * 0.5
@@ -25,6 +25,11 @@ const SOCKET_PINS_RECT := Rect2(65, 104, 65, 59)
 const CPU_ART_SCALE := SOCKET_ART_SCALE * 0.75
 const CPU_PACKAGE_SIZE := Vector2(96, 96) * CPU_ART_SCALE
 const CPU_PASTE_RECT := Rect2(CPU_TARGET - Vector2(40, 40), Vector2(80, 80))
+# The mount, cooler art, outline and drag bounds share one footprint on both sockets.
+const COOLER_MOUNT_HALF := Vector2(66, 54)
+const COOLER_HIT_RADIUS := 18.0
+const COOLER_SIZE := (COOLER_MOUNT_HALF + Vector2.ONE * COOLER_HIT_RADIUS) * 2.0
+const COOLER_BENCH := Vector2(650, 176)
 const GPU_ART_SCALE := 2.0
 const GPU_SEATED_ORIGIN := Vector2(76, 178)
 # Both supplied cards share this gold connector, despite their different shroud lengths.
@@ -32,12 +37,34 @@ const GPU_CONNECTOR_RECT := Rect2(25, 62, 54, 6)
 const GPU_SLOT_RECT := Rect2(GPU_SEATED_ORIGIN + GPU_CONNECTOR_RECT.position * GPU_ART_SCALE - Vector2(3, 3),
 	GPU_CONNECTOR_RECT.size * GPU_ART_SCALE + Vector2(6, 6))
 const GPU_LATCH := GPU_SLOT_RECT.position + Vector2(GPU_SLOT_RECT.size.x + 16, GPU_SLOT_RECT.size.y * 0.5)
+# Assembly crops away the DIMM PNG's transparent margins. The supplied notch is
+# almost centred, so the contact strip below uses an explicit, off-centre key.
+const RAM_BODY_REGION := Rect2(5, 20, 54, 20)
+const RAM_SIZE := Vector2(432, 192)
+const RAM_TARGET := Vector2(340, 238)
+const RAM_CONTACTS := Rect2(24, 160, 384, 24)
+const RAM_KEY_X := 180.0
+const RAM_KEY_WIDTH := 24.0
+const RAM_SLOT := Rect2(RAM_TARGET - RAM_SIZE * 0.5 + RAM_CONTACTS.position - Vector2(0, 2),
+	RAM_CONTACTS.size + Vector2(0, 4))
+const RAM_CLIPS: Array[Vector2] = [Vector2(112, 314), Vector2(568, 314)]
+const RAM_PRESS: Array[Vector2] = [Vector2(152, 230), Vector2(528, 230)]
 const MAX_STRIKES := 5
 const SCREW_RATE := 65.0
 const GPU_SAFE_SPEED := 220.0
 const PSU_TARGET := Vector2(170, 280)
 const PSU_SIZE := Vector2(240, 135)
 const PSU_HOLES: Array[Vector2] = [Vector2(-108, -45), Vector2(108, -45), Vector2(-108, 60), Vector2(108, 60)]
+# Bay-mounted HDD/SATA art uses this side-elevation canvas. TWO holes per side.
+const DRIVE_SIZE := Vector2(360, 112)
+const DRIVE_TARGET := Vector2(225, 220)
+const DRIVE_BENCH := Vector2(590, 220)
+const DRIVE_HOLES: Array[Vector2] = [Vector2(64, 61), Vector2(296, 61)]
+# Separate motherboard M.2 close-up: an 80:22 PCB with a single end-retention hole.
+const M2_SIZE := Vector2(320, 88)
+const M2_TARGET := Vector2(225, 220)
+const M2_BENCH := Vector2(590, 220)
+const M2_SCREW := M2_TARGET + Vector2(152, 0)
 # Schematic topology from ATX 2.2, Figure 2, p.10. Not a drilling template.
 # Rear I/O is at the top. mATX adds B/R/S rather than being a smaller 3x3 grid.
 const HOLES := {
@@ -83,11 +110,17 @@ var _drag_speed := 0.0
 var _flash := 0.0
 var _t := 0.0
 
-@onready var _primary: Button = $Actions/Primary
-@onready var _secondary: Button = $Actions/Secondary
-@onready var _retry: Button = $Actions/Retry
-@onready var _hint: Label = $Hint
-@onready var _penalties: Label = $Penalties
+@onready var _primary: Button = $Footer/Actions/Primary
+@onready var _secondary: Button = $Footer/Actions/Secondary
+@onready var _retry: Button = $Footer/Actions/Retry
+@onready var _hint: Label = $Footer/Hint
+@onready var _penalties: Label = $Footer/Penalties
+@onready var _fit_cooler: Button = $FitCooler
+
+
+func _fit_footer() -> void:
+	# Container minimums include every wrapped warning/status line; never stack labels.
+	custom_minimum_size.y = maxf(H, 418.0 + $Footer.get_combined_minimum_size().y)
 
 
 func begin(part: Dictionary, context: Dictionary = {}) -> void:
@@ -137,7 +170,7 @@ func mark_destroyed(category: String = "", modifiers: Dictionary = {}) -> void:
 	if not _socket_destroyed:
 		_strikes = MAX_STRIKES
 	_stop_holding()
-	note = "DO: Close installation and replace the destroyed motherboard.\nDON'T: Install the CPU without a working board." if _socket_destroyed else "DO: Close installation and replace this destroyed part.\nDON'T: Retry; five damage strikes are permanent."
+	note = "Replace the destroyed motherboard.\nThe CPU needs a working socket." if _socket_destroyed else "Replace this destroyed part.\nFive damage strikes are permanent; Retry cannot repair it."
 	note_err = true
 	_refresh_controls()
 	stage_changed.emit()
@@ -230,44 +263,54 @@ func _gpu_target() -> Vector2:
 func _build() -> Array[Dictionary]:
 	match cat:
 		"case":
-			return [_drag("1/2  SET THE CASE ON THE BENCH", "DO: Drag the case onto the outline.\nDON'T: Add standoffs yet; choose the motherboard first.", Vector2(650, 220), TARGET, 2.0),
-				_clicks("2/2  OPEN THE SIDE PANEL", "DO: Hold right mouse on each panel screw to reach 0%.\nDON'T: Leave screws in. Metal case screws cannot cause damage.", _corner_points(TARGET, 185, 115), "loosen")]
+			return [_drag("1/2  SET THE CASE ON THE BENCH", "Drag the case onto the outline.\nChoose a motherboard before adding standoffs.", Vector2(650, 220), TARGET, 2.0),
+				_clicks("2/2  OPEN THE SIDE PANEL", "Hold right mouse on each panel screw to reach 0%.\nMetal case screws cannot cause damage.", _corner_points(TARGET, 185, 115), "loosen")]
 		"motherboard":
 			var points: Array = []
 			for id in _hole_ids():
 				var point := _clk(_hole_pos(id), 1, 11.0)
 				point["hole"] = id
 				points.append(point)
-			return [{"kind": "standoffs", "title": "1/4  MATCH THE STANDOFFS", "hint": "Match the board's mounting holes with the case tray.\nClick a hole to fit or remove a standoff."},
-				_drag("2/4  LOWER THE MOTHERBOARD", "DO: Match letters; keep blue REAR I/O edges at top.\nDON'T: Put supports under solid PCB; outside extras are safe.", Vector2(645, 220), BOARD_TARGET, 2.6, 0, "board"),
-				{"kind": "board_check", "title": "3/4  CHECK SUPPORTS", "hint": "Inspect the board before fastening.\nLift Board to change the supports beneath it."},
-				_clicks("4/4  FASTEN THE BOARD", "Hold left mouse to tighten; right mouse to loosen.\nDon't force a screw that resists.", points)]
+			return [{"kind": "standoffs", "title": "1/3  MATCH THE STANDOFFS", "hint": "Match the board's mounting holes with the case tray.\nClick a hole to fit or remove a standoff."},
+				_drag("2/3  LOWER THE MOTHERBOARD", "Match letters; keep blue REAR I/O edges at top.\nSupports under solid PCB cause damage; outside extras are safe.", Vector2(645, 220), BOARD_TARGET, 2.6, 0, "board"),
+				{"kind": "board_check", "title": "CHECK THE SUPPORTS", "hint": "Not enough supports beneath the board.\nLift Board to add supports at its mounting holes."},
+				_clicks("3/3  FASTEN THE BOARD", "Hold left to tighten, right to loosen; finish when secure.\nExtra supported screws are optional; all seated = done.", points)]
 		"cpu":
-			var seating_hint := "DO: R / right-click CPU to rotate; match the gold corner.\nDON'T: "
-			seating_hint += "Touch exposed pins: each click damages the board; 5 hits destroy it." if _uses_load_plate() else "Lock the socket until the CPU is seated flat."
-			return [_clicks("1/6  RELEASE THE SOCKET", "DO: Click the retention lever to open the socket.\nDON'T: Force the CPU into a locked socket.", [_clk(_cpu_lever_position(false), 1, 20)], "lever"),
+			var seating_hint := "R / right-click to rotate; match the gold corner.\n"
+			seating_hint += "Avoid exposed pins: each click damages the board; 5 destroy it." if _uses_load_plate() else "Seat the CPU flat before locking the socket."
+			return [_clicks("1/6  RELEASE THE SOCKET", "Click the retention lever to open the socket.\nNever force the CPU into a locked socket.", [_clk(_cpu_lever_position(false), 1, 20)], "lever"),
 				_drag("2/6  SEAT THE CPU", seating_hint, Vector2(650, 230), CPU_TARGET, 1.6, 1),
-				_clicks("3/6  LOCK THE SOCKET", "DO: Click the retention lever to secure the seated CPU.\nDON'T: Leave the socket unlocked before fitting the cooler.", [_clk(_cpu_lever_position(true), 1, 20)], "lever"),
-				{"kind": "paste", "title": "4/6  APPLY THERMAL PASTE", "hint": "DO: Hold left mouse on CPU for paste; 100% is enough.\nDON'T: Use too little: up to 50% performance loss. Extra is harmless."},
-				_drag("5/6  PLACE THE COOLER", "DO: Drag the supplied cooler squarely onto the CPU.\nDON'T: Skip paste; the cooler is already bundled with the CPU.", Vector2(650, 230), CPU_TARGET, 1.0, 0, "cooler"),
-				_clicks("6/6  TIGHTEN EVENLY", "DO: Hold left mouse to tighten, right to loosen; alternate corners.\nDON'T: Finish one first or exceed 150% (damage). Safe: 100–150%.", _corner_points(CPU_TARGET, 88, 88), "cooler")]
+				_clicks("3/6  LOCK THE SOCKET", "Click the retention lever to secure the CPU.\nLock the socket before fitting the cooler.", [_clk(_cpu_lever_position(true), 1, 20)], "lever"),
+				{"kind": "paste", "title": "4/6  APPLY THERMAL PASTE", "hint": "Hold left mouse on CPU for paste; 100% is enough.\nToo little: up to 50% CPU performance loss. Extra is harmless."},
+				_drag("5/6  PLACE THE COOLER", "Drag the bundled cooler onto the CPU.\nMissing paste costs up to 50% CPU performance.", COOLER_BENCH, CPU_TARGET, 1.0, 0, "cooler"),
+				_clicks("6/6  TIGHTEN EVENLY", "Hold left to tighten, right to loosen; alternate corners.\nSafe: 100–150%. Over 150% damages; uneven turns hurt cooling.", _corner_points(CPU_TARGET, COOLER_MOUNT_HALF.x, COOLER_MOUNT_HALF.y), "cooler")]
 		"gpu":
-			return [_clicks("1/3  OPEN THE PCIe LATCH", "DO: Click the latch at the end of the PCIe slot.\nDON'T: Insert the GPU while the latch is closed.", [_clk(GPU_LATCH, 1, 18)], "lever"),
-				{"kind": "gpu_drag", "title": "2/3  LOWER THE GRAPHICS CARD GENTLY", "hint": "DO: Align the gold connector with the slot; drag gently down.\nDON'T: Hit the slot fast; impact damages the GPU.", "pos": _gpu_target() - Vector2(0, 148), "target": _gpu_target(), "scale": 2.6, "inc": 0, "rot": 0, "tol": 24.0, "part": "gpu"},
-				_clicks("3/3  SECURE THE CASE BRACKET", "DO: Hold left mouse on bracket screws to reach at least 100%.\nDON'T: Leave the bracket loose. Metal screws cannot cause damage.", [_clk(GPU_SEATED_ORIGIN + Vector2(8, 11) * GPU_ART_SCALE), _clk(GPU_SEATED_ORIGIN + Vector2(8, 55) * GPU_ART_SCALE)])]
+			return [_clicks("1/3  OPEN THE PCIe LATCH", "Click the latch at the end of the PCIe slot.\nOpen it before inserting the GPU.", [_clk(GPU_LATCH, 1, 18)], "lever"),
+				{"kind": "gpu_drag", "title": "2/3  LOWER THE GRAPHICS CARD GENTLY", "hint": "Align the gold connector; drag gently down into the slot.\nFast impact damages the GPU.", "pos": _gpu_target() - Vector2(0, 148), "target": _gpu_target(), "scale": 2.6, "inc": 0, "rot": 0, "tol": 24.0, "part": "gpu"},
+				_clicks("3/3  SECURE THE CASE BRACKET", "Hold left mouse on the top bracket screw to reach 100%.\nMetal case screws cannot cause damage.", [_clk(GPU_SEATED_ORIGIN + Vector2(8, 11) * GPU_ART_SCALE)])]
 		"ram":
-			return [_clicks("1/3  OPEN THE CLIPS", "DO: Click both DIMM retention clips to open them.\nDON'T: Insert the RAM while the clips are closed.", [_clk(Vector2(118, 313), 1, 18), _clk(Vector2(562, 313), 1, 18)], "lever"),
-				_drag("2/3  ALIGN THE NOTCH", "DO: Match the notch to the slot key; R / right-click flips RAM.\nDON'T: Force the stick in backwards.", Vector2(390, 110), Vector2(340, 263), 3.6, 2),
-				_clicks("3/3  PRESS BOTH ENDS", "DO: Click each end three times to close both clips.\nDON'T: Leave one end unseated.", [_clk(Vector2(200, 258), 3, 20), _clk(Vector2(480, 258), 3, 20)], "press")]
+			return [_clicks("1/3  OPEN THE CLIPS", "Click both DIMM clips to open them.\nOpen them before inserting RAM.", [_clk(RAM_CLIPS[0] + Vector2(12, 0), 1, 18), _clk(RAM_CLIPS[1] - Vector2(12, 0), 1, 18)], "lever"),
+				_drag("2/3  ALIGN THE NOTCH", "R / right-click to flip; drag gold contacts into the slot.\nThe gap must fit over the green key.", Vector2(390, 135), RAM_TARGET, 1.0, 2),
+				_clicks("3/3  PRESS BOTH ENDS", "Click each glowing end three times; clips close as it seats.\nSeat both ends to install the RAM.", [_clk(RAM_PRESS[0], 3, 20), _clk(RAM_PRESS[1], 3, 20)], "press")]
 		"psu":
 			var points: Array = []
 			for hole in PSU_HOLES:
 				points.append(_clk(PSU_TARGET + hole))
-			return [_drag("1/2  ALIGN THE POWER SUPPLY", "DO: Drag the PSU to align all four rear holes with the case.\nDON'T: Leave a mounting hole out of line.", Vector2(650, 180), PSU_TARGET, 1.0, 0, "psu"),
-				_clicks("2/2  FASTEN TO THE CASE", "DO: Hold left mouse on all four PSU screws to reach 100%.\nDON'T: Leave screws loose. Metal screws cannot cause damage.", points)]
+			return [_drag("1/2  ALIGN THE POWER SUPPLY", "Drag the PSU to align all four rear holes with the case.\nKeep every mounting hole in line.", Vector2(650, 180), PSU_TARGET, 1.0, 0, "psu"),
+				_clicks("2/2  FASTEN TO THE CASE", "Hold left mouse on all four PSU screws to reach 100%.\nMetal case screws cannot cause damage.", points)]
 		"storage":
-			return [_drag("1/2  ALIGN THE DRIVE", "DO: Drag the drive onto its mounting rails.\nDON'T: Leave the drive outside the outline.", Vector2(650, 230), Vector2(375, 205), 2.5),
-				_clicks("2/2  SECURE THE DRIVE", "DO: Hold left mouse to tighten, right to loosen. Safe: 100–150%.\nDON'T: Exceed 150%; overtightening damages the drive.", [_clk(Vector2(262, 112)), _clk(Vector2(488, 112)), _clk(Vector2(262, 298)), _clk(Vector2(488, 298))])]
+			if _is_m2():
+				return [_drag("1/2  SEAT THE M.2 SSD", "Slide the gold edge into the motherboard M.2 connector.\nLower the free end onto its standoff; no drive-bay caddy.", M2_BENCH, M2_TARGET, 1.0, 0, "m2"),
+					_clicks("2/2  SECURE THE M.2 END", "Hold left to tighten the ONE end screw; right to loosen.\nSafe: 100–150%. Over 150% damages the SSD.", [_clk(M2_SCREW)])]
+			var near_points: Array = []
+			var far_points: Array = []
+			for hole in DRIVE_HOLES:
+				var at := DRIVE_TARGET - DRIVE_SIZE * 0.5 + hole
+				near_points.append(_clk(at))
+				far_points.append(_clk(at))
+			return [_drag("1/3  SLIDE INTO THE DRIVE BAY", "Side view: slide the drive left along the rails.\nAlign the two side holes with the case flange.", DRIVE_BENCH, DRIVE_TARGET, 1.0, 0, "drive"),
+				_clicks("2/3  FASTEN THE NEAR SIDE", "Hold left to tighten, right to loosen. Safe: 100–150%.\nOver 150% damages; opposite side opens on release.", near_points),
+				_clicks("3/3  FASTEN THE OPPOSITE SIDE", "Opposite side shown: two screws remain. Safe: 100–150%.\nOver 150% damages the drive; release when secure to install.", far_points)]
 	return []
 
 
@@ -289,15 +332,31 @@ func _stop_holding() -> void:
 
 func _advance() -> void:
 	si += 1
+	# A soundly supported board can go straight to fastening. Lift Board stays
+	# available there, so an empty inspection step need not block the flow.
+	if si < steps.size() and steps[si].kind == "board_check" and _support_count() >= RigRules.BOARD_MIN_SCREWS:
+		si += 1
 	if si >= steps.size():
 		_done = true
-		note = "DO: Review penalties below, then Install / Apply Reinstallation.\nDON'T: Expect damage to reset. Retry improves installation quality."
+		note = "Retry for an even mount, or install with the shown penalty.\nRetry does not repair permanent physical damage."
 		note_err = false
 		_stop_holding()
 		_refresh_controls()
 		stage_changed.emit()
+		# Only an uneven cooler still has a meaningful quality decision to review.
+		if cat != "cpu" or _mount_quality() >= 0.999:
+			_commit_installation()
 	else:
 		_enter()
+
+
+func _commit_installation() -> void:
+	if _pending_damage or _destroyed or _committed:
+		return
+	_committed = true
+	_stop_holding()
+	completed.emit({"slips": slips, "mount_quality": _mount_quality(), "paste_amount": _paste_amount,
+		"screws_seated": _seated_screws(), "supports": _support_count() if cat == "motherboard" else 0})
 
 
 func _request_damage(reason: String, message: String) -> void:
@@ -412,9 +471,7 @@ func _primary_pressed() -> void:
 	if _pending_damage or _destroyed or _committed:
 		return
 	if _done:
-		_committed = true
-		completed.emit({"slips": slips, "mount_quality": _mount_quality(), "paste_amount": _paste_amount,
-			"screws_seated": _seated_screws(), "supports": _support_count() if cat == "motherboard" else 0})
+		_commit_installation()
 		return
 	var step: Dictionary = steps[si]
 	if step.kind == "board_check":
@@ -436,7 +493,7 @@ func _secondary_pressed() -> void:
 		_paste_spots.clear()
 	elif cat == "motherboard" and si >= 2:
 		if _screw_style(step) and not _all_backed_out(step):
-			note = "DO: Hold right mouse: back every started screw out to 0%.\nDON'T: Lift the board until all screws are out."
+			note = "Hold right mouse: back every started screw out to 0%.\nRemove every screw before lifting the board."
 			note_err = true
 			return
 		_board_fault = false
@@ -468,7 +525,7 @@ func _refresh_controls() -> void:
 	_hint.add_theme_color_override("font_color", K.DANGER if note_err else K.CREAM)
 	var status := "%sdamage %d/%d · %s" % ["CPU " if cat == "cpu" else "", _strikes, MAX_STRIKES,
 		"DESTROYED" if _destroyed and not _socket_destroyed else "condition %d/100" % _condition]
-	var screw_total := int(RigRules.ASSEMBLY_SCREWS.get(cat, 0))
+	var screw_total := RigRules.expected_fasteners(item)
 	var seated := _seated_screws()
 	if screw_total > 0:
 		status += " · screws %d/%d" % [seated, screw_total]
@@ -519,14 +576,24 @@ func _refresh_controls() -> void:
 			secondary_visible = true
 			secondary_text = "CLEAR PASTE"
 		elif _screw_style(step):
-			primary_text = "CONTINUE" + (" · %d/%d SCREWS" % [seated, screw_total] if cat == "motherboard" else "")
+			# At three supported screws the board is usable, not fully fastened.
+			# Keep the explicit choice so optional screws aren't cut off.
+			primary_visible = cat == "motherboard"
+			primary_text = "FINISH · %d/%d SCREWS" % [seated, screw_total]
+			primary_style = &"AssemblyPartialButton" if seated < screw_total else &"PrimaryButton"
 			primary_disabled = blocked or not _can_finish_fastening(step)
 		if cat == "motherboard" and si >= 2:
 			secondary_visible = true
 			secondary_text = "LIFT BOARD"
 			secondary_disabled = blocked or (_screw_style(step) and not _all_backed_out(step))
 	# Apply each final state once: hiding/re-showing a button every frame cancels clicks.
-	_primary.visible = primary_visible
+	var fitting_cooler: bool = not _done and not _destroyed and not steps.is_empty() and steps[si].kind == "paste"
+	_fit_cooler.visible = fitting_cooler
+	_fit_cooler.disabled = blocked
+	_fit_cooler.text = "FIT COOLER\nPASTE %d%%" % roundi(minf(_paste_amount, 1.0) * 100)
+	_fit_cooler.theme_type_variation = &"PrimaryButton" if _paste_amount >= 1.0 else &"AssemblyPartialButton"
+	_fit_cooler.tooltip_text = "Continue with up to 50% CPU performance loss." if _paste_amount < 1.0 else "Paste is sufficient. Place the cooler next."
+	_primary.visible = primary_visible and not fitting_cooler
 	_primary.disabled = primary_disabled
 	_primary.text = primary_text
 	_primary.theme_type_variation = primary_style
@@ -588,13 +655,13 @@ func _press(step: Dictionary, right: bool) -> void:
 	if cat == "cpu" and si == 1 and _uses_load_plate() and _socket_pins_rect().has_point(_mouse):
 		var cpu_rect := Rect2(Vector2(step.pos) - CPU_PACKAGE_SIZE * 0.5, CPU_PACKAGE_SIZE)
 		if not cpu_rect.has_point(_mouse):
-			_request_damage("socket_pins", "The exposed pins took damage. Handle the CPU by its edges.\nMatch the gold corner, then seat it without touching the pins.")
+			_request_damage("socket_pins", "Pin damage is permanent. Handle the CPU by its edges.\nMatch the gold corner; avoid the exposed socket pins.")
 			return
 	if _screw_style(step):
 		if cat == "motherboard" and _board_fault and not right:
 			return
 		for i in step.pts.size():
-			if _mouse.distance_to(step.pts[i].p) <= 18.0:
+			if _mouse.distance_to(step.pts[i].p) <= (COOLER_HIT_RADIUS if step.style == "cooler" else 18.0):
 				if not _point_supported(step.pts[i]):
 					note = "No standoff under this hole."
 					note_err = false
@@ -640,12 +707,18 @@ func _press(step: Dictionary, right: bool) -> void:
 func _part_size(step: Dictionary, at_target: bool = false) -> Vector2:
 	if step.get("part") == "board":
 		return BOARD_RECT.size * (1.0 if at_target or Vector2(step.pos).distance_to(BOARD_TARGET) < 30 else 0.57)
+	if step.get("part") == "drive":
+		return DRIVE_SIZE
+	if step.get("part") == "m2":
+		return M2_SIZE
 	if step.get("part") == "cooler":
-		return Vector2(176, 176)
+		return COOLER_SIZE
 	if step.kind == "gpu_drag":
 		return _gpu_texture().get_size() * GPU_ART_SCALE
 	if cat == "cpu":
 		return CPU_PACKAGE_SIZE
+	if cat == "ram":
+		return RAM_SIZE
 	if step.get("part") == "psu":
 		return PSU_SIZE * (1.0 if at_target or Vector2(step.pos).distance_to(PSU_TARGET) < 30 else 0.8)
 	var extent := PartArt.drawing_size(cat, item, float(step.scale))
@@ -655,12 +728,17 @@ func _part_size(step: Dictionary, at_target: bool = false) -> Vector2:
 func _release(step: Dictionary) -> void:
 	_held_screw = -1
 	_held_paste = false
+	# Finish on release, not while the player is still turning a screw. This
+	# preserves tension/over-tightening and cooler pressure mechanics.
+	if _screw_style(step) and not _pending_damage and _all_seated(step) and _can_finish_fastening(step):
+		_advance()
+		return
 	if not _dragging:
 		return
 	_dragging = false
 	if Vector2(step.pos).distance_to(step.target) <= float(step.tol):
 		if int(step.inc) > 0 and int(step.rot) % 4 != 0:
-			note = "DO: R / right-click to match the gold triangle or notch.\nDON'T: Seat the part in this orientation."
+			note = "R / right-click to flip; fit the gap over the green key.\nDo not force the RAM backwards." if cat == "ram" else "R / right-click to match the gold triangle.\nRotate the CPU before seating it."
 			note_err = true
 			return
 		if step.kind == "gpu_drag":
@@ -675,7 +753,7 @@ func _seat_gpu(step: Dictionary, speed: float) -> void:
 	_dragging = false
 	if speed > GPU_SAFE_SPEED:
 		step.pos = Vector2(step.target) - Vector2(0, 100)
-		_request_damage("gpu_impact", "DO: Try again; align the connector and lower gently.\nDON'T: Hit the slot fast. One permanent damage strike added.")
+		_request_damage("gpu_impact", "Align the connector and lower gently; avoid fast impact.\nOne permanent damage strike added.")
 	else:
 		step.pos = step.target
 		_advance()
@@ -738,11 +816,11 @@ func _process(delta: float) -> void:
 			if low < 80 and high >= 95:
 				_worst_pressure_spread = maxf(_worst_pressure_spread, high - low)
 				if _mount_quality() < 0.999:
-					note = "DO: Retry to fix uneven mounting; see the penalty below.\nDON'T: Expect matching final tightness to erase uneven turns."
+					note = "Uneven mounting hurts cooling; Retry to fix it.\nMatching final tension will not erase uneven turns."
 					note_err = true
 		if _sensitive_screws() and float(point.c) > 150 and not bool(point.damaged):
 			point.damaged = true
-			_request_damage("overtighten", "DO: Hold right mouse back to 100–150%; one damage strike added.\nDON'T: Expect Retry to repair physical damage.")
+			_request_damage("overtighten", "Hold right mouse back to 100–150%; one damage strike added.\nRetry does not repair physical damage.")
 	_refresh_controls()
 	queue_redraw()
 
@@ -752,7 +830,7 @@ func _txt(pos: Vector2, text: String, font_size: int, color: Color, bold: bool =
 
 
 func _draw() -> void:
-	draw_rect(Rect2(0, 0, W, H), K.NAVY0)
+	draw_rect(Rect2(Vector2.ZERO, size), K.NAVY0)
 	for x in range(0, int(W), 30):
 		draw_line(Vector2(x, 0), Vector2(x, 390), Color(K.LINE, 0.2))
 	for y in range(0, 390, 30):
@@ -768,13 +846,19 @@ func _draw() -> void:
 	if _destroyed:
 		title = "MOTHERBOARD DESTROYED" if _socket_destroyed else "PART DESTROYED"
 	_txt(Vector2(16, 24), title, 18, K.DANGER if _destroyed else K.cat_color(cat), true)
-	draw_rect(Rect2(0, 394, W, H - 394), K.NAVY1)
-	draw_line(Vector2(0, 394), Vector2(W, 394), K.LINE)
+	draw_rect(Rect2(0, 394, size.x, size.y - 394), K.NAVY1)
+	draw_line(Vector2(0, 394), Vector2(size.x, 394), K.LINE)
 	if _flash > 0:
 		draw_rect(Rect2(0, 32, W, 360), Color(K.DANGER, _flash * 0.3))
 
 
 func _scene() -> void:
+	if cat == "storage":
+		if _is_m2():
+			_draw_m2_mount()
+		else:
+			_draw_storage_bay()
+		return
 	draw_rect(CASE_RECT, Color("0b1738"))
 	draw_rect(CASE_RECT, K.LINE, false, 2)
 	_txt(Vector2(42, 384), "CASE / INSTALLED HARDWARE", 10, K.FAINT)
@@ -790,7 +874,13 @@ func _scene() -> void:
 				draw_texture_rect(texture, Rect2(origin, texture.get_size() * SOCKET_ART_SCALE), false)
 				_txt(Vector2(550, 90), "LGA · LOAD PLATE", 11, K.SKY)
 			else:
-				PartArt.draw_part(self, Transform2D(0, Vector2(2.6, 2.6), 0, CPU_TARGET), "motherboard", _context.get("installed", {}).get("motherboard", {}), K.cat_color("motherboard").darkened(0.35), 0.9)
+				# PGA schematic: provide real PCB beneath the whole shared mount footprint.
+				var pcb := Rect2(CPU_TARGET - COOLER_SIZE * 0.5, COOLER_SIZE).grow(18.0)
+				draw_rect(pcb, K.cat_color("motherboard").darkened(0.65))
+				draw_rect(pcb, K.cat_color("motherboard"), false, 2)
+				for i in 4:
+					var trace_y := pcb.position.y + 10.0 + i * 5.0
+					draw_line(Vector2(pcb.position.x + 10.0, trace_y), Vector2(pcb.end.x - 10.0, trace_y), K.LINE, 1)
 				var socket_rect := Rect2(CPU_TARGET - Vector2(62, 62), Vector2(124, 124))
 				draw_rect(socket_rect, K.NAVY0)
 				draw_rect(socket_rect, K.FAINT, false, 5)
@@ -811,18 +901,132 @@ func _scene() -> void:
 			_txt(Vector2(540, 144), "Latch locks on seating.", 11, K.MUTED)
 			draw_rect(Rect2(GPU_LATCH - Vector2(10, 7) - (Vector2(0, 12) if si == 1 else Vector2.ZERO), Vector2(20, 14)), K.ORANGE if si < 2 else K.LIME_DIM)
 		"ram":
-			draw_rect(Rect2(130, 300, 420, 26), K.NAVY0)
-			draw_rect(Rect2(130, 300, 420, 26), K.cat_color(cat), false, 2)
-			draw_rect(Rect2(335, 324, 10, 8), K.LIME)
-			for x in [118, 562]:
-				draw_rect(Rect2(x - 10, 296, 20, 34), K.ORANGE if si == 0 else K.LIME_DIM)
+			draw_rect(RAM_SLOT, K.NAVY0)
+			draw_rect(RAM_SLOT, K.cat_color(cat), false, 2)
+			var key_x := RAM_TARGET.x - RAM_SIZE.x * 0.5 + RAM_KEY_X
+			draw_rect(Rect2(key_x - RAM_KEY_WIDTH * 0.5, RAM_SLOT.position.y, RAM_KEY_WIDTH, RAM_SLOT.size.y), K.LIME)
+			for i in RAM_CLIPS.size():
+				var opened := si > 0 or float(steps[0].pts[i].c) >= float(steps[0].pts[i].n)
+				var seated := si >= 2 and float(steps[2].pts[i].c) >= float(steps[2].pts[i].n)
+				var at := RAM_CLIPS[i]
+				var offset := Vector2(12 if i == 0 else -12, 0) if not opened or seated else Vector2.ZERO
+				var color := K.LIME if seated else (K.LIME_DIM if opened else K.ORANGE)
+				draw_rect(Rect2(at + offset - Vector2(10, 17), Vector2(20, 34)), color)
+			_txt(Vector2(148, 353), "GOLD CONTACTS DOWN · GAP OVER GREEN KEY", 11, K.SKY)
 		"psu":
 			draw_rect(Rect2(PSU_TARGET - PSU_SIZE * 0.5, PSU_SIZE), K.FAINT, false, 3)
 			for hole in PSU_HOLES:
 				draw_arc(PSU_TARGET + hole, 8, 0, TAU, 16, K.LIME, 2)
 			_txt(Vector2(60, 200), "PSU REAR / CASE MOUNT", 10, K.FAINT)
-		"storage":
-			draw_rect(Rect2(250, 100, 250, 210), K.FAINT, false, 3)
+
+
+func _is_m2() -> bool:
+	return cat == "storage" and str(item.get("product_family", "")) == "Bolt"
+
+
+func _draw_m2_mount() -> void:
+	_txt(Vector2(44, 78), "MOTHERBOARD / M.2 CONNECTOR", 12, K.SKY, true)
+	_txt(Vector2(44, 99), "TOP VIEW · ONE END-RETENTION SCREW", 11, K.MUTED)
+	var pcb := Rect2(35, 135, 390, 175)
+	draw_rect(pcb, K.cat_color("motherboard").darkened(0.65))
+	draw_rect(pcb, K.cat_color("motherboard"), false, 2)
+	for y in [150, 164, 280, 294]:
+		draw_line(Vector2(48, y), Vector2(412, y), K.LINE, 1)
+	# Socket overlaps the gold edge; the far standoff lies beneath the PCB's end hole.
+	draw_circle(M2_SCREW, 10, Color("b69b60"))
+	draw_circle(M2_SCREW, 4, K.NAVY0)
+	_draw_m2_connector()
+	_txt(Vector2(46, 335), "M.2 EDGE CONNECTOR", 11, K.SKY)
+	_txt(Vector2(290, 335), "END STANDOFF", 11, K.SKY)
+	_txt(Vector2(438, 130), "BOLT · M.2 NVMe SSD", 11, K.SKY)
+	_txt(Vector2(438, 151), "Motherboard mount, not a bay.", 10, K.FAINT)
+	_txt(Vector2(44, 369), "INSERT GOLD EDGE · LOWER END · ONE SCREW", 11, K.FAINT)
+
+
+func _draw_m2_connector() -> void:
+	var edge := M2_TARGET - Vector2(M2_SIZE.x * 0.5, 0)
+	draw_rect(Rect2(edge + Vector2(-12, -49), Vector2(28, 98)), Color("667581"))
+	draw_rect(Rect2(edge + Vector2(9, -42), Vector2(7, 84)), K.NAVY0)
+
+
+func _draw_m2_drive(center: Vector2) -> void:
+	var origin := center - M2_SIZE * 0.5
+	draw_rect(Rect2(origin, M2_SIZE), Color("23574f"))
+	draw_rect(Rect2(origin, M2_SIZE), Color("519287"), false, 2)
+	for y in range(6, 83, 7):
+		if y in [34, 41]:
+			continue
+		draw_rect(Rect2(origin + Vector2(0, y), Vector2(16, 4)), Color("d8b65f"))
+	# Visible keyed break in the contact edge and a plated end-retention hole.
+	draw_rect(Rect2(origin + Vector2(0, 34), Vector2(12, 12)), K.NAVY0)
+	for x in [35, 106, 177]:
+		draw_rect(Rect2(origin + Vector2(x, 18), Vector2(56, 52)), Color("17252c"))
+		draw_line(origin + Vector2(x + 5, 24), origin + Vector2(x + 51, 24), K.FAINT, 1)
+	draw_circle(center + Vector2(152, 0), 8, Color("b69b60"))
+	draw_circle(center + Vector2(152, 0), 4, K.NAVY0)
+	# Keep the socket lip above the inserted contacts in the seated view.
+	if center.distance_to(M2_TARGET) < 24:
+		_draw_m2_connector()
+
+
+func _draw_storage_bay() -> void:
+	var origin := DRIVE_TARGET - DRIVE_SIZE * 0.5
+	var metal := Color("506878")
+	var edge := Color("99afbc")
+	# Open stamped cage, with folded runners and an empty neighbouring bay above.
+	# No filled backing rectangle: the workbench remains visible through cutouts.
+	for x in [origin.x - 16, origin.x + DRIVE_SIZE.x + 8]:
+		draw_rect(Rect2(x, origin.y - 62, 8, 206), metal)
+		draw_line(Vector2(x, origin.y - 62), Vector2(x, origin.y + 144), edge, 1)
+	for y in [origin.y - 52, origin.y + 12, origin.y + 100, origin.y + 134]:
+		draw_rect(Rect2(origin.x - 16, y, 392, 7), metal)
+		draw_line(Vector2(origin.x - 16, y), Vector2(origin.x + 376, y), edge, 1)
+		for x in [origin.x + 20, origin.x + 112, origin.x + 204, origin.x + 296]:
+			draw_rect(Rect2(x, y + 2, 34, 3), K.NAVY0)
+	for x in [origin.x - 12, origin.x + 372]:
+		for y in [origin.y - 44, origin.y + 120]:
+			draw_circle(Vector2(x, y), 2, K.NAVY0)
+	_txt(Vector2(44, 78), "CASE DRIVE CAGE / SIDE ELEVATION", 12, K.SKY, true)
+	_txt(Vector2(44, 99), "OPPOSITE SIDE · 2 OF 2" if si >= 2 else "NEAR SIDE · 1 OF 2", 11, K.MUTED)
+	var family := Art.storage_family(item)
+	var label := "3.5-INCH HDD · METAL SIDEWALL"
+	if family == "sata_ssd":
+		label = "THIN SATA SSD + BAY CADDY"
+	_txt(Vector2(438, 130), label, 11, K.SKY)
+	_txt(Vector2(438, 151), "GAME CARRIER" if family != "hdd" else "147 × 26 mm side profile", 10, K.FAINT)
+	if si == 0:
+		draw_line(Vector2(520, 311), Vector2(443, 311), K.SKY, 2)
+		draw_line(Vector2(443, 311), Vector2(454, 303), K.SKY, 2)
+		draw_line(Vector2(443, 311), Vector2(454, 319), K.SKY, 2)
+		_txt(Vector2(536, 315), "SLIDE LEFT", 11, K.MUTED)
+	_txt(Vector2(44, 369), "TWO SIDE SCREWS + TWO OPPOSITE = FOUR TOTAL", 11, K.FAINT)
+
+
+func _draw_storage_drive(center: Vector2) -> void:
+	var opposite := si >= 2
+	# Turn the side elevation around with the case: connector end swaps sides.
+	var mirror := Vector2(-1, 1) if opposite else Vector2.ONE
+	draw_set_transform_matrix(Transform2D(0, mirror, 0, center))
+	draw_texture_rect(Art.storage_side(item), Rect2(-DRIVE_SIZE * 0.5, DRIVE_SIZE), false)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
+func _draw_storage_flange() -> void:
+	var origin := DRIVE_TARGET - DRIVE_SIZE * 0.5
+	var metal := Color("506878")
+	var edge := Color("99afbc")
+	# Folded lower runner with punched cooling slots and two raised mounting ears.
+	draw_rect(Rect2(origin + Vector2(-10, 78), Vector2(380, 13)), metal)
+	draw_line(origin + Vector2(-10, 91), origin + Vector2(370, 91), edge, 2)
+	for x in [16, 100, 144, 188, 232, 320]:
+		draw_rect(Rect2(origin + Vector2(x, 82), Vector2(24, 5)), K.NAVY0)
+	for hole in DRIVE_HOLES:
+		var at := origin + hole
+		draw_colored_polygon(PackedVector2Array([at + Vector2(-16, 22), at + Vector2(-12, -12),
+			at + Vector2(12, -12), at + Vector2(16, 22)]), metal)
+		draw_line(at + Vector2(-12, -12), at + Vector2(12, -12), edge, 1)
+		draw_circle(at, 8, K.NAVY0)
+		draw_arc(at, 9, 0, TAU, 24, edge, 1)
 
 
 func _draw_board(center: Vector2, scale_factor: float, alpha: float = 1.0) -> void:
@@ -868,6 +1072,26 @@ func _draw_gpu(center: Vector2) -> void:
 	draw_texture_rect(texture, Rect2(center - extent * 0.5, extent), false)
 
 
+func _draw_ram(center: Vector2, flipped: bool) -> void:
+	var mirror := Vector2(-1, 1) if flipped else Vector2.ONE
+	draw_set_transform_matrix(Transform2D(0, mirror, 0, center - Vector2(0, RAM_SIZE.y * 0.5)))
+	var left := -RAM_SIZE.x * 0.5
+	var texture := Art.part("ram", item, true)
+	draw_texture_rect_region(texture, Rect2(left, 0, RAM_SIZE.x, 160), RAM_BODY_REGION)
+	# Explicit contact geometry shares its dimensions with the slot's key.
+	var gap_left := RAM_KEY_X - RAM_KEY_WIDTH * 0.5
+	var gap_right := RAM_KEY_X + RAM_KEY_WIDTH * 0.5
+	var gold := Color("d9b95d")
+	draw_rect(Rect2(left + RAM_CONTACTS.position.x, RAM_CONTACTS.position.y,
+		gap_left - RAM_CONTACTS.position.x, RAM_CONTACTS.size.y), gold)
+	draw_rect(Rect2(left + gap_right, RAM_CONTACTS.position.y,
+		RAM_CONTACTS.end.x - gap_right, RAM_CONTACTS.size.y), gold)
+	for x in range(int(RAM_CONTACTS.position.x), int(RAM_CONTACTS.end.x), 8):
+		if x < gap_left or x > gap_right:
+			draw_line(Vector2(left + x, 164), Vector2(left + x, 182), K.NAVY0, 1)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+
+
 func _draw_cpu(center: Vector2, turns: int) -> void:
 	draw_set_transform_matrix(Transform2D(float(turns) * PI / 2, Vector2.ONE, 0, center))
 	var extent := Art.CPU_CLOSEUP.get_size() * CPU_ART_SCALE
@@ -895,21 +1119,28 @@ func _draw_psu(center: Vector2, scale_factor: float) -> void:
 
 
 func _draw_cooler(center: Vector2) -> void:
-	for offset in [Vector2(-88, -88), Vector2(88, -88), Vector2(-88, 88), Vector2(88, 88)]:
+	for direction in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		var offset: Vector2 = direction * COOLER_MOUNT_HALF
 		draw_line(center, center + offset, K.LINE, 12)
 		draw_circle(center + offset, 8, K.FAINT)
 		draw_circle(center + offset, 4, K.NAVY0)
-	draw_rect(Rect2(center - Vector2(72, 72), Vector2(144, 144)), K.FAINT)
-	for i in 12:
-		draw_line(center + Vector2(-67, -64 + i * 12), center + Vector2(67, -64 + i * 12), K.CREAM, 2)
-	draw_circle(center, 54, K.NAVY0)
+	var body_half := COOLER_MOUNT_HALF - Vector2(12, 6)
+	draw_rect(Rect2(center - body_half, body_half * 2.0), K.FAINT)
+	for i in 9:
+		var y := -body_half.y + 5.0 + i * 11.0
+		draw_line(center + Vector2(-body_half.x + 4.0, y), center + Vector2(body_half.x - 4.0, y), K.CREAM, 2)
+	draw_circle(center, 40, K.NAVY0)
 	for i in 8:
 		var angle := i * TAU / 8
-		draw_line(center, center + Vector2(cos(angle), sin(angle)) * 46, K.LINE, 12)
+		draw_line(center, center + Vector2(cos(angle), sin(angle)) * 33, K.LINE, 10)
 	draw_circle(center, 13, K.SKY)
 
 
 func _draw_step(step: Dictionary, active: bool) -> void:
+	# Both side elevations occupy the same physical location. Never overlay the
+	# completed near-side screws onto the newly exposed opposite-side holes.
+	if cat == "storage" and step.kind == "clicks" and step != steps[mini(si, steps.size() - 1)]:
+		return
 	match str(step.kind):
 		"standoffs":
 			_draw_rear_edge(BOARD_RECT)
@@ -936,9 +1167,9 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 				for spot in _paste_spots:
 					draw_circle(spot, minf(10, radius), Color("bfc4d6"))
 			if active:
-				_txt(Vector2(550, 200), "Paste applied: %d%%" % roundi(_paste_amount * 100), 13, K.SKY)
-				_txt(Vector2(550, 224), "100% is enough.", 11, K.MUTED)
-				_txt(Vector2(550, 245), "Extra: no penalty.", 11, K.MUTED)
+				_draw_cooler(COOLER_BENCH)
+				_txt(Vector2(550, 272), "Paste applied: %d%%" % roundi(_paste_amount * 100), 13, K.SKY)
+				_txt(Vector2(550, 294), "100% enough; extra safe.", 11, K.MUTED)
 		"clicks":
 			for point: Dictionary in step.pts:
 				var at: Vector2 = point.p
@@ -971,8 +1202,15 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 				_draw_cooler(pos)
 			elif step.get("part") == "psu":
 				_draw_psu(pos, 1.0 if pos.distance_to(PSU_TARGET) < 30 else 0.8)
+			elif step.get("part") == "m2":
+				_draw_m2_drive(pos)
+			elif step.get("part") == "drive":
+				_draw_storage_drive(pos)
+				_draw_storage_flange()
 			elif step.kind == "gpu_drag":
 				_draw_gpu(pos)
+			elif cat == "ram":
+				_draw_ram(pos, int(step.rot) != 0)
 			elif cat == "cpu":
 				# The closed LGA texture already includes the seated CPU under its plate.
 				if not _uses_load_plate() or si < 3:
@@ -981,4 +1219,4 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 				var transform := Transform2D(float(step.rot) * PI / 2, Vector2(step.scale, step.scale), 0, pos)
 				PartArt.draw_part(self, transform, cat, item, K.cat_color(cat), 1)
 			if active and int(step.inc) > 0:
-				_txt(pos + Vector2(-60, 95), "R / right-click: rotate", 10, K.ORANGE if int(step.rot) % 4 != 0 else K.LIME)
+				_txt(pos + Vector2(-60, 95), "R / right-click: flip" if cat == "ram" else "R / right-click: rotate", 10, K.ORANGE if int(step.rot) % 4 != 0 else K.LIME)

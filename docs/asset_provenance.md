@@ -33,6 +33,24 @@ All three are tinted by the phone theme and displayed at 18 px. Their SVG paths 
 
 The assembly drawings are educational game schematics, not dimensionally accurate fabrication templates. Coolers are minigame props supplied with the CPU, not marketplace products. Percentage-based screw tightness, the 150% threshold, five-strike destruction and metal-bracket immunity are game rules, not real-world torque guidance.
 
+## Storage side-elevation family
+
+Authored for this redesign as original SVG source and Godot drawing code; no image-model output or downloaded photo pixels. The assets use the bench's navy, cyan and grey-metal palette, transparent 360×112 canvases, and two separated side holes at (64,61) and (296,61). Godot imports SVG alpha natively; explicit preloads in `art_library.gd` make the dependencies exportable. No mipmaps or opaque backdrop are needed. Approval: awaiting the root's in-game visual review.
+
+| File / resource | Original design and use | Rights / restrictions |
+| --- | --- | --- |
+| `assets/computer_parts/storage/hdd_side.svg` | Long, shallow 147:26 sidewall silhouette, silver lid seam, cast ribs, lower PCB lip and rear connector; not a top-view label/platter image | Original project-authored vector; no third-party artwork or attribution requirement |
+| `assets/computer_parts/storage/ssd_caddy_side.svg` | Thin 2.5-inch SATA SSD on an educational bay caddy, visibly distinct from the full-height HDD | Original project-authored vector; same terms |
+| `_draw_m2_mount()` / `_draw_m2_drive()` in `src/workshop/assembly.gd` | Original top-view M.2 PCB, keyed gold edge, motherboard connector and single end standoff/screw; Bolt never uses a bay carrier | Original project-authored drawing code; same terms |
+| `_draw_storage_bay()` / `_draw_storage_flange()` in `src/workshop/assembly.gd` | Open cage uprights, adjacent empty bay, folded rails, punched slots, raised mounting ears. Artwork, picking, placement target and screw centres share the same canvas/geometry | Original project-authored drawing code; same terms |
+
+Physical references (reference-only; copyrighted photos/PDF figures are **not shipped**, traced or embedded):
+
+- [ASUS HDD/SSD installation FAQ 1049212](https://www.asus.com/us/support/faq/1049212/): actual drive/tray photographs show stamped tray lips and two widely separated side screws. ASUS specifies four HDD screws total, two per side. Temporary research crops `/tmp/slopyard-hdd-bay-reference.png` and `/tmp/slopyard-hdd-side-screws-reference.png` were visually inspected; they remain outside the repository.
+- [Seagate BarraCuda product manual 100804187f](https://www.seagate.com/www-content/product-content/barracuda-fam/barracuda-new/en-us/docs/100804187f.pdf): mechanical reference for the approximately 147×101.6×26 mm 3.5-inch drive envelope. The side drawing reflects length/thickness, not a fabrication template.
+
+HDD/SATA interaction is schematic: slide onto the runners, fasten two near-side screws, then automatically expose the opposite side for the remaining two. The Flashy SATA SSD retains its bay caddy. Bolt NVMe instead inserts into a motherboard M.2 edge connector, lowers onto an end standoff and fastens with one screw. Its 80:22 PCB close-up is a schematic, not a catalog claim about exact module dimensions. Universal game storage compatibility, inventory/catalog art and hardware specifications are unchanged.
+
 ## External font assets
 
 `assets/fonts/pixel_operator/` contains the unmodified **Pixel Operator** family by Jayvee Enaguas (HarvettFox96), sourced from the [author's dafont distribution](https://www.dafont.com/pixel-operator.font) ([original ZIP](https://dl.dafont.com/dl/?f=pixel_operator)). The archive's full **CC0 1.0 Universal** license is preserved alongside the fonts as `LICENSE.txt`; embedded font metadata also identifies CC0.

@@ -23,6 +23,11 @@ func setup(player: Dictionary, listings: Array, price_drafts: Dictionary) -> voi
 	add_theme_constant_override("separation", 8)
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_clear(_box)
+	if bool(Game.state.get("assembly_test", false)):
+		_empty.text = "Selling is disabled in assembly practice."
+		_empty.visible = true
+		return
+	_empty.text = "No spare parts."
 	for item: Dictionary in player.inventory:
 		var active := {}
 		for listing: Dictionary in listings:

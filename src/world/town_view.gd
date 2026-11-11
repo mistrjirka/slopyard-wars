@@ -4,6 +4,7 @@ const World = preload("res://src/world/world_rules.gd")
 const K = preload("res://src/ui/ui_kit.gd")
 const ATLAS = preload("res://assets/town/atlas.png")
 const Art = preload("res://src/ui/art_library.gd")
+const Props = preload("res://src/world/world_props.gd")
 var tracked := -1
 @onready var _viewport: SubViewport = $Viewport
 @onready var _canvas: Node2D = $Viewport/Actors
@@ -19,6 +20,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_canvas.draw.connect(_paint)
+	# Map snapshots keep the default opaque props; the live view interleaves them with actors.
+	_backdrop.show_props = false
 
 
 func _process(delta: float) -> void:
@@ -35,6 +38,12 @@ func _process(delta: float) -> void:
 	_last_pos = p.pos
 	_canvas.queue_redraw()
 	queue_redraw()
+
+
+## Project a world position into the host canvas using the rendered pixel camera.
+func world_to_screen(world_position: Vector2) -> Vector2:
+	var local := (world_position - _camera.round()) * size / Vector2(_viewport.size)
+	return get_global_transform_with_canvas() * local
 
 
 func _draw() -> void:
@@ -80,7 +89,10 @@ func _paint() -> void:
 			actors.append({"pos": other.car_pos, "kind": "car", "p": other, "id": int(pid)})
 		if not other.driving:
 			actors.append({"pos": other.pos, "kind": "person", "p": other, "id": int(pid)})
+	if p.area == "home":
+		actors.append_array(World.room_props(p.installed.has("case")))
 	if p.area == "town":
+		actors.append_array(World.town_props())
 		var contacts := {}
 		for player: Dictionary in Game.state.players.values():
 			for m: Dictionary in Game.active_meetings(player):
@@ -94,6 +106,9 @@ func _paint() -> void:
 			_car(actor.pos, actor.p, actor.id)
 		elif actor.kind == "person":
 			_person(actor.pos, actor.p.facing, actor.id, str(actor.p.name))
+		elif actor.kind != "contact":
+			var alpha := 0.42 if not p.driving and Props.obscures_local(actor, p.pos) else 1.0
+			Props.draw_prop(_canvas, actor, true, alpha)
 		else:
 			_person(actor.pos, Vector2.DOWN, 9, str(actor.meeting.contact), false)
 			_r(actor.pos.x - 3, actor.pos.y - 35, 6, 9, "fff1b9")
@@ -151,10 +166,4 @@ func _track(p: Dictionary, _view: Vector2) -> void:
 			continue
 		var target: Vector2 = m.pos
 		_canvas.draw_arc(target, 23, 0, TAU, 16, Color("fff3ab"), 2)
-		var pos: Vector2 = p.pos
-		var delta := target - pos
-		if delta.length() > 40:
-			var marker: Vector2 = (pos + delta.normalized() * 44).round()
-			_canvas.draw_line(marker - delta.normalized() * 6, marker + delta.normalized() * 6, Color("fff4b8"), 3)
-			_text(marker + Vector2(4, -6), "%dm" % int(delta.length()), "fff4b8")
 		break

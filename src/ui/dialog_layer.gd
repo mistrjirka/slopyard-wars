@@ -85,6 +85,11 @@ func open_assembly(item: Dictionary) -> void:
 	if owned.is_empty():
 		notice_requested.emit("You do not own that part.")
 		return
+	var mounted: Dictionary = me.get("installed", {}).get(owned.category, {})
+	var reinstall := int(mounted.get("id", -1)) == int(owned.id)
+	if not mounted.is_empty() and not reinstall:
+		notice_requested.emit("Uninstall the mounted %s from Your Rig first." % owned.category)
+		return
 	for listing: Dictionary in Game.state.get("listings", []):
 		if int(listing.get("owner", 0)) == Game.local_id() and int(listing.get("item_id", -1)) == int(owned.id) and listing.get("status") == "available":
 			notice_requested.emit("Cancel the sale listing before installing this part.")
@@ -96,8 +101,6 @@ func open_assembly(item: Dictionary) -> void:
 	open()
 	var dlg: PanelContainer = AssemblyDialogScene.instantiate()
 	_center.add_child(dlg)
-	var mounted: Dictionary = me.get("installed", {}).get(owned.category, {})
-	var reinstall := int(mounted.get("id", -1)) == int(owned.id)
 	var title: Label = dlg.get_node("Box/Head/Title")
 	title.text = "%s  %s" % ["REINSTALLING" if reinstall else "INSTALLING", String(owned.name)]
 	title.add_theme_color_override("font_color", K.cat_color(owned.category))

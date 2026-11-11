@@ -35,6 +35,7 @@ func _refresh() -> void:
 		match phase:
 			"menu":
 				_screen.solo_requested.connect(Game.solo)
+				_screen.assembly_test_requested.connect(Game.start_assembly_test)
 				_screen.host_requested.connect(Game.host)
 				_screen.join_requested.connect(Game.join_game)
 			"lobby":
@@ -57,7 +58,10 @@ func _show_notice(message: String) -> void:
 
 
 func _replay() -> void:
-	Game.solo(str(Game.me().get("name", "Scrapper")), int(Game.state.budget), str(Game.state.objective))
+	if Game.state.get("assembly_test", false):
+		Game.start_assembly_test(str(Game.me().get("name", "Scrapper")))
+		return
+	Game.solo(str(Game.me().get("name", "Scrapper")), int(Game.state.budget), str(Game.state.objective), int(Game.state.match_days))
 
 
 func _draw() -> void:

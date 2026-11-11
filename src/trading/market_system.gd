@@ -24,7 +24,7 @@ func _init(game_session: Node) -> void:
 
 
 func add_listing(tpl: Resource, anchor: bool) -> Dictionary:
-	var contact := _available_contact()
+	var contact := _available_contact(tpl.model_id)
 	if contact == null:
 		return {}
 	var l: Dictionary = Catalog.build_listing(session.rng, tpl, next_id, contact)
@@ -39,16 +39,22 @@ func add_listing(tpl: Resource, anchor: bool) -> Dictionary:
 	return l
 
 
-## New stock and buyers must still have a feasible appointment before tonight's deadline.
-func _available_contact() -> Resource:
+## NPC stock is one seller/model identity, not a fresh chat on every random draw.
+## Player-owned sales remain distinct physical items and do not use this deduplication.
+func _available_contact(model_id: String = "") -> Resource:
 	var available := Characters.ALL.filter(func(contact):
-		return not Trade.options(contact.display_name, contact.meeting_places[0], session.clock()).is_empty())
+		if not model_id.is_empty():
+			for item: Dictionary in state.listings:
+				if int(item.get("owner", 0)) == 0 and str(item.get("character_id", "")) == str(contact.id) and str(item.get("model_id", "")) == model_id:
+					if item.status == "available" or _referenced(int(item.id)):
+						return false
+		return not Trade.options(contact.display_name, contact.meeting_places[0], session.clock(), session.deadline()).is_empty())
 	return null if available.is_empty() else available[session.rng.randi_range(0, available.size() - 1)]
 
 
 func contact_options(listing: Dictionary) -> Array:
 	var out: Array = []
-	for option: Dictionary in Trade.options(str(listing.seller), str(listing.location), session.clock()):
+	for option: Dictionary in Trade.options(str(listing.seller), str(listing.location), session.clock(), session.deadline()):
 		if not meeting_conflict(str(listing.seller), int(listing.id), option):
 			out.append(option)
 	return out
@@ -99,6 +105,9 @@ func handoff(pid: int, p: Dictionary, lid: int) -> void:
 		session.notify_player(pid, "Park and walk up to the contact at the agreed place.")
 		return
 	if session.clock() < float(m.start):
+		if bool(state.get("assembly_test", false)):
+			session.notify_player(pid, "The practice clock is paused. Use a normal run for timed pickups.")
+			return
 		session.notify_player(pid, "You're early. Meeting starts " + Trade.stamp(m.start) + ". Space waits in solo.")
 		return
 	if session.clock() > float(m.end):
@@ -136,6 +145,9 @@ func handoff(pid: int, p: Dictionary, lid: int) -> void:
 
 
 func post_sale(pid: int, p: Dictionary, d: Dictionary) -> void:
+	if bool(state.get("assembly_test", false)):
+		session.notify_player(pid, "Selling is unavailable with the practice clock paused. Use a normal run to trade.")
+		return
 	var id = int(session.number(d.get("item_id"), -99999))
 	var ask = int(session.number(d.get("price"), 0))
 	if ask < 1 or ask > 5000:
@@ -154,7 +166,7 @@ func post_sale(pid: int, p: Dictionary, d: Dictionary) -> void:
 		return
 	var contact := _available_contact()
 	if contact == null:
-		session.notify_player(pid, "No buyers have a meeting window left before tonight's deadline. Keep the spare and finish your build.")
+		session.notify_player(pid, "No buyers have a meeting window left before the match deadline. Keep the spare and finish your build.")
 		return
 	var l: Dictionary = item.duplicate(true)
 	l.id = next_id
@@ -206,16 +218,23 @@ func deliver_interest() -> void:
 		session.mark_changed()
 
 
+## Referenced rows are the durable identity behind private threads and agreements.
+func _referenced(lid: int) -> bool:
+	for player: Dictionary in state.players.values():
+		for key in ["chats", "offers", "counters", "meetings", "meeting_proposals"]:
+			if player.get(key, {}).has(lid):
+				return true
+	for job: Dictionary in session.dialogue.pending.values():
+		if int(job.lid) == lid:
+			return true
+	return false
+
+
 func refresh() -> void:
 	var pool: Array = []
 	for l in state.listings:
-		if l.status == "available" and not anchors.has(l.id) and int(l.get("owner", 0)) == 0:
-			var scheduled := false
-			for p: Dictionary in state.players.values():
-				if p.meetings.has(l.id) and float(p.meetings[l.id].end) >= session.clock():
-					scheduled = true
-			if not scheduled:
-				pool.append(l)
+		if l.status == "available" and not anchors.has(l.id) and int(l.get("owner", 0)) == 0 and not _referenced(int(l.id)):
+			pool.append(l)
 	pool.shuffle()
 	for l in pool.slice(0, mini(2, pool.size())):
 		l.status = "expired"
@@ -240,7 +259,7 @@ func refresh() -> void:
 		session.record_event("Price drop: %s now $%d" % [l.name, cut])
 	var dead: Array = []
 	for l in state.listings:
-		if l.status != "available":
+		if l.status != "available" and not _referenced(int(l.id)):
 			dead.append(l)
 	while dead.size() > 20:
 		state.listings.erase(dead.pop_front())

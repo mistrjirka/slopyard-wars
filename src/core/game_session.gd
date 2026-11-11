@@ -12,6 +12,7 @@ const RigRules = preload("res://src/workshop/rig_rules.gd")
 const Catalog = preload("res://src/data/catalog.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
 const StateFactory = preload("res://src/core/state_factory.gd")
+const World = preload("res://src/world/world_rules.gd")
 const ScoreStore = preload("res://src/core/score_store.gd")
 const SellerScript = preload("res://src/trading/seller_service.gd")
 const MarketSystem = preload("res://src/trading/market_system.gd")
@@ -82,38 +83,30 @@ func set_openrouter_key(value: String) -> void:
 	seller.set_api_key(value)
 
 
-func solo(player_name: String, budget: int = 1000, objective: String = "Balanced") -> void:
+func solo(player_name: String, budget: int = 1000, objective: String = "Balanced", match_days: int = Config.DEFAULT_MATCH_DAYS) -> void:
 	leave()
 	state.mode = "solo"
 	state.players[1] = StateFactory.player(player_name)
-	_begin(budget, objective)
+	_begin(budget, objective, match_days)
 
 
-func host(player_name: String) -> Error:
+## Local-only sandbox: no LAN entry point or action grants test-mode inventory.
+func start_assembly_test(player_name: String) -> void:
 	leave()
-	var err: Error = _network.host()
-	if err != OK:
-		notice.emit("Could not host on port %d (error %d). Is another game already hosting?" % [Config.PORT, err])
-		return err
-	state.mode = "lan"
-	state.phase = "lobby"
+	state.mode = "solo"
 	state.players[1] = StateFactory.player(player_name)
-	record_event("%s opened a lobby" % state.players[1].name)
-	mark_changed()
-	return OK
+	_begin(1000, "Balanced", Config.DEFAULT_MATCH_DAYS, true)
 
 
-func join_game(address: String, player_name: String) -> Error:
-	leave()
-	var addr := address.strip_edges()
-	var err: Error = _network.join(addr, player_name)
-	if err != OK:
-		notice.emit("Could not connect to '%s' (error %d)" % [addr, err])
-		return err
-	state.mode = "lan"
-	state.phase = "lobby"
-	mark_changed()
-	return OK
+## Multiplayer entry points remain callable for compatibility, but never open a connection.
+func host(_player_name: String, _match_days: int = Config.DEFAULT_MATCH_DAYS) -> Error:
+	notice.emit("Solo only: multiplayer is disabled. Start a solo high-score run from Play.")
+	return ERR_UNAVAILABLE
+
+
+func join_game(_address: String, _player_name: String) -> Error:
+	notice.emit("Solo only: multiplayer is disabled. Start a solo high-score run from Play.")
+	return ERR_UNAVAILABLE
 
 
 func leave() -> void:
@@ -127,11 +120,13 @@ func leave() -> void:
 	mark_changed()
 
 
-func start_match(budget: int = 1000, objective: String = "Balanced") -> void:
-	if not is_host() or state.phase != "lobby":
-		notice.emit("Only the host can start a match from the lobby.")
-		return
-	_begin(budget, objective)
+func start_match(_budget: int = 1000, _objective: String = "Balanced", _match_days: int = -1) -> void:
+	notice.emit("Solo only: lobbies are disabled. Start a solo high-score run from Play.")
+
+
+## Lobby configuration is disabled; solo() still accepts the selected run length.
+func set_match_days(_days: int) -> void:
+	notice.emit("Solo only: choose your run length in Play; lobbies are disabled.")
 
 
 func act(action: String, data: Dictionary = {}) -> void:
@@ -141,12 +136,16 @@ func act(action: String, data: Dictionary = {}) -> void:
 		_network.send_action(action, data)
 
 
-func _begin(budget: int, objective: String) -> void:
+func _begin(budget: int, objective: String, match_days: int, assembly_test: bool = false) -> void:
+	state.assembly_test = assembly_test
 	state.budget = clampi(budget, 600, 5000)
 	state.objective = objective if objective in RigRules.WEIGHTS else "Balanced"
 	_match_serial += 1
 	state.match_id = _match_serial
-	state.remaining = Config.TOTAL_MINUTES
+	state.match_days = clampi(match_days, Config.MIN_MATCH_DAYS, Config.MAX_MATCH_DAYS)
+	state.total_minutes = Config.duration_for_days(state.match_days)
+	state.deadline = Config.deadline_for_days(state.match_days)
+	state.remaining = state.total_minutes
 	state.events = []
 	state.ranking = []
 	state.listings = []
@@ -161,23 +160,53 @@ func _begin(budget: int, objective: String) -> void:
 	_movement_tick_reset()
 	_refresh = Config.REFRESH_EVERY
 	seller.begin_match()
-	var best := ScoreStore.load_best(score_path)
-	for pid in state.players:
+	var best := {} if assembly_test else ScoreStore.load_best(score_path)
+	var player_ids: Array = state.players.keys()
+	player_ids.sort()
+	var car_slot := 0
+	for pid in player_ids:
 		var p: Dictionary = state.players[pid]
 		var nm: String = p.name
 		p.merge(StateFactory.player(nm), true)
+		# Four separated bays on the open road; solo retains the original bay.
+		p.car_pos = World.CAR_START + Vector2(car_slot * 48, 0)
+		car_slot += 1
 		p.cash = state.budget
+		if assembly_test:
+			p.pos = World.BENCH + Vector2(0, 28)
+			p.inventory = StateFactory.assembly_test_inventory(rng)
+			_seed_test_rig(int(pid), p)
+			continue
 		# A visible old spare makes the selling path usable before the first purchase.
 		var spare: Dictionary = Catalog.build_listing(rng, Catalog.PARTS[0], -int(pid))
 		spare.name = "Your spare Tin Can mATX"
 		spare.status = "owned"
 		p.inventory.append(spare)
 		p.best = int(best.get(state.objective, 0)) if state.mode == "solo" else 0
-	for pick in Catalog.initial_picks(rng, state.players.size()):
-		market.add_listing(pick.tpl, pick.anchor)
+	if not assembly_test:
+		for pick in Catalog.initial_picks(rng, state.players.size()):
+			market.add_listing(pick.tpl, pick.anchor)
 	state.phase = "playing"
-	record_event("One-day challenge begins. Deadline %s. Objective: %s. Budget $%d." % [Trade.stamp(Config.DEADLINE), state.objective, state.budget])
+	if assembly_test:
+		record_event("Assembly test: all catalog parts supplied. Deadline paused; scores are not saved.")
+	else:
+		record_event("%d-day challenge begins. Deadline %s. Objective: %s. Budget $%d." % [state.match_days, Trade.stamp(deadline()), state.objective, state.budget])
 	mark_changed()
+
+
+## Use the real installation path, including compatibility and build-local mount data.
+func _seed_test_rig(pid: int, p: Dictionary) -> void:
+	for category in ["case", "psu", "motherboard", "cpu", "ram", "storage", "gpu"]:
+		var selected: Dictionary = {}
+		for item: Dictionary in p.inventory:
+			if item.category != category or workshop.compatibility(item, p) != "":
+				continue
+			if category == "case" and item.form != "ATX":
+				continue
+			if selected.is_empty() or (category == "psu" and int(item.capacity) > int(selected.capacity)):
+				selected = item
+		if not selected.is_empty():
+			workshop.install(pid, p, {"item_id": selected.id})
 
 
 func end_match() -> void:
@@ -196,7 +225,7 @@ func end_match() -> void:
 	state.ranking = ids
 	state.phase = "results"
 	state.remaining = maxf(0.0, state.remaining)
-	if state.mode == "solo":
+	if state.mode == "solo" and not state.get("assembly_test", false):
 		var p: Dictionary = state.players[1]
 		var best := ScoreStore.load_best(score_path)
 		if p.score.total > int(best.get(state.objective, 0)):
@@ -226,7 +255,11 @@ func _process(delta: float) -> void:
 
 
 func clock() -> float:
-	return Trade.START + Config.TOTAL_MINUTES - float(state.remaining)
+	return deadline() - float(state.remaining)
+
+
+func deadline() -> float:
+	return float(state.get("deadline", Config.DEADLINE))
 
 
 func _host_tick(dt: float) -> void:
@@ -237,7 +270,7 @@ func _host_tick(dt: float) -> void:
 	market.deliver_interest()
 	for threshold in [60.0, Config.BUILD_REMINDER_MINUTES]:
 		if float(state.remaining) <= threshold and float(state.remaining) + dt > threshold:
-			var message := "Final hour! Finish your build at the workbench before tonight's deadline." if threshold == 60 else "Three game hours left. Time to bring the bargains home: leave room for assembly and stress tests."
+			var message := "Final hour! Finish your build at the workbench before the match deadline." if threshold == 60 else "Three game hours left. Time to bring the bargains home: leave room for assembly and stress tests."
 			record_event(message)
 			for pid in state.players:
 				if not state.players[pid].ready:
@@ -299,7 +332,9 @@ func _handle(pid: int, action: String, data: Dictionary) -> void:
 		"world_activity": activities.use(pid, p, data)
 		"wait": movement.wait(pid, p)
 		"chat": dialogue.chat(pid, p, data)
+		"choose_meeting": dialogue.choose_meeting(pid, p, data)
 		"install": workshop.install(pid, p, data)
+		"uninstall": workshop.uninstall(pid, p, data)
 		"assembly_damage": workshop.assembly_damage(pid, p, data)
 		"tune": workshop.tune(pid, p, data)
 		"finish": workshop.finish(pid, p)
@@ -388,10 +423,13 @@ func _movement_tick_reset() -> void:
 
 
 func advance_time(minutes: float) -> void:
-	state.remaining = maxf(0.0, float(state.remaining) - minutes)
+	var assembly_test := bool(state.get("assembly_test", false))
+	if not assembly_test:
+		state.remaining = maxf(0.0, float(state.remaining) - minutes)
+	# Stress tests and activities still complete at the normal rate in the sandbox.
 	for player: Dictionary in state.players.values():
 		player.busy = maxf(0.0, float(player.busy) - minutes)
-	if is_host():
+	if is_host() and not assembly_test:
 		_host_tick(minutes)
 
 

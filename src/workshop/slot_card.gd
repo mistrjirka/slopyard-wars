@@ -10,7 +10,8 @@ const K = preload("res://src/ui/ui_kit.gd")
 @onready var oc_label: Label = $Row/TextCol/OcLabel
 @onready var ok_pill: PanelContainer = $Row/OkPill
 @onready var penalty_label: Label = $Row/TextCol/PenaltyLabel
-@onready var reinstall_button: Button = $Row/TextCol/Reinstall
+@onready var reinstall_button: Button = $Row/TextCol/Actions/Reinstall
+@onready var uninstall_button: Button = $Row/TextCol/Actions/Uninstall
 
 
 func _ready() -> void:

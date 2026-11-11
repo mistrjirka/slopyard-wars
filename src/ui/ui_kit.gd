@@ -100,8 +100,8 @@ static func geti(d: Dictionary, id: int, default: Variant = null) -> Variant:
 	return default
 
 
-static func clock_text(remaining: float) -> String:
-	return Trade.stamp(Config.START_MINUTE + clampf(Config.TOTAL_MINUTES - remaining, 0, Config.TOTAL_MINUTES))
+static func clock_text(remaining: float, total_minutes: float = Config.TOTAL_MINUTES) -> String:
+	return Trade.stamp(Config.START_MINUTE + clampf(total_minutes - remaining, 0, total_minutes))
 
 
 static func real_left(remaining: float) -> String:

@@ -11,6 +11,29 @@ const GPU_FAN_SIDES: Array[Texture2D] = [
 	preload("res://assets/computer_parts/graphics_cards/gpu_fan_side_3_fans.png"),
 ]
 
+## Original transparent assembly side elevations; inventory thumbnails stay unchanged.
+const HDD_SIDE = preload("res://assets/computer_parts/storage/hdd_side.svg")
+const SSD_CADDY_SIDE = preload("res://assets/computer_parts/storage/ssd_caddy_side.svg")
+
+
+static func storage_family(item: Dictionary) -> String:
+	# Runtime items carry the structured family from PartDefinition, not name hashes.
+	match str(item.get("product_family", "")):
+		"Spindle": return "hdd"
+		"Flashy": return "sata_ssd"
+		"Bolt": return "nvme"
+	# Old/custom items without family metadata get a neutral thin-drive carrier.
+	return "sata_ssd"
+
+
+static func storage_side(item: Dictionary) -> Texture2D:
+	match storage_family(item):
+		"hdd": return HDD_SIDE
+		# M.2 uses the motherboard connector/end-standoff drawing, never bay artwork.
+		"nvme": return null
+	return SSD_CADDY_SIDE
+
+
 const PARTS = {
 	"case": [preload("res://assets/computer_parts/cases/case_a.png"), preload("res://assets/computer_parts/cases/case_b.png"), preload("res://assets/computer_parts/cases/case_detail_a.png"), preload("res://assets/computer_parts/cases/case_detail_b.png")],
 	"cpu": [preload("res://assets/computer_parts/cpus/cpu_a.png"), preload("res://assets/computer_parts/cpus/cpu_b.png"), preload("res://assets/computer_parts/cpus/cpu_detail_a.png"), preload("res://assets/computer_parts/cpus/cpu_detail_b.png")],

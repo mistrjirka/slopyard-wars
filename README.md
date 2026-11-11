@@ -1,6 +1,6 @@
 # Slopyard Wars
 
-A **Godot 4.7** used-PC-building race inspired by *Scrapyard Wars*. Start at home, message local sellers on your phone, drive to appointments, build a compatible computer and overclock it before tonight's 22:00 deadline.
+A **Godot 4.7** solo used-PC-building high-score game inspired by *Scrapyard Wars*. Start at home, message local sellers, drive to appointments, build a compatible computer and overclock it before the final day's 22:00 deadline. Runs default to **two game days**, configurable from one to seven.
 
 ## Run
 
@@ -11,6 +11,8 @@ godot --path .
 ```
 
 A 1440×900 window is recommended; 1280×720 is supported by the existing stretch settings. No Python/Node server is required to play. The existing Godot AI addon files are preserved, but the plugin is disabled by default and its runtime helper is no longer autoloaded.
+
+For installation practice, choose **ASSEMBLY TEST** on the menu. It opens the workbench with all 75 catalog parts and a compatible installed rig; use **Reinstall** to practise any installed part, or **Uninstall** to try alternatives. The deadline is paused and practice scores are not saved. Sales and timed pickups belong to normal runs; waiting in practice only completes pending workbench jobs.
 
 ## Project structure
 
@@ -32,22 +34,22 @@ Five labeled placeholder PNGs are already wired into the world under [`assets/wo
 
 ### Changes in this refactor
 
-- Solo setup is the default focus; LAN controls expand from an optional section.
-- Supplied building, floor, road, vegetation, car, furniture, statue and computer-part artwork replaces the placeholder drawings. The original character atlas remains.
+- Solo high-score play is the supported mode; multiplayer menu and connection entry points are disabled.
+- Supplied building, floor, road, vegetation, car, furniture, statue and computer-part artwork replaces the placeholder drawings. Players use directional animated sprites; NPCs retain the original character atlas.
 - Installing a case changes the home workspace from the wooden to the metal furniture variants. Lucky statues decorate the home and town square.
-- Waiting advances workbench jobs and market refreshes along with the clock.
+- Waiting advances stress-test jobs and market refreshes along with the clock. Installation minigames themselves do the work; completion adds no extra installation wait.
 - Replay creates a fresh match identity and frees the previous screen. High-score loading tolerates malformed entries.
 - Unused automatic-travel/market widgets were removed. The physical negotiation → meeting → handoff → build loop remains.
 
 ### Live marketplace characters
 
-Paste your key into **OpenRouter API Key** on the main menu. The password-style field hides the key, blocks copying/cutting and allows pasting with Ctrl+V. It starts with the first configured value from: environment `OPENROUTER_API_KEY`, environment `OPENROUTER_KEY`, project-root `.env` (`OPENROUTER_KEY=...` or `OPENROUTER_API_KEY=...`), then `.local/openrouter.cfg` (`[openrouter]` / `api_key="YOUR_KEY"`). Quoted `.env` values are supported. Menu edits apply immediately and last for the current game process only; they do not overwrite the file. Clear the field to use offline sellers. The key stays local and is never included in match snapshots. Both `.env` and `.local/` are Git-ignored; Godot excludes dotfiles and dotfolders from exported projects. Keep them private when sharing the project folder directly. Restart the running game after editing a credential file. Only the solo process / LAN host makes OpenRouter requests, using **`deepseek/deepseek-v4.1-flash-1017`** with reasoning disabled and a 400-token output ceiling. Provider usage charges apply. Do not embed credentials in source files or exported builds.
+Paste your key into **OpenRouter API Key** on the main menu. The password-style field hides the key, blocks copying/cutting and allows pasting with Ctrl+V. It starts with the first configured value from: environment `OPENROUTER_API_KEY`, environment `OPENROUTER_KEY`, project-root `.env` (`OPENROUTER_KEY=...` or `OPENROUTER_API_KEY=...`), then `.local/openrouter.cfg` (`[openrouter]` / `api_key="YOUR_KEY"`). Quoted `.env` values are supported. Menu edits apply immediately and last for the current game process only; they do not overwrite the file. Clear the field to use offline sellers. The key stays local and is never included in match snapshots. Both `.env` and `.local/` are Git-ignored; Godot excludes dotfiles and dotfolders from exported projects. Keep them private when sharing the project folder directly. Restart the running game after editing a credential file. Only the local solo process makes OpenRouter requests, using **`deepseek/deepseek-v4.1-flash-1017`** with reasoning disabled and a 400-token output ceiling. Provider usage charges apply. Do not embed credentials in source files or exported builds.
 
 Without a key, or on a provider failure, clearly marked **offline** replies keep the trading loop playable. The fallback understands fewer natural-language variations. The game, not the model, owns money, inventory, schedules and transaction validation.
 
-Characters take roughly **2–12 seconds** to reply, with individual pacing. At guide price, a sale's first interested buyer typically arrives after **8–18 game minutes** (about 11–24 real seconds); expensive asks take longer and can get no replies. The Sell screen shows waiting for interest until somebody actually contacts you. Incoming chat bubbles sit on the left, yours on the right, and system notices are centered.
+Characters have individual reply pacing. Live AI requests have a **40-second total turn budget**, including at most one correction of an inconsistent financial decision; provider latency can exceed the authored pacing. At guide price, a sale's first interested buyer typically arrives after **8–18 game minutes** (about 11–24 real seconds); expensive asks take longer and can get no replies. The Sell screen shows waiting for interest until somebody actually contacts you. Incoming chat bubbles sit on the left, yours on the right, and system notices are centered.
 
-Ask the contacts about their lives: each has a biography, relationships, ambitions and conversation hooks. Gus, Professor Pixel and Brandon prefer a brief personal exchange before bargaining. Every character has interests they take personally: bluntly dismissing those hobbies, directly insulting them or making one extreme lowball can get you blocked immediately. Minor annoyances exhaust their remaining patience quickly too. Blocks cancel your existing deals and stop trading across all that character's listings for the run. Genuine questions, polite redirection and reasonable bargaining remain welcome. Other LAN players keep their own relationships. The prompt and a host text check prevent explicit private-limit explanations such as "above the set minimum" from appearing as valid negotiation dialogue.
+Ask the contacts about their lives: each has a biography, relationships, ambitions and conversation hooks. Gus, Professor Pixel and Brandon prefer a brief personal exchange before bargaining. Every character has interests they take personally: bluntly dismissing those hobbies, directly insulting them or making one extreme lowball can get you blocked immediately. Minor annoyances exhaust their remaining patience quickly too. Blocks cancel your existing deals and stop trading across all that character's listings for the run. Genuine questions, polite redirection and reasonable bargaining remain welcome. The prompt and a host text check prevent explicit private-limit explanations such as "above the set minimum" from appearing as valid negotiation dialogue.
 
 ## Controls
 
@@ -62,9 +64,13 @@ Ask the contacts about their lives: each has a biography, relationships, ambitio
 | **Space** | Intentionally wait in solo: 30 game minutes, or up to two hours toward a nearby upcoming meeting |
 | **Esc** | Close phone, map, workbench or current dialog |
 
-Movement stops while an interface is open. The world clock does **not** pause while you chat. Waiting cannot skip time for other LAN players.
+Movement stops while an interface is open. The world clock does **not** pause while you chat. Assembly test mode is the exception: its deadline stays paused.
 
 World encounters, completed handoffs and clock reminders arrive as texts from **Lucky**, a contact that appears by magic in your phone's **Messages**. His conversation is read-only, with a large Lucky portrait on the left of the unfolded display and message history filling the right half down to the bottom. The cover shows the texts alone. New texts preserve your place while reading older ones. Blue dots in the inbox mark unread messages from Lucky, sellers and buyers; opening a conversation clears its dot. Unread counts on **PHONE [P]** and the **Messages** tab announce incoming texts without opening the phone. History lasts for the current match. Invalid actions and immediate feedback, such as pressing E with nothing nearby, stay in the bottom bar.
+
+Messages are split into **Active**, **Agreed** (price, place and time confirmed), and **Finished** conversations. Marketplace cards mark listings you have already messaged, and CPU cards show their socket. When arranging pickup, choose an offered time in the quick-response area; typing pauses during selection. Slot colours and overlap counts describe your other appointments without preventing a choice.
+
+Physical town objects collide at their visible bases rather than their roofs or canopies. Tall objects are depth-sorted with characters and fade as a whole when hiding them. Cars are solid, and the bottom-centre asphalt parking court is driveable. The compact component checklist stays visible beside the open phone. Meeting indicators replace the minimap: grey before start, green during the window, and red **!** during its final ten minutes. Off-screen locations use edge arrows; **M** still opens the full map.
 
 Assembly uses clicks, dragging and **R/right-click** rotation where instructed. Hold left mouse to tighten screws and right mouse to loosen them. Overclock dials accept dragging, scrolling and focused arrow-key adjustments.
 
@@ -72,13 +78,13 @@ Install a case before a motherboard; CPU, RAM, graphics and storage need their c
 
 Clicking exposed LGA socket pins during CPU placement damages the motherboard, not the CPU. The workbench shows screw coverage and your assembly mistakes for the run; these quality counts add no extra performance penalty.
 
-CPUs include a cooler as a minigame prop, not a separate marketplace item. Too little thermal paste reduces CPU performance by up to 50%; excess paste has no penalty. Tighten opposite cooler corners gradually to preserve cooling and overclocking headroom. Current damage and installation penalties are shown on the bench; **Reinstall** lets you correct paste or mounting, but not physical damage.
+CPUs include a cooler as a minigame prop, not a separate marketplace item. Too little thermal paste reduces CPU performance by up to 50%; excess paste has no penalty. Tighten opposite cooler corners gradually to preserve cooling and overclocking headroom. Current damage and installation penalties are shown on the bench; **Reinstall** lets you correct paste or mounting, but not physical damage. **Uninstall** returns the part to inventory without a timer; alternatives for that occupied category remain hidden until it is removed. Completed mandatory steps advance automatically, while paste and optional motherboard fastening stay under your control. HDD/SATA drives use a side-view bay with two screws on each side; M.2 NVMe modules use a motherboard connector and one end screw. The GPU bracket has one top screw.
 
 ### LuckyFold Duo
 
 **P / Tab** takes out the phone folded, sliding it up with easing. If it was put away unfolded, it automatically runs the normal unfolding animation after sliding into view. Pocketing first folds the inner display shut, then slides the phone down. The cover shows your inbox or selected conversation and supports reading, typing, quick replies, meetings and appointment tracking. **Fold/Unfold** stays immediately left of **×**. Unfolding shifts the phone right, then swings the cover left around the hinge. Conversations, drafts and the current app survive pocketing and folding. While a text field is focused, typing does not trigger game shortcuts. Tab and Shift+Tab move focus within the open phone. Escape or clicking outside the field leaves text editing; another Escape pockets the phone.
 
-The unfolded app keeps **Marketplace**, **Messages** and **Sell** tabs along the bottom, including inside conversations. Each icon sits beside its label, centered together within the tab. The current tab title is centered in the top status row. Search, part-type filtering and price/newest sorting are always visible above a three-column marketplace; cheapest-first is the default. Filters survive navigation, and live stock updates preserve search focus. Unfolded conversations show contact and hardware details on the left with chat starting at the top of the right column; the folded cover shows only the active conversation. Back returns to the inbox. Pending, blocked, sold, private and waiting-for-buyer conversations expose only appropriate actions. **Sell** shows inline price controls and valuation advice for each spare. Buyers still haggle and require a physical handoff; price guides do not reveal private budgets.
+The unfolded app keeps **Marketplace**, **Messages** and **Sell** tabs along the bottom, including inside conversations. Each icon sits beside its label, centered together within the tab. The current tab title is centered in the top status row. Search, part-type filtering and price/newest sorting are always visible above a three-column marketplace; cheapest-first is the default. Filters survive navigation, and live stock updates preserve search focus. Unfolded conversations show contact and hardware details on the left with chat starting at the top of the right column; the folded cover shows only the active conversation. Back returns to the originating marketplace, listings page or inbox category. Pending, blocked, sold, private and waiting-for-buyer conversations expose only appropriate actions. **Sell** shows inline price controls and valuation advice for each spare. Buyers still haggle and require a physical handoff; price guides do not reveal private budgets.
 
 The cover has **LuckyFold Duo** printed beneath its display. Screen corners follow the housing contour. The unfolded screen intentionally has failed pixel rows/columns in the lower-right. Their colours have a slight green tint, shift smoothly about once a second and react to presses; they never steal input. In conversations, the message box's upper edge sits behind the band, with input and Send text below it and to the right of the vertical stripe. Quick replies stay above the band and bottom navigation remains clear. Both physical halves share one responsive scale. Cover rendering and layout recover after interrupted pocket/reveal animations.
 
@@ -86,9 +92,9 @@ The casing and extruded side rails are authored procedural geometry; the fault r
 
 ## The loop
 
-1. **Start solo or host/join LAN.** Choose a budget and CPU, GPU, Storage or Balanced benchmark objective. You spawn in a furnished house with your PC workbench. A visible old spare case lets you try selling immediately; it isn't cash until actually sold.
+1. **Start a solo high-score run.** Choose a budget and CPU, GPU, Storage or Balanced benchmark objective. You spawn in a furnished house with your PC workbench. A visible old spare case lets you try selling immediately; it isn't cash until actually sold.
 2. **Use your phone.** Unfold the LuckyFold Duo: **Marketplace** shows social-classifieds listing tiles, **Messages** holds individual conversations, and **Sell** lets you list owned spare parts. Hardware notes help you match sockets, memory and power; sellers aren't all experts. Fold it closed for quick messages.
-3. **Negotiate price, place and time.** There's no checkout or Buy button. Ordinary-person sellers and buyers can counter, refuse, get impatient or be unsure about technical questions. Each contact has different daytime/evening availability and two possible meeting locations. Ask naturally or use the meeting-suggestion messages.
+3. **Negotiate price, place and time.** There's no checkout or Buy button. Ordinary-person sellers and buyers can counter, refuse, get impatient or be unsure about technical questions. Each contact has different daytime/evening availability and two possible meeting locations. Ask naturally, then use the canonical pickup-time quick choices after agreeing a price.
 4. **Check the confirmed meeting.** Agreeing only a price isn't enough. A confirmed appointment shows its **day, time, place and window end**. Track it from the conversation or map. A proposal is not confirmation. An agreement also isn't an exclusive reservation: shared stock still goes to the first valid handoff.
 5. **Go there yourself.** Walk through the home door, approach your car and press E. Starting the car costs $3 fuel. Drive around town, park, and walk to the contact. They appear during the agreed window; E transfers the part and payment only at the right place and time. Early? Wait. Missed them? Message to reschedule.
 6. **Sell spares.** Post an inventory part and a buyer will open with an offer. Negotiate in Messages, agree a meeting and physically hand it over to receive money. A live listing locks the part from installation; cancelling unlocks it. Installed/destroyed parts can't be listed, and handoffs can't pay twice.
@@ -97,16 +103,15 @@ The casing and extruded side rails are authored procedural geometry; the fault r
 
 ## Clock and appointments
 
-The run lasts **one day, 08:00–22:00**. At **0.75 game minutes per real second**, the full clock lasts **18 minutes 40 seconds**, before solo waits, activity time costs or finishing early. The slower clock leaves more reading and negotiation time within each appointment. Market refreshes happen every game hour. Aim to hunt and collect through the day, then bring the parts home around **19:00** for assembly and tuning. Reminders appear with three game hours and one game hour left; you can keep shopping or finish early. The HUD shows the deadline and approximate real time remaining.
+Runs default to **Day 1, 08:00 through Day 2, 22:00**, or **50 minutes 40 seconds** at **0.75 game minutes per real second**, before waits, activity time costs or finishing early. Choose **1–7 game days** in setup; one day retains the original 18-minute-40-second clock. Market refreshes happen every game hour. Return home around **19:00 on the final day** for assembly and tuning. Reminders appear with three game hours and one game hour left. The HUD shows game time and approximate real time remaining; hover the clock for the deadline.
 
-Contacts offer a small set of upcoming feasible windows, generally up to 90 game minutes long, all bounded by tonight's deadline. Different characters prefer different hours and meeting places. New listings and buyers use contacts who still have a feasible window; when none remain, posting a sale is refused without taking the part. Overlapping appointments cannot place the same person at different locations. NPCs currently appear at meetings rather than simulating a full commute/work/home life.
+Contacts offer a small set of upcoming feasible windows, generally up to 90 game minutes long, all bounded by the run's deadline. A new meeting must start **at least one game hour after confirmation**; old proposals are revalidated, but already confirmed meetings remain valid as their time approaches. Different characters prefer different hours and meeting places. New listings and buyers use contacts who still have a feasible window; when none remain, posting a sale is refused without taking the part. Overlapping appointments cannot place the same person at different locations. NPCs currently appear at meetings rather than simulating a full commute/work/home life.
 
-## Multiplayer
+## Multiplayer and exports
 
-- Up to **4 players**, ENet **UDP 24680**. Join the host's LAN address before the match starts. Use `127.0.0.1` for two instances on one machine.
-- The host owns movement/collision, time, availability, cash, parts and handoffs; clients send directional/action intents, not teleport coordinates.
-- Players have their own car and rig; nearby peers and active contacts are visible. The small home layout is shared rather than separate customizable houses.
-- Public matchmaking, NAT traversal, reconnect and unfinished-match saves aren't implemented. Separate-machine LAN connectivity has not been verified.
+Multiplayer is disabled; local solo high scores are the game mode. The former ENet transport and lobby code remain for reference but cannot be entered through the menu or connection methods.
+
+Windows and Web export presets/templates are not configured yet. Source inspection alone is not proof of an exported build working. Release packaging must exclude local credentials, development tools and test artifacts; browser exports also need an actual browser smoke test.
 
 ## Prototype notes
 
@@ -118,17 +123,17 @@ See [`docs/backend.md`](docs/backend.md) for state ownership and trading rules.
 
 ## Validation
 
-Validation uses Godot 4.7.2: editor import/parsing, the offline regression suite, and a two-process localhost ENet smoke test. Tests exercise gameplay outcomes, authored content and screen lifecycle, disable paid dialogue calls, and use isolated score files. The runner prints the current check count.
+Validation uses Godot 4.7.2: editor import/parsing, the offline regression suite and isolated native UI/gameplay smoke scenarios. Tests exercise gameplay outcomes, authored content and screen lifecycle, disable paid dialogue calls, and use isolated score files. The runner prints the current check count.
 
 ```sh
 godot --headless --path . --editor --import --quit
 godot --headless --path . --script res://tests/run_tests.gd
 ```
 
-Windows, including LAN and log validation:
+Windows regression/log runner:
 
 ```powershell
-./tests/run.ps1 -Godot 'C:/path/to/Godot_console.exe' -IncludeLan
+./tests/run.ps1 -Godot 'C:/path/to/Godot_console.exe'
 ```
 
-Interactive visual playtesting was skipped at the user's request. Live-provider dialogue and separate-machine LAN were not re-tested during this refactor. Earlier prototype playthroughs do not constitute visual verification of the new artwork.
+Rendered UI and minigame checks should cover both 1440×900 and 1152×720. Live-provider conversation quality requires separate, bounded real-service testing; offline checks cannot establish it. Legacy LAN smoke scripts do not apply while multiplayer is disabled.

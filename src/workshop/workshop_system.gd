@@ -94,7 +94,10 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 		session.notify_player(pid, "Cannot install: " + why)
 		return
 	var cat: String = item.category
-	var expected: int = RigRules.ASSEMBLY_SCREWS[cat]
+	if not reinstall and p.installed.has(cat):
+		session.notify_player(pid, "Uninstall the mounted %s from Your Rig first." % cat)
+		return
+	var expected: int = RigRules.expected_fasteners(item)
 	# Omitted counts preserve direct-install callers; explicitly malformed counts never mutate the build.
 	var raw_seated: float = session.number(d.get("screws_seated", expected), -1)
 	if raw_seated != floorf(raw_seated) or raw_seated < 0.0 or raw_seated > float(expected):
@@ -113,8 +116,6 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 		return
 	if not reinstall:
 		p.inventory.remove_at(idx)
-		if p.installed.has(cat):
-			p.inventory.append(p.installed[cat])
 	p.installed[cat] = item
 	var fasteners: Dictionary = p.workshop_modifiers.get("assembly_fasteners", {})
 	var coverage := {"item_id": id, "seated": seated}
@@ -123,7 +124,7 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 	fasteners[cat] = coverage
 	p.workshop_modifiers["assembly_fasteners"] = fasteners
 	p.tuning.erase(cat)
-	p.busy = Config.INSTALL_MIN
+	# Assembly is the installation work; completion must not start a second timer.
 	var message := ("Reinstalled %s." if reinstall else "Installed %s.") % item.name
 	if cat == "cpu":
 		# Mount quality and paste coverage belong to the player's build, not to the tradeable part.
@@ -135,6 +136,29 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 			message += " The cooler mount is uneven (quality %d%%): expect less clock headroom and more heat." % roundi(quality * 100.0)
 	var rest := build_issues(p)
 	session.notify_player(pid, message + ("" if rest.is_empty() else " Still: " + rest[0]))
+
+
+## Returns exactly the mounted part, including physical wear, without removing any other slot.
+func uninstall(pid: int, p: Dictionary, d: Dictionary) -> void:
+	if busy_block(pid, p):
+		return
+	var cat := str(d.get("category", ""))
+	var raw_id: float = session.number(d.get("item_id"), -1)
+	var item: Dictionary = p.installed.get(cat, {})
+	if raw_id != floorf(raw_id) or item.is_empty() or str(item.get("category", "")) != cat or int(item.get("id", -2)) != int(raw_id):
+		session.notify_player(pid, "The mounted part changed. Review Your Rig before uninstalling.")
+		return
+	p.installed.erase(cat)
+	p.inventory.append(item)
+	p.tuning.erase(cat)
+	var fasteners: Dictionary = p.workshop_modifiers.get("assembly_fasteners", {})
+	fasteners.erase(cat)
+	p.workshop_modifiers["assembly_fasteners"] = fasteners
+	if cat == "cpu":
+		p.workshop_modifiers.erase("cpu_mount_quality")
+		p.workshop_modifiers.erase("cpu_paste_amount")
+	var rest := build_issues(p)
+	session.notify_player(pid, "Uninstalled %s. Returned to inventory." % item.name + ("" if rest.is_empty() else " Still: " + rest[0]))
 
 
 ## Applies one reported assembly mistake to a spare or mounted part the player owns. Idempotent per strike count;

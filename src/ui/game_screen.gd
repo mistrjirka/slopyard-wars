@@ -11,22 +11,26 @@ const Activities = preload("res://src/world/activities.gd")
 const World = preload("res://src/world/world_rules.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
 const MeetingButton = preload("res://src/ui/map_meeting_button.tscn")
+const TownView = preload("res://src/world/town_view.gd")
+const MeetingIndicators = preload("res://src/ui/meeting_indicators.gd")
+const BuildChecklist = preload("res://src/ui/build_checklist.gd")
 @onready var _phone: Control = $PhoneLayer/Center/Phone
 @onready var _bench: Control = $Workspace/Work/Bench
 @onready var _tune: Control = $Workspace/Work/Tune
-@onready var _world: Control = $World
+@onready var _world: TownView = $World
 @onready var _clock_lbl: Label = $Topbar/Row/Clock
 @onready var _cash_lbl: Label = $Topbar/Row/Cash
 @onready var _context_label: Label = $Bottombar/Hints/Context
 @onready var _appointment_label: Label = $Bottombar/Hints/Appointment
+@onready var _bottom_bar: PanelContainer = $Bottombar
 @onready var _phone_layer: Control = $PhoneLayer
 @onready var _phone_center: Control = $PhoneLayer/Center
 @onready var _phone_shade: ColorRect = $PhoneLayer/Shade
 @onready var _workspace: Control = $Workspace
 @onready var _map_layer: Control = $MapLayer
 @onready var _world_hud: Control = $WorldHud
-@onready var _minimap: Control = $WorldHud/Minimap
-@onready var _mini_map_view: Control = $WorldHud/Minimap/Box/Map
+@onready var _checklist: BuildChecklist = $WorldHud/BuildChecklist
+@onready var _meeting_indicators: MeetingIndicators = $WorldHud/MeetingIndicators
 
 var _move_t := 0.0
 var _tracked := -1
@@ -57,12 +61,14 @@ func _ready() -> void:
 	_phone.close_requested.connect(_close_phone)
 	_phone.fold_finished.connect(_on_phone_fold_finished)
 	resized.connect(func(): _set_phone_slide(_phone_slide))
+	_bottom_bar.minimum_size_changed.connect(_fit_bottom_bar, CONNECT_DEFERRED)
+	_fit_bottom_bar.call_deferred()
+	_meeting_indicators.setup(_world, $WorldHud/BuildChecklist, _bottom_bar)
 	_phone.track_requested.connect(func(id: int):
 		_tracked = id
 		_world.tracked = id
-		_mini_map_view.tracked = id
 		_close_phone()
-		notice_requested.emit("Meeting tracked. M shows the whole town; follow the yellow marker. Park and E at the contact."))
+		notice_requested.emit("Meeting tracked. M shows pickup details; grey markers wait, green markers are open, red ! means 10 minutes or less left. Park and E at the contact."))
 	_phone_layer.visible = false
 	_bench.ask = _dialogs.ask
 	_bench.install_requested.connect(_dialogs.open_assembly)
@@ -71,6 +77,14 @@ func _ready() -> void:
 	_tune.ask = _dialogs.ask
 	_workspace.visible = false
 	_update_world_hud()
+	if bool(Game.state.get("assembly_test", false)):
+		_open_workspace.call_deferred("bench")
+
+func _fit_bottom_bar() -> void:
+	var height := ceilf(_bottom_bar.get_combined_minimum_size().y)
+	_bottom_bar.offset_top = -height
+	_world.offset_bottom = -height
+
 
 func _overlay_open() -> bool:
 	return _dialogs.visible or _phone_layer.visible or _workspace.visible or _map_layer.visible
@@ -205,7 +219,6 @@ func _toggle_map() -> void:
 func _track_meeting(listing_id: int) -> void:
 	_tracked = listing_id
 	_world.tracked = listing_id
-	_mini_map_view.tracked = listing_id
 	_map_layer.hide()
 
 
@@ -272,31 +285,37 @@ func _update_world_hud() -> void:
 	var unread: int = _phone.unread_count()
 	$Topbar/Row/PhoneBtn.text = "PHONE [P] · %d" % unread if unread > 0 else "PHONE [P]"
 	$Topbar/Row/PhoneBtn.tooltip_text = "%d unread messages" % unread if unread > 0 else "Open your phone"
-	_world_hud.visible = not _overlay_open()
-	_minimap.visible = p.area == "town"
-	_clock_lbl.text = Trade.stamp(Game.clock()) + " · ~" + K.real_left(Game.state.remaining) + " left"
+	_world_hud.visible = not (_dialogs.visible or _workspace.visible or _map_layer.visible)
+	_checklist.set_phone_mode(_phone_layer.visible)
+	_meeting_indicators.visible = not _phone_layer.visible
+	var assembly_test := bool(Game.state.get("assembly_test", false))
+	_clock_lbl.text = "ASSEMBLY TEST · clock paused" if assembly_test else Trade.stamp(Game.clock()) + " · ~" + K.real_left(Game.state.remaining) + " left"
+	_clock_lbl.tooltip_text = "All catalog parts supplied · Reinstall any part to practise · Scores are not saved" if assembly_test else "Match ends " + Trade.stamp(Game.deadline()) + " · " + str(Game.state.objective) + " objective"
 	_cash_lbl.text = "$%d" % int(p.cash)
-	var hint := "Home · E at the door to go outside. Walk to the PC desk for B: assembly / T: tuning."
+	var hint := "Home · E at the door: outside · At the PC desk: B assemble / T tune"
 	if p.area == "town":
-		hint = "Driving · WASD / arrows. E parks and gets out. Fuel costs $3 each time you start the car." if p.driving else "Town · E by your car to drive, by home to go inside, or by a scheduled contact to trade."
+		hint = "Driving · E: park and get out · Starting the car costs $3" if p.driving else "Town · E: car / home / meeting handoff · E at attractions: interact"
 	var nearby := Activities.nearby(p)
 	if nearby != null:
 		hint = "E: " + nearby.display_name + " · " + Activities.cost_text(nearby)
 	if p.ready:
-		hint = "Rig locked. Waiting for the other builders or the deadline."
+		hint = "Rig locked. Your final benchmark score is ready."
 	_context_label.text = _feedback_message if _feedback_remaining > 0.0 else hint
 	_context_label.add_theme_color_override("font_color", K.ORANGE if _feedback_remaining > 0.0 else K.CREAM)
 	var meetings: Array = Game.active_meetings(p)
-	var line := "Tonight's deadline: " + Trade.stamp(Config.DEADLINE) + " · " + str(Game.state.objective) + " objective · P opens your phone."
+	var line := ""
 	if not meetings.is_empty():
 		var m: Dictionary = meetings[0]
 		for candidate: Dictionary in meetings:
 			if int(candidate.listing_id) == _tracked:
 				m = candidate
-		line = str(m.contact) + " · " + str(m.label) + " · " + str(m.status).to_upper() + " · Space waits in solo; missed? message to reschedule."
+		line = str(m.contact) + " · " + str(m.label) + " · " + str(m.status).to_upper()
+		if m.status == "missed":
+			line += " · Message to reschedule"
 	if float(Game.state.remaining) <= Config.BUILD_REMINDER_MINUTES and not p.ready:
-		line = "BUILD TIME · " + line + " · Leave time to return home, assemble and test."
+		line = "BUILD TIME · Return home, assemble and test" + (" · " + line if not line.is_empty() else " · Deadline " + Trade.stamp(Game.deadline()))
 	_appointment_label.text = line
+	_appointment_label.visible = not line.is_empty()
 
 
 func _input(event: InputEvent) -> void:

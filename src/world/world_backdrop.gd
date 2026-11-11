@@ -3,9 +3,14 @@ extends Node2D
 const Activities = preload("res://src/world/activities.gd")
 const Art = preload("res://src/ui/art_library.gd")
 const World = preload("res://src/world/world_rules.gd")
-const Catalog = preload("res://src/data/catalog.gd")
+const Props = preload("res://src/world/world_props.gd")
 const K = preload("res://src/ui/ui_kit.gd")
 @export var show_labels := true
+var show_props := true:
+	set(value):
+		if show_props != value:
+			show_props = value
+			queue_redraw()
 var has_rig := false:
 	set(value):
 		if has_rig != value:
@@ -23,7 +28,10 @@ func _draw() -> void:
 		_house()
 	else:
 		_town()
-	_draw_activities()
+	_draw_activity_markers()
+	if area == "home" and show_props:
+		for prop: Dictionary in World.room_props(has_rig):
+			Props.draw_prop(self, prop, show_labels)
 
 
 func _art(key: String, rect: Rect2) -> void:
@@ -65,13 +73,7 @@ func _house() -> void:
 	_art("rug_b", Rect2(46, 187, 60, 48))
 	_art("window", Rect2(174, 10, 38, 38))
 	_art("window", Rect2(219, 10, 38, 38))
-	_art("bench_metal" if has_rig else "bench_wood", World.BENCH_RECT)
-	_art("desk_metal" if has_rig else "desk_wood", Rect2(46, 124, 64, 48))
-	_art("bookshelf", Rect2(264, 20, 44, 55))
-	_art("bookshelf", Rect2(305, 20, 44, 55))
-	_art("bed", Rect2(278, 92, 58, 78))
-	_art("box", Rect2(135, 86, 42, 36))
-	_art("statue_lucky_gpu", Rect2(316, 172, 30, 42))
+	# Furniture is shared with the live depth-sorted prop pass.
 	_label(Vector2(49, 30), "PC WORKBENCH", Color("fff0c2"))
 	_label(Vector2(160, 230), "E : OUTSIDE")
 	_label(Vector2(263, 222), "LUCKY'S CORNER")
@@ -100,41 +102,24 @@ func _town() -> void:
 	for x in World.ROAD_COLUMNS:
 		for y in World.ROAD_ROWS:
 			_art("road_cross", Rect2(x, y, 32, 32))
-	draw_rect(Rect2(400, 510, 135, 115), Color("607f91"))
-	draw_rect(Rect2(406, 516, 123, 103), Color("74a4b0"))
-	for y in range(524, 616, 12):
-		for x in range(412, 527, 25):
-			draw_line(Vector2(x, y), Vector2(x + 12, y), Color("abd0c9"))
-	var buildings := ["house_garage", "house_red_dormer", "house_garage", "house_green", "house_purple_porch", "shop", "house_blue"]
-	for i in World.BUILDINGS.size():
-		_building(World.BUILDINGS[i], buildings[i])
-	_building(World.HOME_BUILDING, "house_blue")
-	_centered_label(Vector2(World.HOME_BUILDING.get_center().x, 254), "YOUR HOME")
+	# Asphalt sits below the street; only the driveway touches its southern edge.
+	var asphalt := Color("252a30")
+	var paint := Color("e7eaec")
+	draw_rect(World.PARKING_RECT, asphalt)
+	draw_rect(Rect2(452, 528, 32, 20), asphalt)
+	draw_line(Vector2(400, 540), Vector2(452, 540), Color("6f7479"))
+	draw_line(Vector2(484, 540), Vector2(535, 540), Color("6f7479"))
+	for x in [408, 448, 488, 528]:
+		draw_line(Vector2(x, 585), Vector2(x, 609), paint)
+	draw_line(Vector2(408, 609), Vector2(528, 609), paint)
+	draw_line(Vector2(468, 568), Vector2(468, 548), paint, 2)
+	draw_line(Vector2(468, 548), Vector2(462, 555), paint, 2)
+	draw_line(Vector2(468, 548), Vector2(474, 555), paint, 2)
+	_centered_label(Vector2(468, 580), "PARKING", paint)
 	_tiles("floor_tile_beige", Rect2(472, 306, 48, 30))
-	for i in 60:
-		var at := Vector2(25 + (i * 97) % 974, 36 + (i * 173) % 570)
-		if not World.clear_at("town", at, 28) or _on_road(at):
-			continue
-		var blocked := false
-		for meeting: Vector2 in Catalog.LOCATIONS.values():
-			if at.distance_to(meeting) < 52:
-				blocked = true
-		for activity: Resource in Activities.ALL:
-			if at.distance_to(activity.position) < 48:
-				blocked = true
-		if blocked or absi(int(at.x) - 500) < 70:
-			continue
-		var key: String = ("tree_" if i % 2 == 0 else "bush_") + ["a", "b", "c"][i % 3]
-		var extent := Vector2(32, 40) if i % 2 == 0 else Vector2(32, 20)
-		_art(key, Rect2(at - Vector2(extent.x / 2, extent.y), extent))
-	for place: String in Catalog.LOCATIONS:
-		var at: Vector2 = Catalog.LOCATIONS[place]
-		var text := place.replace(" Market", "").replace(" Storage", "").replace(" Cul-de-sac", "").replace(" Garage", "")
-		var width := K.world_font().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x + 8
-		# The board sits above visitors' heads; its full footprint stays off the pavement.
-		draw_rect(Rect2(at + Vector2(-2, -38), Vector2(4, 42)), Color("75676a"))
-		draw_rect(Rect2(at + Vector2(-width * 0.5, -50), Vector2(width, 12)), Color("f0dfac"))
-		_centered_label(at + Vector2(0, -41), text)
+	if show_props:
+		for prop: Dictionary in World.town_props():
+			Props.draw_prop(self, prop, show_labels)
 	for x in range(8, 1024, 16):
 		draw_rect(Rect2(x, 12, 3, 12), Color("7c7468"))
 		draw_rect(Rect2(x, 620, 3, 12), Color("7c7468"))
@@ -142,31 +127,9 @@ func _town() -> void:
 	draw_line(Vector2(8, 624), Vector2(1016, 624), Color("b5a385"), 2)
 
 
-func _building(footprint: Rect2, key: String) -> void:
-	# Assets include a transparent margin. Align their visible base with the collision footprint.
-	var extent := Vector2(footprint.size.x * 1.18, footprint.size.y * 1.35)
-	_art(key, Rect2(Vector2(footprint.get_center().x - extent.x / 2, footprint.end.y - extent.y + 8), extent))
-
-
-func _on_road(at: Vector2) -> bool:
-	for y in World.ROAD_ROWS:
-		if at.y > y - 18 and at.y < y + 50:
-			return true
-	for x in World.ROAD_COLUMNS:
-		if at.x > x - 18 and at.x < x + 50:
-			return true
-	return false
-
-
-func _draw_activities() -> void:
+func _draw_activity_markers() -> void:
 	for activity: Resource in Activities.ALL:
 		if activity.area != area:
 			continue
 		var at: Vector2 = activity.position
-		var extent: Vector2 = activity.art_size
 		draw_arc(at, 15, 0, TAU, 16, Color("f4d68f"), 1)
-		_art(activity.art_key, Rect2(at - Vector2(extent.x / 2, extent.y - 4), extent))
-		if activity.overlay_art_key != "":
-			var overlay: Vector2 = activity.overlay_art_size
-			_art(activity.overlay_art_key, Rect2(at - Vector2(overlay.x / 2, overlay.y - 4), overlay))
-		_centered_label(at + Vector2(0, 16), activity.map_label)

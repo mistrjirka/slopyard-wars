@@ -38,9 +38,10 @@ func unavailable_reason(player: Dictionary, activity: Resource) -> String:
 	var visit: Dictionary = player.world_visits.get(str(activity.id), {})
 	if activity.once_per_run and not visit.is_empty():
 		return "Already claimed this run. The staff remember you."
+	var practice := bool(session.state.get("assembly_test", false))
 	if int(visit.get("day", -1)) == day and activity.uses_per_day > 0 and int(visit.get("uses", 0)) >= activity.uses_per_day:
-		return "Come back tomorrow. Even the bin needs personal space."
-	if float(visit.get("next", 0)) > session.clock():
+		return "Already used in this practice session. Restart practice to reset." if practice else "Come back tomorrow. Even the bin needs personal space."
+	if not practice and float(visit.get("next", 0)) > session.clock():
 		return "Try again in %d game minutes." % ceili(float(visit.next) - session.clock())
 	if activity.kind == "lucky" and int(player.workshop_modifiers.lucky_tests) > 0:
 		return "You already have a Lucky charm. It waits for your next risky test."

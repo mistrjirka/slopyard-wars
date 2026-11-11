@@ -2,11 +2,23 @@ extends RefCounted
 ## Fresh serializable state. Never reuse nested dictionaries across players or runs.
 const Config = preload("res://src/core/game_config.gd")
 const World = preload("res://src/world/world_rules.gd")
+const Catalog = preload("res://src/data/catalog.gd")
 
 
 static func blank() -> Dictionary:
-	return {"phase": "menu", "mode": "solo", "remaining": Config.TOTAL_MINUTES, "budget": 1000, "objective": "Balanced",
+	return {"phase": "menu", "mode": "solo", "assembly_test": false, "remaining": Config.TOTAL_MINUTES, "match_days": Config.DEFAULT_MATCH_DAYS,
+		"total_minutes": Config.TOTAL_MINUTES, "deadline": Config.DEADLINE, "budget": 1000, "objective": "Balanced",
 		"players": {}, "listings": [], "events": [], "ranking": [], "seller_status": "", "match_id": 0}
+
+
+## Sandbox-owned IDs are negative, separate from the market's positive listing IDs.
+static func assembly_test_inventory(rng: RandomNumberGenerator) -> Array:
+	var inventory: Array = []
+	for i in Catalog.PARTS.size():
+		var item := Catalog.build_listing(rng, Catalog.PARTS[i], -(i + 1))
+		item.status = "owned"
+		inventory.append(item)
+	return inventory
 
 
 static func player(pname: String) -> Dictionary:

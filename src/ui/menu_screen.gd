@@ -1,7 +1,8 @@
 extends Control
-## Cover-led solo setup with fixed-size pages for help, dialogue settings and LAN.
-signal solo_requested(player_name: String, budget: int, objective: String)
-signal host_requested(player_name: String)
+## Cover-led solo high-score setup with pages for help and dialogue settings.
+signal solo_requested(player_name: String, budget: int, objective: String, match_days: int)
+signal assembly_test_requested(player_name: String)
+signal host_requested(player_name: String, match_days: int)
 signal join_requested(address: String, player_name: String)
 
 const K = preload("res://src/ui/ui_kit.gd")
@@ -14,6 +15,8 @@ const OBJECTIVES = Setup.OBJECTIVES
 @onready var _key_edit: LineEdit = %OpenRouterKey
 @onready var _budget_opt: OptionButton = %Budget
 @onready var _obj_opt: OptionButton = %Objective
+@onready var _days_opt: OptionButton = %MatchDays
+@onready var _host_days_opt: OptionButton = %HostMatchDays
 @onready var _obj_desc: Label = %ObjectiveDescription
 @onready var _addr_edit: LineEdit = %HostAddress
 @onready var _menu_status: Label = %SellerStatus
@@ -27,7 +30,14 @@ func _ready() -> void:
 	for objective in OBJECTIVES:
 		_obj_opt.add_item(objective)
 	_on_objective_selected(0)
-	%RunDescription.text = "08:00–22:00 · about %d minutes\nOne day to turn secondhand parts into first place." % roundi(Config.TOTAL_MINUTES / Config.RATE / 60.0)
+	for days in Setup.MATCH_DAYS:
+		var label := "%d game day%s" % [days, "" if days == 1 else "s"]
+		_days_opt.add_item(label)
+		_host_days_opt.add_item(label)
+	_days_opt.select(Setup.MATCH_DAYS.find(Config.DEFAULT_MATCH_DAYS))
+	_host_days_opt.select(Setup.MATCH_DAYS.find(Config.DEFAULT_MATCH_DAYS))
+	_days_opt.item_selected.connect(_on_days_selected)
+	_on_days_selected(_days_opt.selected)
 	# Assign only at startup, not refresh: state updates must not overwrite edits.
 	_key_edit.text = Game.openrouter_key()
 	_show_solo()
@@ -50,7 +60,16 @@ func _pname() -> String:
 
 
 func _start_solo() -> void:
-	solo_requested.emit(_pname(), int(BUDGETS[_budget_opt.selected]), _obj_opt.get_item_text(_obj_opt.selected))
+	solo_requested.emit(_pname(), int(BUDGETS[_budget_opt.selected]), _obj_opt.get_item_text(_obj_opt.selected), int(Setup.MATCH_DAYS[_days_opt.selected]))
+
+
+func _start_assembly_test() -> void:
+	assembly_test_requested.emit(_pname())
+
+
+func _on_days_selected(index: int) -> void:
+	var days := int(Setup.MATCH_DAYS[index])
+	%RunDescription.text = "Day 1, 08:00 to Day %d, 22:00 · about %d minutes\nTurn secondhand parts into a new local high score before the deadline." % [days, roundi(Config.duration_for_days(days) / Config.RATE / 60.0)]
 
 
 func _on_objective_selected(index: int) -> void:
@@ -63,7 +82,8 @@ func _on_key_changed(value: String) -> void:
 
 
 func _toggle_lan() -> void:
-	_show_page(_lan)
+	# Retained for old scene connections; multiplayer is no longer a menu page.
+	_show_solo()
 
 
 func _toggle_help() -> void:
@@ -87,7 +107,7 @@ func _show_page(page: Control) -> void:
 
 
 func _host() -> void:
-	host_requested.emit(_pname())
+	host_requested.emit(_pname(), int(Setup.MATCH_DAYS[_host_days_opt.selected]))
 
 
 func _join() -> void:

@@ -52,7 +52,11 @@ theme_type_variation = &"Tiny"
 theme_override_colors/font_color = Color(1, 0.5411765, 0.1647059, 1)
 autowrap_mode = 3
 
-[node name="Reinstall" type="Button" parent="Row/TextCol"]
+[node name="Actions" type="HFlowContainer" parent="Row/TextCol"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+
+[node name="Reinstall" type="Button" parent="Row/TextCol/Actions"]
 visible = false
 layout_mode = 2
 size_flags_horizontal = 0
@@ -61,6 +65,15 @@ theme_type_variation = &"GhostButton"
 theme_override_font_sizes/font_size = 11
 text = "REINSTALL"
 tooltip_text = "Retry the installation to correct paste or mounting. Physical damage remains."
+
+[node name="Uninstall" type="Button" parent="Row/TextCol/Actions"]
+visible = false
+layout_mode = 2
+mouse_default_cursor_shape = 2
+theme_type_variation = &"GhostButton"
+theme_override_font_sizes/font_size = 11
+text = "UNINSTALL"
+tooltip_text = "Return this exact part to inventory. Physical damage remains; slot tuning and mounting are cleared. Other mounted parts stay in Your Rig."
 
 [node name="OkPill" type="PanelContainer" parent="Row" unique_id=1009]
 layout_mode = 2

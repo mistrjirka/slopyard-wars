@@ -4,6 +4,7 @@ const Device = preload("res://src/trading/luckyfold_shell.gd")
 const MarketplaceViewScene = preload("res://src/trading/marketplace_view.tscn")
 const SellViewScene = preload("res://src/trading/sell_view.tscn")
 const InboxViewScene = preload("res://src/trading/inbox_view.tscn")
+const InboxView = preload("res://src/trading/inbox_view.gd")
 const InboxRowScene = preload("res://src/trading/inbox_row.tscn")
 const ThreadViewScene = preload("res://src/trading/thread_view.tscn")
 const LuckyThreadViewScene = preload("res://src/trading/lucky_thread_view.tscn")
@@ -29,6 +30,8 @@ signal track_requested(listing_id: int)
 var page := "browse"
 var selected := -1
 var _thread_origin := "messages"
+var _message_category: InboxView.Category = InboxView.Category.ACTIVE
+var _thread_origin_category: InboxView.Category = InboxView.Category.ACTIVE
 var _body: VBoxContainer
 var _clock: Label
 var _tabs := {}
@@ -568,6 +571,7 @@ func open_listing(id: int) -> void:
 	# Switching contacts inside a thread must retain the original Back destination.
 	if page != "messages" or selected < 0:
 		_thread_origin = page
+		_thread_origin_category = _message_category
 	_save_draft()
 	_composer = null
 	selected = id
@@ -612,6 +616,7 @@ func open_lucky() -> void:
 	_save_draft()
 	_composer = null
 	_thread_origin = "messages"
+	_thread_origin_category = _message_category
 	selected = LUCKY_CONTACT_ID
 	_show("messages")
 
@@ -620,6 +625,7 @@ func _back_from_thread() -> void:
 	_save_draft()
 	_composer = null
 	selected = -1
+	_message_category = _thread_origin_category
 	_show(_thread_origin)
 
 
@@ -667,7 +673,7 @@ func refresh() -> void:
 	_cover_footer_space.visible = not unfolded
 	_nav.visible = unfolded
 	_device.set_page_layout(active_page, in_thread)
-	var sig := str(unfolded) + active_page + str(selected)
+	var sig := str(unfolded) + active_page + str(selected) + str(_message_category)
 	sig += str(_waiting_for_reply()) + str(me.ready)
 	sig += str(me.get("contact_relations", {}))
 	if in_lucky:
@@ -677,6 +683,9 @@ func refresh() -> void:
 		# blocked or sold, not just when this selected conversation changes.
 		sig += str(Progress.tracked_parts(me, Game.state.listings)).sha256_text()
 		var l := _listing(selected)
+		if not l.is_empty():
+			sig += str(Game.contact_options(l)).sha256_text()
+		sig += str(Game.active_meetings(me)).sha256_text()
 		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.counters.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(me.get("meeting_proposals", {}).get(selected, {})) + str(l.get("status", "gone")) + str(l.get("buyer_contacted", true)) + str(_slots)
 		if me.meetings.has(selected):
 			sig += str(Game.clock() > float(me.meetings[selected].end))
@@ -687,6 +696,8 @@ func refresh() -> void:
 	else:
 		for l in Game.state.listings:
 			sig += "%d%s%d" % [l.id, l.status, l.price]
+		if active_page == "browse":
+			sig += str(me.chats).sha256_text()
 		if active_page == "messages":
 			sig += str(lucky_messages.size()) + str(unread)
 			sig += str(me.chats) + str(me.meetings) + str(me.offers) + str(Game.active_meetings(me))
@@ -724,7 +735,7 @@ func refresh() -> void:
 		_threads()
 	else:
 		_thread()
-	if refocus and is_instance_valid(_composer):
+	if refocus and is_instance_valid(_composer) and _composer.editable:
 		_composer.grab_focus()
 		_composer.caret_column = caret
 
@@ -737,7 +748,7 @@ func _browse() -> void:
 
 
 func _threads() -> void:
-	var view: VBoxContainer = InboxViewScene.instantiate()
+	var view: InboxView = InboxViewScene.instantiate()
 	_body.add_child(view)
 	view.set_cover_mode(unfolded)
 	view.unfold_requested.connect(_open_marketplace_animated)
@@ -747,14 +758,48 @@ func _threads() -> void:
 	else:
 		view.set_appointment("")
 	var me: Dictionary = Game.me()
-	view.set_empty_visible(me.chats.is_empty() and me.get("lucky_messages", []).is_empty())
+	var counts: Array[int] = [0, 0, 0]
+	var unread: Array[int] = [lucky_unread_count(), 0, 0]
+	if not me.get("lucky_messages", []).is_empty():
+		counts[InboxView.Category.ACTIVE] += 1
+	for id in me.get("chats", {}):
+		var listing := _listing(int(id))
+		if listing.is_empty():
+			continue
+		var category: InboxView.Category = _thread_category(int(id), listing)
+		counts[category] += 1
+		unread[category] += _contact_unread_count(int(id))
+	view.set_category(_message_category, counts, unread)
+	view.category_selected.connect(_select_message_category)
+	view.set_empty_visible(counts[_message_category] == 0)
 	_populate_threads(view.box)
+
+
+func _select_message_category(category: InboxView.Category) -> void:
+	_message_category = category
+	_sig = ""
+	refresh()
+
+
+func _meeting_confirmed(id: int, listing: Dictionary) -> bool:
+	var me: Dictionary = Game.me()
+	var meeting: Dictionary = me.get("meetings", {}).get(id, {})
+	return not meeting.is_empty() and Game.clock() <= float(meeting.end) and int(me.get("offers", {}).get(id, 0)) > 0 and listing.get("status", "gone") == "available" and not Relationships.blocked(me, listing)
+
+
+func _thread_category(id: int, listing: Dictionary) -> InboxView.Category:
+	if listing.get("status", "gone") != "available" or Relationships.blocked(Game.me(), listing):
+		return InboxView.Category.FINISHED
+	if _meeting_confirmed(id, listing):
+		return InboxView.Category.AGREED
+	# Missed/cancelled appointments on available stock need negotiation again.
+	return InboxView.Category.ACTIVE
 
 
 func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 	var me: Dictionary = Game.me()
 	var lucky_messages: Array = me.get("lucky_messages", [])
-	if not lucky_messages.is_empty():
+	if _message_category == InboxView.Category.ACTIVE and not lucky_messages.is_empty():
 		var row: Button = InboxRowScene.instantiate()
 		box.add_child(row)
 		var unread := lucky_unread_count()
@@ -769,7 +814,7 @@ func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 		ids.push_front(current)
 	for id in ids:
 		var l := _listing(int(id))
-		if l.is_empty():
+		if l.is_empty() or _thread_category(int(id), l) != _message_category:
 			continue
 		var msgs: Array = me.chats.get(id, [])
 		var last: String = str(msgs[-1].text) if not msgs.is_empty() else "Start a conversation"
@@ -779,10 +824,7 @@ func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 		row.setup(str(l.seller), int(l.get("owner", 0)) > 0, str(l.name).left(width), last.left(width))
 		row.set_current(int(id) == current)
 		row.set_unread(_contact_unread_count(int(id)))
-		var meeting: Dictionary = me.meetings.get(id, {})
-		var confirmed := not meeting.is_empty() and Game.clock() <= float(meeting.end)
-		confirmed = confirmed and int(me.offers.get(id, 0)) > 0 and l.status == "available" and not Relationships.blocked(me, l)
-		row.set_meeting_confirmed(confirmed)
+		row.set_meeting_confirmed(_meeting_confirmed(int(id), l))
 		row.pressed.connect(open_listing.bind(int(id)))
 
 
@@ -801,10 +843,11 @@ func _thread() -> void:
 	_thread_view = view
 	view.back_pressed.connect(_back_from_thread)
 	view.back_btn.text = "‹"
-	var back_label: String = {"browse": "Back to marketplace", "sell": "Back to your listings", "messages": "All messages"}.get(_thread_origin, "All messages")
+	var back_label: String = {"browse": "Back to marketplace", "sell": "Back to your listings", "messages": InboxView.category_name(_thread_origin_category) + " conversations"}.get(_thread_origin, "All messages")
 	view.back_btn.tooltip_text = back_label
 	view.gone_back.text = back_label
 	view.send_text.connect(_send_text)
+	view.slot_chosen.connect(_choose_meeting)
 	var l := _listing(selected)
 	if l.is_empty():
 		view.setup_gone()
@@ -877,6 +920,12 @@ func _send_text(text: String) -> void:
 	_drafts[selected] = ""
 	if is_instance_valid(_composer):
 		_composer.text = ""
+
+
+func _choose_meeting(meeting_id: String) -> void:
+	if not is_visible_in_tree() or _waiting_for_reply():
+		return
+	Game.act("choose_meeting", {"listing_id": selected, "meeting_id": meeting_id, "match_id": Game.state.match_id})
 
 
 func _sell() -> void:

@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://src/trading/thread_view.gd" id="1"]
 [ext_resource type="Script" path="res://src/ui/part_art.gd" id="2"]
+[ext_resource type="PackedScene" path="res://src/trading/meeting_panel.tscn" id="3"]
 
 [node name="ThreadView" type="VBoxContainer"]
 layout_mode = 2
@@ -155,7 +156,7 @@ theme_override_constants/separation = 6
 layout_mode = 2
 mouse_filter = 2
 
-[node name="QuickRow" type="HBoxContainer" parent="Split/Right/Panes/Conversation"]
+[node name="QuickRow" type="VBoxContainer" parent="Split/Right/Panes/Conversation"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
@@ -167,6 +168,10 @@ theme_override_font_sizes/font_size = 13
 custom_minimum_size = Vector2(0, 0)
 text = "Available?"
 tooltip_text = "Is it still available?"
+
+[node name="MeetingPanel" parent="Split/Right/Panes/Conversation/QuickRow" instance=ExtResource("3")]
+visible = false
+layout_mode = 2
 
 [node name="ComposerRow" type="HBoxContainer" parent="Split/Right/Panes/Conversation"]
 custom_minimum_size = Vector2(0, 0)
