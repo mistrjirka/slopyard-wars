@@ -11,6 +11,10 @@ const BENCH := Vector2(87, 65)
 const BENCH_RECT := Rect2(67, 38, 40, 29)
 const BENCH_FOOTPRINT := Rect2(68, 56, 38, 9)
 const CHAIR := Vector2(289, 175)
+const BED_RECT := Rect2(278, 92, 58, 78)
+const BED_FOOTPRINT := Rect2(287, 151, 40, 16)
+const BED := Vector2(307, 167)
+const BED_REACH := 40.0
 const HOME_BUILDING := Rect2(432, 198, 128, 108)
 const BUILDINGS := [Rect2(40, 42, 88, 62), Rect2(208, 50, 104, 72), Rect2(708, 32, 112, 72), Rect2(884, 374, 112, 72), Rect2(640, 410, 96, 72), Rect2(28, 400, 104, 72), Rect2(882, 176, 112, 64)]
 const BUILDING_KEYS := ["house_garage", "house_red_dormer", "house_garage", "house_green", "house_purple_porch", "shop", "house_blue"]
@@ -69,7 +73,7 @@ static func room_props(has_rig: bool = false) -> Array[Dictionary]:
 		["desk_metal" if has_rig else "desk_wood", Rect2(46, 124, 64, 48), Rect2(50, 156, 56, 12)],
 		["bookshelf", Rect2(264, 20, 44, 55), Rect2(269, 64, 34, 9)],
 		["bookshelf", Rect2(305, 20, 44, 55), Rect2(310, 64, 34, 9)],
-		["bed", Rect2(278, 92, 58, 78), Rect2(287, 151, 40, 16)],
+		["bed", BED_RECT, BED_FOOTPRINT],
 		["statue_lucky_gpu", Rect2(316, 172, 30, 42), Rect2(321, 207, 21, 7)]]
 	for item: Array in furniture:
 		var solid: Rect2 = item[2]
@@ -77,6 +81,10 @@ static func room_props(has_rig: bool = false) -> Array[Dictionary]:
 			"pos": Vector2(solid.get_center().x, solid.end.y)})
 	out.append_array(activity_props("home"))
 	return out
+
+
+static func near_bed(area: String, at: Vector2) -> bool:
+	return area == "home" and at.distance_to(BED) <= BED_REACH
 
 
 ## Shared deterministic scenery: pos is the ground/depth anchor, never the canopy center.
@@ -142,11 +150,18 @@ static func _scenery_clear(at: Vector2) -> bool:
 
 
 ## Opaque artwork bounds inside the centered 40x32 draw rect (80x64 source).
-## Parked cars are drawn facing LEFT; horizontal ties use the side artwork.
-static func car_footprint(at: Vector2, facing: Vector2 = Vector2.LEFT) -> Rect2:
+## Used for visual coverage, never as the car's ground collision shape.
+static func car_visual_bounds(at: Vector2, facing: Vector2 = Vector2.LEFT) -> Rect2:
 	if absf(facing.y) > absf(facing.x):
 		return Rect2(at + Vector2(-11, -11), Vector2(22, 23))
 	return Rect2(at + Vector2(-17.5 if facing.x > 0 else -17, -7), Vector2(34.5, 19.5))
+
+
+## Only the lower wheel/base strip is solid, like the foundations of town props.
+## Parked cars face LEFT; driving, turning and pedestrians share this footprint.
+static func car_footprint(at: Vector2, facing: Vector2 = Vector2.LEFT) -> Rect2:
+	var artwork := car_visual_bounds(at, facing)
+	return Rect2(Vector2(artwork.position.x, artwork.end.y - 6.0), Vector2(artwork.size.x, 6.0))
 
 
 static func clear_at(area: String, at: Vector2, radius: float, obstacles: Array = [], body: Rect2 = Rect2()) -> bool:

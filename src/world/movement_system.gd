@@ -115,6 +115,40 @@ func interact(pid: int, p: Dictionary) -> void:
 		session.notify_player(pid, "E: car, home door, or a scheduled contact nearby. Use P for appointments.")
 
 
+## Absolute next 07:00 for both confirmation and execution, before any deadline cap.
+func sleep_target_minute() -> float:
+	var now: float = session.clock()
+	var morning := floorf(now / 1440.0) * 1440.0 + 420.0
+	return morning + 1440.0 if morning <= now else morning
+
+
+## Sleep uses the same authoritative clock as waiting; it never buys more match time.
+func sleep(pid: int, p: Dictionary) -> void:
+	if state.get("phase") != "playing" or bool(p.get("ready", false)):
+		session.notify_player(pid, "You cannot sleep after finishing your build or match.")
+		return
+	if state.mode != "solo":
+		session.notify_player(pid, "The clock is shared in LAN. Sleeping cannot skip other players' time.")
+		return
+	if p.driving:
+		session.notify_player(pid, "Park and go home before sleeping.")
+		return
+	if not World.near_bed(p.area, p.pos):
+		session.notify_player(pid, "Go home and stand near your bed to sleep.")
+		return
+	if bool(state.get("assembly_test", false)):
+		session.notify_player(pid, "The practice clock is paused. Sleeping cannot advance it to 07:00.")
+		return
+	var skip := minf(sleep_target_minute() - session.clock(), maxf(0.0, float(state.remaining)))
+	session.advance_time(skip)
+	if state.remaining <= 0:
+		session.notify_player(pid, "Sleep reached the match deadline before morning. %s" % Trade.stamp(session.clock()))
+		if state.phase == "playing":
+			session.end_match()
+	else:
+		session.notify_player(pid, "Slept until %s." % Trade.stamp(session.clock()))
+
+
 func wait(pid: int, p: Dictionary) -> void:
 	if state.mode != "solo":
 		session.notify_player(pid, "The clock is shared in LAN. Waiting cannot skip other players' time.")

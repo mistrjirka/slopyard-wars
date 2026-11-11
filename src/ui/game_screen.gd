@@ -20,7 +20,8 @@ const BuildChecklist = preload("res://src/ui/build_checklist.gd")
 @onready var _world: TownView = $World
 @onready var _area_lbl: Label = $Topbar/Row/Title
 @onready var _clock_lbl: Label = $Topbar/Row/Clock
-@onready var _cash_lbl: Label = $Topbar/Row/Cash
+@onready var _cash_lbl: Label = $Topbar/Row/Funds/Cash
+@onready var _committed_lbl: Label = $Topbar/Row/Funds/Committed
 @onready var _context_label: Label = $Bottombar/Hints/Context
 @onready var _appointment_label: Label = $Bottombar/Hints/Appointment
 @onready var _bottom_bar: PanelContainer = $Bottombar
@@ -32,6 +33,7 @@ const BuildChecklist = preload("res://src/ui/build_checklist.gd")
 @onready var _world_hud: Control = $WorldHud
 @onready var _checklist: BuildChecklist = $WorldHud/BuildChecklist
 @onready var _meeting_indicators: MeetingIndicators = $WorldHud/MeetingIndicators
+@onready var _installed_feedback: Label = $InstalledFeedback
 
 var _move_t := 0.0
 var _tracked := -1
@@ -44,12 +46,17 @@ var _phone_reveal_generation := 0
 var _after_phone_pocket := Callable()
 var _feedback_message := ""
 var _feedback_remaining := 0.0
+var _installed_tween: Tween
 
 @onready var _dialogs: Control = $Dialogs
 @onready var _meetings: VBoxContainer = $MapLayer/Scroll/Content/Meetings
 
 
 func _ready() -> void:
+	Game.component_installed.connect(_show_installed_feedback)
+	Game.stress_test_resolved.connect(_show_stress_result)
+	_dialogs.workbench_requested.connect(func(): _open_workspace("bench"))
+	_installed_feedback.add_theme_color_override("font_color", K.LIME)
 	_dialogs.notice_requested.connect(func(message: String): notice_requested.emit(message))
 	_phone_layer.visible = false
 	_workspace.visible = false
@@ -80,6 +87,35 @@ func _ready() -> void:
 	_update_world_hud()
 	if bool(Game.state.get("assembly_test", false)):
 		_open_workspace.call_deferred("bench")
+
+
+func _show_installed_feedback(_item_id: int) -> void:
+	# One passive feedback surface: another accepted install restarts its lifetime.
+	if _installed_tween != null and _installed_tween.is_valid():
+		_installed_tween.kill()
+	_installed_feedback.modulate.a = 1.0
+	_installed_feedback.show()
+	_installed_tween = create_tween()
+	_installed_tween.tween_interval(0.65)
+	_installed_tween.tween_property(_installed_feedback, "modulate:a", 0.0, 0.45)
+	_installed_tween.tween_callback(_installed_feedback.hide)
+
+
+func _show_stress_result(outcome: Dictionary) -> void:
+	if outcome.get("source", "") == "tuning":
+		_dialogs.show_stress_result(outcome)
+
+
+func _ask_sleep() -> void:
+	if bool(Game.state.get("assembly_test", false)):
+		Game.act("sleep")
+		return
+	var morning: float = Game.movement.sleep_target_minute()
+	var message := "Sleep until %s?\n\nThe clock advances while you sleep. Meetings can be missed and workbench jobs continue." % Trade.stamp(morning)
+	if morning > Game.deadline():
+		message += "\n\nThe match deadline at %s comes first. Sleeping now will end this run." % Trade.stamp(Game.deadline())
+	_dialogs.ask("Sleep until 07:00?", message, "Sleep", func(): Game.act("sleep"))
+
 
 func _fit_bottom_bar() -> void:
 	var height := ceilf(_bottom_bar.get_combined_minimum_size().y)
@@ -298,9 +334,16 @@ func _update_world_hud() -> void:
 	_clock_lbl.text = "ASSEMBLY TEST · clock paused" if assembly_test else Trade.stamp(Game.clock()) + " · ~" + K.real_left(Game.state.remaining) + " left"
 	_clock_lbl.tooltip_text = "All catalog parts supplied · Reinstall any part to practise · Scores are not saved" if assembly_test else "Match ends " + Trade.stamp(Game.deadline()) + " · " + str(Game.state.objective) + " objective"
 	_cash_lbl.text = "$%d" % int(p.cash)
+	var committed: int = Game.market.committed_purchase_total(p)
+	var over_budget := committed > int(p.cash)
+	_committed_lbl.text = "%s COMMITTED" % K.money(committed)
+	_committed_lbl.add_theme_color_override("font_color", K.DANGER if over_budget else K.MUTED)
+	_committed_lbl.add_theme_color_override("font_shadow_color", Color(K.DANGER, 0.65) if over_budget else Color.TRANSPARENT)
 	var hint := "Home · E at the door: outside · At the PC desk: B assemble / T tune"
 	if p.area == "town":
 		hint = "Driving · E: park and get out · Starting the car costs $3" if p.driving else "Town · E: car / home / meeting handoff · E at attractions: interact"
+	elif World.near_bed(p.area, p.pos):
+		hint = "Bed · E: sleep until the next 07:00" if not assembly_test else "Bed · Practice clock paused; sleeping is unavailable"
 	var nearby := Activities.nearby(p)
 	if nearby != null:
 		hint = "E: " + nearby.display_name + " · " + Activities.cost_text(nearby)
@@ -372,6 +415,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("interact") and not _overlay_open():
 		if Game.me().area == "home" and Game.me().pos.distance_to(World.BENCH) < 50:
 			_open_workspace("bench")
+		elif World.near_bed(Game.me().area, Game.me().pos):
+			_ask_sleep()
 		elif Activities.nearby(Game.me()) != null:
 			_dialogs.open_activity(Activities.nearby(Game.me()))
 		else:

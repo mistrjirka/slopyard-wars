@@ -1,0 +1,45 @@
+[gd_scene format=3]
+
+[node name="StressResultDialog" type="PanelContainer"]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+
+[node name="Box" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Eyebrow" type="Label" parent="Box"]
+layout_mode = 2
+text = "STRESS TEST COMPLETE"
+
+[node name="Title" type="Label" parent="Box"]
+layout_mode = 2
+theme_type_variation = "Big"
+theme_override_font_sizes/font_size = 28
+text = "SUCCESS!"
+autowrap_mode = 3
+
+[node name="Part" type="Label" parent="Box"]
+layout_mode = 2
+theme_type_variation = "H2"
+autowrap_mode = 3
+
+[node name="Text" type="Label" parent="Box"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Box"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 2
+
+[node name="Workbench" type="Button" parent="Box/Buttons"]
+layout_mode = 2
+theme_type_variation = "GhostButton"
+text = "WORKBENCH"
+
+[node name="Continue" type="Button" parent="Box/Buttons"]
+layout_mode = 2
+theme_type_variation = "PrimaryButton"
+text = "CONTINUE"

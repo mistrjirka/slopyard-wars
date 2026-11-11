@@ -63,6 +63,16 @@ factor is `0.40 + 0.60 × support`. Voltage raises tunable-part power draw by
 `clock × voltage²`, making supply capacity relevant when tuning. Normal stock
 and conservative presets retain their existing zero intrinsic failure risk.
 
+Clock alone never increases permanent destruction or connector-fire probability,
+including through its temperature and power readouts. Added permanent risk comes
+from voltage stress, with existing condition, cooling, mount and PSU modifiers;
+risk heat/power use a fixed stock-clock baseline. Clock still affects performance,
+stability, displayed temperature and power draw. A surviving but unstable test
+fails without applying the proposed settings: the last working tuning is retained.
+Test time, survivor wear and any consumed Lucky charm still apply. Destructive
+voltage/model-flaw outcomes take precedence; voltage above 1.40 remains guaranteed
+destruction.
+
 ## Benchmark rewards and records
 
 The total is `1000 × sum(weight × (component_score / reference)^0.75)`.
@@ -94,7 +104,7 @@ stress test or final reliability check, at pristine condition and stock settings
 The defective parts are discounted against reliable alternatives. A pristine
 5090 faces about a 26% chance of at least one fire across two unblessed stock
 checks; a 13900L faces about 48% CPU failure across two. Survivor wear makes the
-actual second check slightly riskier. Wear and tuning still increase risk,
+actual second check slightly riskier. Wear and increased voltage still increase risk (clock alone does not),
 Lucky reduces it once, and ordinary models do not acquire these flaws.
 Warnings, stress-test confirmations and the final-benchmark dialog use the
 same host calculation. There are no new continuous background failure rolls.

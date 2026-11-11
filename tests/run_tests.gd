@@ -43,6 +43,8 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute("res://artifacts")
 	_test_data_and_rules()
 	_test_movement_and_clock()
+	_test_sleep()
+	_test_car_ground_collision()
 	_test_buying()
 	_test_selling_and_building()
 	await _test_dialogue()
@@ -164,6 +166,125 @@ func _test_movement_and_clock() -> void:
 	expect(game.state.remaining == remaining, "LAN wait never skips the shared clock")
 
 
+func _test_sleep() -> void:
+	var player := fresh()
+	var bed: Dictionary = {}
+	for prop: Dictionary in World.room_props():
+		if prop.get("key") == "bed":
+			bed = prop
+	expect(not bed.is_empty() and bed.pos == World.BED and bed.solid == World.BED_FOOTPRINT, "Sleep shares the existing bed's ground anchor and footprint")
+	player.pos = World.BED + Vector2(0, 15)
+	expect(World.clear_at("home", player.pos, 5) and World.near_bed(player.area, player.pos), "Bed has a reachable sleep approach outside its solid footprint")
+	player.busy = 60.0
+	var cash: int = player.cash
+	var deadline: float = game.deadline()
+	var listing: Dictionary = game.state.listings[0]
+	var meeting := agree(player, listing, true)
+	var meeting_end: float = meeting.end
+	expect(game.movement.sleep_target_minute() == 1860.0, "Confirmation target at 08:00 is next-day 07:00")
+	game.act("sleep")
+	expect(game.clock() == 1860.0 and game.state.phase == "playing", "Sleeping at default 08:00 wakes at Day 2 07:00")
+	expect(player.busy == 0.0 and player.cash == cash and game.deadline() == deadline, "Sleep completes busy work without cash cost or deadline extension")
+	expect(player.meetings[listing.id].end == meeting_end and game.clock() > meeting_end, "Sleep advances past appointments without extending their windows")
+
+	player = fresh()
+	player.pos = World.BED + Vector2(0, 15)
+	game.state.remaining = game.deadline() - 419.5
+	player.busy = 5.0
+	expect(game.movement.sleep_target_minute() == 420.0, "Confirmation target before 07:00 is same-day morning")
+	game.act("sleep")
+	expect(game.clock() == 420.0 and player.busy == 4.5, "Before 07:00 sleep reaches same-day morning and decays only elapsed busy time")
+	game.act("sleep")
+	expect(game.clock() == 1860.0, "At exactly 07:00 sleep targets the following morning")
+
+	player = fresh()
+	player.pos = World.BED + Vector2(0, 15)
+	game.state.deadline = 600.0
+	game.state.remaining = 120.0
+	player.busy = 150.0
+	expect(game.movement.sleep_target_minute() == 1860.0 and game.movement.sleep_target_minute() > game.deadline(), "Confirmation target remains uncapped when morning is beyond the deadline")
+	game.act("sleep")
+	expect(game.state.phase == "results" and game.clock() == 600.0 and game.deadline() == 600.0, "A deadline before morning ends the match at its original time")
+	expect(player.busy == 30.0, "Deadline-capped sleep only consumes busy time until the match ends")
+
+	player = fresh()
+	var remaining: float = game.state.remaining
+	player.pos = World.BED + Vector2(0, 15)
+	game.state.assembly_test = true
+	player.busy = 15.0
+	var notices: Array[String] = []
+	var capture := func(message: String) -> void: notices.append(message)
+	game.notice.connect(capture)
+	game.act("sleep")
+	game.notice.disconnect(capture)
+	expect(game.state.remaining == remaining and player.busy == 15.0 and notices.size() == 1 and "paused" in notices[0] and not "Slept" in notices[0], "Practice refuses sleep truthfully without advancing clock or work")
+	game.state.assembly_test = false
+	player.area = "town"
+	game.act("sleep")
+	expect(game.state.remaining == remaining, "Outdoor sleep is refused even at the bed coordinates")
+	player.area = "home"
+	player.pos = World.BED + Vector2(0, World.BED_REACH + 1.0)
+	game.act("sleep")
+	expect(game.state.remaining == remaining, "Sleep outside the bed's reach is refused")
+	player.pos = World.BED + Vector2(0, World.BED_REACH)
+	expect(World.near_bed(player.area, player.pos), "Sleep reach includes its exact distance boundary")
+	player.ready = true
+	game.act("sleep")
+	expect(game.state.remaining == remaining, "Ready players cannot sleep")
+	player.ready = false
+	player.driving = true
+	game.act("sleep")
+	expect(game.state.remaining == remaining, "Driving players cannot sleep")
+	player.driving = false
+	game.state.mode = "lan"
+	game.act("sleep")
+	expect(game.state.remaining == remaining, "Sleep cannot skip a shared LAN clock")
+
+
+func _test_car_ground_collision() -> void:
+	var player := fresh()
+	player.area = "town"
+	player.car_pos = World.CAR_START + Vector2(160, 0)
+	player.pos = player.car_pos + Vector2(-45, -6)
+	for frame in 60:
+		game.act("move", {"direction": Vector2.RIGHT})
+		game.movement.tick(1.0 / 60.0)
+	expect(player.pos.x > player.car_pos.x + 30 and is_equal_approx(player.pos.y, player.car_pos.y - 6), "Walking behind the car passes its roof instead of colliding with it")
+	player.pos = player.car_pos + Vector2(0, -40)
+	expect(World.clear_at("town", player.pos, 5), "Rear car approach starts outside scenery collision")
+	for frame in 60:
+		game.act("move", {"direction": Vector2.DOWN})
+		game.movement.tick(1.0 / 60.0)
+	var base := World.car_footprint(player.car_pos)
+	expect(player.pos.y > player.car_pos.y and not base.intersects(Rect2(player.pos - Vector2(5, 5), Vector2(10, 10))), "Approaching from behind reaches the lower car body, which remains solid")
+	player.pos = player.car_pos + Vector2(-45, 10)
+	for frame in 60:
+		game.act("move", {"direction": Vector2.RIGHT})
+		game.movement.tick(1.0 / 60.0)
+	expect(player.pos.x < base.position.x and not base.intersects(Rect2(player.pos - Vector2(5, 5), Vector2(10, 10))), "Walking into the side of the car is still blocked")
+	var cash: int = player.cash
+	game.act("interact")
+	expect(player.driving and player.cash == cash - 3, "The ground collider still allows entering the car")
+	var start: Vector2 = player.pos
+	game.act("move", {"direction": Vector2.RIGHT})
+	game.movement.tick(0.1)
+	expect(player.pos.x > start.x, "Driving excludes the car's own ground collider")
+	game.act("interact")
+	expect(not player.driving and World.clear_at("town", player.pos, 5, game.movement._obstacles(1)), "Parking exits outside the car's ground collider")
+	var foundation: Rect2 = World.building_prop(World.HOME_BUILDING, "house_blue").solid
+	for facing: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+		var contact := Vector2(foundation.get_center().x, foundation.end.y + 1)
+		expect(World.clear_at("town", contact, 0, [], World.car_footprint(contact, facing)), "A car roof can overlap the house without its ground footprint entering the foundation")
+	player.driving = true
+	player.pos = Vector2(foundation.get_center().x, foundation.end.y + 60)
+	player.car_pos = player.pos
+	for frame in 60:
+		game.act("move", {"direction": Vector2.UP})
+		game.movement.tick(0.1)
+	var stopped := World.car_footprint(player.car_pos, player.facing)
+	expect(player.pos.y < foundation.end.y + 5 and stopped.position.y >= foundation.end.y and World.clear_at("town", player.pos, 0, [], stopped), "Driving reaches the house on its wheel/base footprint without the roof stopping it early or crossing the foundation")
+
+
 func agree(player: Dictionary, listing: Dictionary, early: bool = false) -> Dictionary:
 	var meeting := {"id": "test", "place": listing.location, "pos": Catalog.LOCATIONS[listing.location],
 		"start": game.clock() + (30 if early else -1), "end": game.clock() + 90, "label": "Test appointment"}
@@ -181,7 +302,7 @@ func _test_buying() -> void:
 	game.act("handoff", {"listing_id": listing.id})
 	expect(player.cash == cash and player.inventory.size() == count, "Cannot trade remotely from home")
 	player.area = "town"
-	player.pos = meeting.pos
+	player.pos = game.market.meeting_position(meeting)
 	game.act("handoff", {"listing_id": listing.id})
 	expect(player.cash == cash, "Early handoff refused")
 	game.advance_time(30)
@@ -192,7 +313,7 @@ func _test_buying() -> void:
 	listing = game.state.listings[1]
 	meeting = agree(player, listing)
 	meeting.end = game.clock() - 1
-	player.pos = meeting.pos
+	player.pos = game.market.meeting_position(meeting)
 	cash = player.cash
 	game.act("handoff", {"listing_id": listing.id})
 	expect(player.cash == cash, "Missed appointment never charges cash")
@@ -218,7 +339,7 @@ func _test_selling_and_building() -> void:
 	listing = game.state.listings[-1]
 	var meeting := agree(player, listing)
 	player.area = "town"
-	player.pos = meeting.pos
+	player.pos = game.market.meeting_position(meeting)
 	var cash: int = player.cash
 	game.act("handoff", {"listing_id": listing.id})
 	game.act("handoff", {"listing_id": listing.id})

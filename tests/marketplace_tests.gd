@@ -17,6 +17,9 @@ func run(session: Node, assertion: Callable) -> void:
 	_query()
 	_sale_values()
 	_day()
+	_committed_purchases()
+	_npc_meetings()
+	await _committed_hud()
 	await _phone()
 
 
@@ -128,6 +131,132 @@ func _day() -> void:
 	check.call(game.state.listings.size() == count and game.market.add_listing(Catalog.PARTS[0], false).is_empty() and game.market.next_id == next_id, "No buyer or fresh listing is created when no valid meeting slot remains")
 	game.advance_time(10)
 	check.call(game.state.phase == "results" and game.clock() == game.deadline(), "Default two-day run finalizes automatically at its deadline")
+
+
+func _committed_purchases() -> void:
+	var player := fresh()
+	var sample: Dictionary = game.state.listings[0].duplicate(true)
+	game.state.listings.clear()
+	var now: float = game.clock()
+	# Future, current and exact-end purchases count; the remaining rows do not.
+	var rows := [
+		["available", 0, 120, now + 60, now + 120],
+		["available", 0, 80, now - 10, now + 20],
+		["available", 0, 25, now - 20, now],
+		["available", 1, 900, now, now + 30],
+		["sold", 0, 200, now, now + 30],
+		["expired", 0, 200, now, now + 30],
+		["cancelled", 0, 200, now, now + 30],
+		["available", 0, 200, now - 60, now - 1],
+		["available", 0, 0, now, now + 30],
+		["available", 0, -10, now, now + 30],
+	]
+	for i in rows.size():
+		var row: Array = rows[i]
+		var item: Dictionary = sample.duplicate(true)
+		item.id = i + 1
+		item.status = row[0]
+		item.owner = row[1]
+		game.state.listings.append(item)
+		player.offers[item.id] = row[2]
+		player.meetings[item.id] = {"start": row[3], "end": row[4], "place": item.location}
+	# An agreed price plus a tentative proposal is not a confirmed appointment.
+	var proposal: Dictionary = sample.duplicate(true)
+	proposal.id = 50
+	game.state.listings.append(proposal)
+	player.offers[50] = 400
+	player.meeting_proposals[50] = {"start": now, "end": now + 30, "place": proposal.location}
+	var before: Dictionary = player.duplicate(true)
+	check.call(game.market.committed_purchase_total(player) == 225, "Committed money includes only positive confirmed current/future purchases, not incoming sales, proposals or unavailable/expired meetings")
+	check.call(player == before and player.cash == 1000, "Reading commitments never reserves cash or mutates player agreements")
+	player.offers.erase(1)
+	check.call(game.market.committed_purchase_total(player) == 105, "A meeting without an agreed price does not commit money")
+	player.meetings.erase(2)
+	check.call(game.market.committed_purchase_total(player) == 25, "Cancelling a confirmed meeting immediately removes its commitment")
+	var character: Resource = Characters.for_listing(sample)
+	player.contact_relations[str(character.id)] = {"blocked": true}
+	check.call(game.market.committed_purchase_total(player) == 0, "Blocked contacts never contribute commitments even if stale agreements remain")
+
+
+func _npc_meetings() -> void:
+	var world = preload("res://src/world/world_rules.gd")
+	var art = preload("res://src/ui/art_library.gd")
+	for place: String in Catalog.LOCATIONS:
+		var booking := {"place": place, "pos": Catalog.LOCATIONS[place]}
+		var point: Vector2 = game.market.meeting_position(booking)
+		check.call(world.clear_at("town", point, 10) and point.distance_to(booking.pos) >= 40, "Contact stands on clear ground away from sign: " + place)
+		var envelope := Rect2(point - Vector2(60, 44), Vector2(120, 48))
+		var overlaps := false
+		for prop: Dictionary in world.town_props():
+			var rect: Rect2 = prop.get("rect", Rect2())
+			if prop.kind == "sign":
+				rect = Rect2(prop.pos - Vector2(60, 54), Vector2(120, 54))
+			if rect.has_area() and envelope.intersects(rect):
+				overlaps = true
+		check.call(not overlaps, "NPC name, marker and body avoid signs and scenery: " + place)
+	check.call(art.NPCS.size() == 3 and art.npc("dave") == art.npc("dave"), "Supplied NPC appearance is stable by contact identity")
+	for action: String in ["interact", "handoff"]:
+		var player := fresh()
+		var item: Dictionary = game.state.listings[0]
+		var now: float = game.clock()
+		var booking := {"place": item.location, "pos": Catalog.LOCATIONS[item.location], "start": now, "end": now + 60, "label": "Unchanged booking"}
+		player.meetings[item.id] = booking
+		player.offers[item.id] = 1
+		var original := booking.duplicate(true)
+		var meeting: Dictionary = game.active_meetings(player)[0]
+		check.call(booking == original and meeting.pos == game.market.meeting_position(booking) and meeting.label == booking.label, "Active meeting derives position once without changing canonical booking")
+		player.area = "town"
+		player.driving = false
+		player.car_pos = Vector2(540, 348)
+		# Close to the new feet, deliberately beyond the original pole's 28px reach.
+		var away: Vector2 = (meeting.pos - booking.pos).normalized()
+		player.pos = meeting.pos + away * 27
+		var count: int = player.inventory.size()
+		game.act(action, {"listing_id": item.id})
+		check.call(player.pos.distance_to(booking.pos) > 28 and item.status == "sold" and player.inventory.size() == count + 1, action + " collects at rendered NPC, outside old pole range")
+		check.call(game.active_meetings(player).is_empty(), "Sold contact no longer spawns")
+	var player := fresh()
+	var item: Dictionary = game.state.listings[0]
+	player.meetings[item.id] = {"place": item.location, "pos": Catalog.LOCATIONS[item.location], "start": game.clock(), "end": game.clock() + 60}
+	player.offers[item.id] = 1
+	player.area = "town"
+	player.driving = false
+	player.pos = game.market.meeting_position(player.meetings[item.id]) + Vector2(29, 0)
+	game.act("handoff", {"listing_id": item.id})
+	check.call(item.status == "available", "NPC relocation does not widen authoritative 28px handoff radius")
+	player.contact_relations[str(Characters.for_listing(item).id)] = {"blocked": true}
+	check.call(game.active_meetings(player).is_empty(), "Blocked contact with stale booking never spawns")
+
+
+func _committed_hud() -> void:
+	var player := fresh()
+	var item: Dictionary = game.state.listings[0]
+	player.offers[item.id] = 250
+	player.meetings[item.id] = {"start": game.clock(), "end": game.clock() + 30, "place": item.location, "label": "Test meeting"}
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1152, 720)
+	game.get_tree().root.add_child(viewport)
+	var screen: Control = load("res://src/ui/game_screen.tscn").instantiate()
+	viewport.add_child(screen)
+	screen.set_process(false)
+	for resolution in [Vector2i(1152, 720), Vector2i(1440, 900)]:
+		viewport.size = resolution
+		for cash in [1000, 250, 249]:
+			player.cash = cash
+			screen.refresh()
+			await settle()
+			var label: Label = screen._committed_lbl
+			var warning: bool = cash < 250
+			check.call(label.text == "$250 COMMITTED" and screen._cash_lbl.text == "$%d" % cash, "HUD shows committed total separately from spendable balance at %s" % resolution)
+			check.call(label.get_theme_color("font_color") == (K.DANGER if warning else K.MUTED) and (label.get_theme_color("font_shadow_color").a > 0) == warning, "Commitment turns red with a glow only above cash; exact cash stays neutral")
+			var sound: Control = screen.get_node("Topbar/Row/SoundBtn")
+			check.call(sound.get_global_rect().end.x <= resolution.x and label.get_global_rect().end.x <= resolution.x, "Committed total and preserved sound button fit supported width %d" % resolution.x)
+			check.call(screen._checklist.get_global_rect().position.y >= screen.get_node("Topbar").get_global_rect().end.y, "Compact commitment label does not cover the build checklist")
+	player.meetings.clear()
+	screen.refresh()
+	check.call(screen._committed_lbl.text == "$0 COMMITTED" and screen._committed_lbl.get_theme_color("font_color") == K.MUTED, "Removing the last meeting clears the displayed commitment and warning")
+	viewport.queue_free()
+	await settle()
 
 
 func _phone() -> void:

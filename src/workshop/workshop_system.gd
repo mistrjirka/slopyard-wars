@@ -66,9 +66,9 @@ func _inventory_index(p: Dictionary, id: int) -> int:
 	return -1
 
 
-func install(pid: int, p: Dictionary, d: Dictionary) -> void:
+func install(pid: int, p: Dictionary, d: Dictionary) -> bool:
 	if busy_block(pid, p):
-		return
+		return false
 	var id = int(session.number(d.get("item_id"), -1))
 	var idx := _inventory_index(p, id)
 	var item := {}
@@ -84,36 +84,36 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 				break
 	if item.is_empty():
 		session.notify_player(pid, "You do not own that part.")
-		return
+		return false
 	for listing in state.listings:
 		if int(listing.get("owner", 0)) == pid and int(listing.get("item_id", -99999)) == id and listing.status == "available":
 			session.notify_player(pid, "Cancel the sale listing before installing this part.")
-			return
+			return false
 	var why := compatibility(item, p)
 	if why != "":
 		session.notify_player(pid, "Cannot install: " + why)
-		return
+		return false
 	var cat: String = item.category
 	if not reinstall and p.installed.has(cat):
 		session.notify_player(pid, "Uninstall the mounted %s from Your Rig first." % cat)
-		return
+		return false
 	var expected: int = RigRules.expected_fasteners(item)
 	# Omitted counts preserve direct-install callers; explicitly malformed counts never mutate the build.
 	var raw_seated: float = session.number(d.get("screws_seated", expected), -1)
 	if raw_seated != floorf(raw_seated) or raw_seated < 0.0 or raw_seated > float(expected):
 		session.notify_player(pid, "Invalid seated screw count.")
-		return
+		return false
 	var seated := int(raw_seated)
 	var supports := expected
 	if cat == "motherboard":
 		var raw_supports: float = session.number(d.get("supports", expected), -1)
 		if raw_supports != floorf(raw_supports) or raw_supports < float(seated) or raw_supports > float(expected) or seated < RigRules.BOARD_MIN_SCREWS:
 			session.notify_player(pid, "Not enough supported screws.")
-			return
+			return false
 		supports = int(raw_supports)
 	elif seated != expected:
 		session.notify_player(pid, "Not enough screws.")
-		return
+		return false
 	if not reinstall:
 		p.inventory.remove_at(idx)
 	p.installed[cat] = item
@@ -136,9 +136,10 @@ func install(pid: int, p: Dictionary, d: Dictionary) -> void:
 			message += " The cooler mount is uneven (quality %d%%): expect less clock headroom and more heat." % roundi(quality * 100.0)
 	var rest := build_issues(p)
 	session.notify_player(pid, message + ("" if rest.is_empty() else " Still: " + rest[0]))
+	return true
 
 
-## Returns exactly the mounted part, including physical wear, without removing any other slot.
+## Manual motherboard removal also returns its RAM; destruction paths remain independent.
 func uninstall(pid: int, p: Dictionary, d: Dictionary) -> void:
 	if busy_block(pid, p):
 		return
@@ -148,17 +149,26 @@ func uninstall(pid: int, p: Dictionary, d: Dictionary) -> void:
 	if raw_id != floorf(raw_id) or item.is_empty() or str(item.get("category", "")) != cat or int(item.get("id", -2)) != int(raw_id):
 		session.notify_player(pid, "The mounted part changed. Review Your Rig before uninstalling.")
 		return
-	p.installed.erase(cat)
-	p.inventory.append(item)
-	p.tuning.erase(cat)
+	var returned_ram: Dictionary = p.installed.get("ram", {}) if cat == "motherboard" else {}
+	var slots: Array[String] = [cat]
+	if not returned_ram.is_empty():
+		slots.append("ram")
 	var fasteners: Dictionary = p.workshop_modifiers.get("assembly_fasteners", {})
-	fasteners.erase(cat)
+	for slot: String in slots:
+		var returned: Dictionary = p.installed[slot]
+		p.installed.erase(slot)
+		p.inventory.append(returned)
+		p.tuning.erase(slot)
+		fasteners.erase(slot)
 	p.workshop_modifiers["assembly_fasteners"] = fasteners
 	if cat == "cpu":
 		p.workshop_modifiers.erase("cpu_mount_quality")
 		p.workshop_modifiers.erase("cpu_paste_amount")
 	var rest := build_issues(p)
-	session.notify_player(pid, "Uninstalled %s. Returned to inventory." % item.name + ("" if rest.is_empty() else " Still: " + rest[0]))
+	var message := "Uninstalled %s. Returned to inventory." % item.name
+	if not returned_ram.is_empty():
+		message += " Installed RAM (%s) also returned to inventory." % returned_ram.name
+	session.notify_player(pid, message + ("" if rest.is_empty() else " Still: " + rest[0]))
 
 
 ## Applies one reported assembly mistake to a spare or mounted part the player owns. Idempotent per strike count;
@@ -271,18 +281,22 @@ func tune(pid: int, p: Dictionary, d: Dictionary) -> void:
 	_resolve_test(pid, p, cat, clock, volt, result)
 
 
-func _resolve_test(pid: int, p: Dictionary, cat: String, clock: float, volt: float, result: Dictionary) -> void:
+func _resolve_test(pid: int, p: Dictionary, cat: String, clock: float, volt: float, result: Dictionary, source: String = "tuning") -> void:
 	var item: Dictionary = p.installed[cat]
 	var modifiers: Dictionary = p.get("workshop_modifiers", {})
 	if result.uses_luck:
 		modifiers.lucky_tests = maxi(0, int(modifiers.get("lucky_tests", 0)) - 1)
 	var failure := Overclock.failure_mode(result, session.rng.randf())
+	var outcome := {"part": item.name, "item_id": int(item.id), "category": cat, "source": source,
+		"destroyed": failure != "", "failure_mode": failure, "risk": result.damage_chance,
+		"fire_risk": result.fire_chance, "clock": clock, "voltage": volt,
+		"stable": clock <= float(result.stable_clock) + 0.0005, "applied": false,
+		"condition": int(item.get("condition", 100))}
 	if failure != "":
 		p.installed.erase(cat)
 		p.tuning.erase(cat)
 		p.destroyed.append(item.name)
-		p["last_stress_test"] = {"part": item.name, "category": cat, "destroyed": true, "risk": result.damage_chance,
-			"failure_mode": failure, "fire_risk": result.fire_chance}
+		session.publish_stress_result(pid, outcome)
 		if failure == "fire":
 			session.record_event("%s's %s caught fire at the power connector (%.1f%% fire risk)." % [p.name, item.name, result.fire_chance * 100])
 			session.notify_player(pid, "FIRE! %s is permanently destroyed. The connector has unlocked Dragon Breath mode. Fire chance was %.1f%%; the rest of the rig is intact." % [item.name, result.fire_chance * 100])
@@ -291,11 +305,21 @@ func _resolve_test(pid: int, p: Dictionary, cat: String, clock: float, volt: flo
 		session.notify_player(pid, "BANG! %s is permanently destroyed. The test had a %.1f%% failure chance. The smoke is not an upgrade." % [item.name, result.damage_chance * 100])
 		return
 	item["condition"] = maxi(1, int(item.get("condition", 100)) - int(result.wear))
-	p.tuning[cat] = {"clock": clock, "voltage": volt}
-	p["last_stress_test"] = {"part": item.name, "destroyed": false, "risk": result.damage_chance}
+	if outcome.stable:
+		p.tuning[cat] = {"clock": clock, "voltage": volt}
+		outcome.applied = true
+	else:
+		# Surviving an electrical test does not make unstable settings usable.
+		# Keep the last working tune (or implicit stock), but retain the test's wear/cost.
+		outcome.failure_mode = "unstable"
+	var applied := RigRules.tune_of(p.tuning, cat)
+	outcome["applied_clock"] = applied.clock
+	outcome["applied_voltage"] = applied.voltage
+	outcome.condition = int(item.condition)
+	session.publish_stress_result(pid, outcome)
 	var message := "%s survived: clock %.2fx / voltage %.2fx. %.1f%% risk; condition now %d/100." % [item.name, clock, volt, result.damage_chance * 100, item.condition]
-	if clock > float(result.stable_clock) + 0.0005:
-		message += " Unstable clocks reduce the score. Try the safe preset."
+	if not outcome.stable:
+		message = "OVERCLOCK FAILED — UNSTABLE: %s survived, but the settings were not applied. Last working tuning retained: %.2fx clock / %.2fx voltage. Condition now %d/100. Try the safe preset." % [item.name, applied.clock, applied.voltage, item.condition]
 	if result.wear > 0:
 		message += " Pushing your luck wore the part down."
 	session.notify_player(pid, message)
@@ -310,12 +334,16 @@ func final_score(pid: int, p: Dictionary) -> Dictionary:
 			for test: Dictionary in Overclock.final_tests(p.installed, p.tuning, p.workshop_modifiers):
 				if not build_issues(p).is_empty():
 					break
-				_resolve_test(pid, p, test.category, test.clock, test.voltage, test.result)
+				_resolve_test(pid, p, test.category, test.clock, test.voltage, test.result, "benchmark")
 	return preview_score(p)
 
 
 func finish(pid: int, p: Dictionary) -> void:
 	if busy_block(pid, p):
+		return
+	var issues := build_issues(p)
+	if not issues.is_empty():
+		session.notify_player(pid, "Cannot start the benchmark: " + "; ".join(issues) + ". Complete your build at the workbench first.")
 		return
 	p.ready = true
 	p.score = final_score(pid, p)

@@ -11,9 +11,12 @@ const FONT_SIZE := 15
 const ROW_HEIGHT := 21.0
 const GAP := 5.0
 const MARKER_WIDTH := 54.0
+const EDGE_NOTICE_MINUTES := 120.0
+const COUNTDOWN_MINUTES := 60.0
 
 class MeetingGroup:
 	var times: Dictionary[int, int] = {}
+	var ends: Dictionary[int, float] = {}
 	var urgency: int = 0
 
 var _world: TownView
@@ -52,26 +55,7 @@ func _draw() -> void:
 	if safe.size.x < 100.0 or safe.size.y < 40.0:
 		return
 	var now: float = Game.clock()
-	var groups: Dictionary[Vector2, MeetingGroup] = {}
-	for meeting: Dictionary in Game.active_meetings(player):
-		var id := int(meeting.listing_id)
-		var listing: Dictionary = Game.market.listing(id)
-		if listing.is_empty() or listing.get("status", "gone") != "available":
-			continue
-		if int(player.get("offers", {}).get(id, 0)) <= 0 or Relationships.blocked(player, listing):
-			continue
-		if str(meeting.status) == "missed" or now > float(meeting.end):
-			continue
-		var urgency := 0
-		if now >= float(meeting.start):
-			urgency = 2 if float(meeting.end) - now <= 10.0 else 1
-		var destination: Vector2 = meeting.pos
-		if not groups.has(destination):
-			groups[destination] = MeetingGroup.new()
-		var group: MeetingGroup = groups[destination]
-		var start := int(meeting.start)
-		group.times[start] = maxi(group.times.get(start, 0), urgency)
-		group.urgency = maxi(group.urgency, urgency)
+	var groups := _meeting_groups(player, now, safe)
 	var destinations: Array[Vector2] = groups.keys()
 	destinations.sort_custom(func(a: Vector2, b: Vector2) -> bool: return groups[a].urgency > groups[b].urgency)
 	var occupied: Array[Rect2] = []
@@ -86,7 +70,7 @@ func _draw() -> void:
 		var group: MeetingGroup = groups[destination]
 		var starts: Array[int] = group.times.keys()
 		starts.sort()
-		var label_size := _label_size(starts, now)
+		var label_size := _label_size(starts, group, now)
 		if safe.grow(-17.0).has_point(target):
 			_draw_marker(target, Vector2.ZERO, group.urgency)
 			var box := _place_box(target + Vector2(21, -label_size.y * 0.5), label_size, safe, occupied)
@@ -114,15 +98,49 @@ func _draw() -> void:
 			_draw_times(Rect2(label_at, label_size), starts, group, now)
 
 
-func _time_text(start: int, now: float) -> String:
+func _meeting_groups(player: Dictionary, now: float, safe: Rect2) -> Dictionary[Vector2, MeetingGroup]:
+	var groups: Dictionary[Vector2, MeetingGroup] = {}
+	var inverse := get_global_transform_with_canvas().affine_inverse()
+	for meeting: Dictionary in Game.active_meetings(player):
+		var id := int(meeting.listing_id)
+		var listing: Dictionary = Game.market.listing(id)
+		if listing.is_empty() or listing.get("status", "gone") != "available":
+			continue
+		if int(player.get("offers", {}).get(id, 0)) <= 0 or Relationships.blocked(player, listing):
+			continue
+		var remaining := float(meeting.end) - now
+		if str(meeting.status) == "missed" or remaining < 0.0:
+			continue
+		var destination: Vector2 = meeting.pos
+		var target := inverse * _world.world_to_screen(destination)
+		if not safe.grow(-17.0).has_point(target) and remaining > EDGE_NOTICE_MINUTES:
+			continue
+		var urgency := 0
+		if now >= float(meeting.start):
+			urgency = 2 if remaining <= 10.0 else 1
+		if not groups.has(destination):
+			groups[destination] = MeetingGroup.new()
+		var group: MeetingGroup = groups[destination]
+		var start := int(meeting.start)
+		group.times[start] = maxi(group.times.get(start, 0), urgency)
+		# Shared start times keep one row, showing the soonest pickup deadline.
+		group.ends[start] = minf(group.ends.get(start, float(meeting.end)), float(meeting.end))
+		group.urgency = maxi(group.urgency, urgency)
+	return groups
+
+
+func _time_text(start: int, now: float, end: float) -> String:
+	var remaining := end - now
+	if remaining < COUNTDOWN_MINUTES:
+		return "%dm left" % maxi(0, ceili(remaining))
 	var clock := "%02d:%02d" % [(start % 1440) / 60, start % 60]
 	return clock if start / 1440 == int(now) / 1440 else "D%d %s" % [1 + start / 1440, clock]
 
 
-func _label_size(starts: Array[int], now: float) -> Vector2:
+func _label_size(starts: Array[int], group: MeetingGroup, now: float) -> Vector2:
 	var width := 0.0
 	for start: int in starts:
-		width = maxf(width, K.mono_bold().get_string_size(_time_text(start, now), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x)
+		width = maxf(width, K.mono_bold().get_string_size(_time_text(start, now, group.ends[start]), HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x)
 	return Vector2(ceilf(width) + 12.0, starts.size() * ROW_HEIGHT + 4.0)
 
 
@@ -166,7 +184,7 @@ func _draw_times(box: Rect2, starts: Array[int], group: MeetingGroup, now: float
 	var font := K.mono_bold()
 	var baseline := box.position + Vector2(6, 2 + (ROW_HEIGHT - font.get_height(FONT_SIZE)) * 0.5 + font.get_ascent(FONT_SIZE))
 	for start: int in starts:
-		var text := _time_text(start, now)
+		var text := _time_text(start, now, group.ends[start])
 		draw_string_outline(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, 3, Color("050a1a"))
 		draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE, _color(group.times[start]))
 		baseline.y += ROW_HEIGHT

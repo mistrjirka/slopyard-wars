@@ -1,16 +1,19 @@
 extends Control
 ## Reusable confirmation and assembly dialogs.
 signal notice_requested(message: String)
+signal workbench_requested
 const K = preload("res://src/ui/ui_kit.gd")
 const World = preload("res://src/world/world_rules.gd")
 const ActivityDialogScene = preload("res://src/ui/activity_dialog.tscn")
 const ConfirmationDialogScene = preload("res://src/ui/confirmation_dialog.tscn")
 const AssemblyDialogScene = preload("res://src/ui/assembly_dialog.tscn")
 const AssemblyScene = preload("res://src/workshop/assembly.tscn")
+const StressResultDialogScene = preload("res://src/ui/stress_result_dialog.tscn")
 
 
 var _assembly: Control
 var _assembly_id := -1
+var _previous_focus: Control
 
 @onready var _backdrop: ColorRect = $Backdrop
 @onready var _center: CenterContainer = $Center
@@ -24,6 +27,8 @@ func _ready() -> void:
 
 
 func open() -> void:
+	if not visible:
+		_previous_focus = get_viewport().gui_get_focus_owner()
 	if is_instance_valid(_backdrop):
 		_backdrop.visible = true
 	visible = true
@@ -35,6 +40,44 @@ func close() -> void:
 	if is_instance_valid(_backdrop):
 		_backdrop.visible = false
 	_clear_center()
+	if is_instance_valid(_previous_focus) and _previous_focus.is_visible_in_tree():
+		_previous_focus.grab_focus()
+	_previous_focus = null
+
+
+## Present only a resolved host outcome, never a preview or the confirmation's optimistic branch.
+## Neither action retries, restores hardware, nor ends the match.
+func show_stress_result(outcome: Dictionary) -> void:
+	if outcome.is_empty() or not outcome.has("destroyed"):
+		return
+	open()
+	var dlg: PanelContainer = StressResultDialogScene.instantiate()
+	_center.add_child(dlg)
+	var destroyed := bool(outcome.destroyed)
+	var unstable: bool = not destroyed and outcome.get("failure_mode", "") == "unstable"
+	var accent := K.DANGER if destroyed else (K.ORANGE if unstable else K.LIME)
+	dlg.add_theme_stylebox_override("panel", K.box(K.PANEL, accent, 8, 2, 24, 24))
+	var title: Label = dlg.get_node("Box/Title")
+	title.text = "FAILURE — PART DESTROYED" if destroyed else ("OVERCLOCK FAILED — UNSTABLE" if unstable else "SUCCESS! OVERCLOCK APPLIED")
+	title.add_theme_color_override("font_color", accent)
+	title.add_theme_font_override("font", K.body_bold())
+	var part: Label = dlg.get_node("Box/Part")
+	part.text = str(outcome.get("part", "Component"))
+	var text: Label = dlg.get_node("Box/Text")
+	if destroyed:
+		text.text = "CONNECTOR FIRE. " if outcome.get("failure_mode", "") == "fire" else "PERMANENT HARDWARE FAILURE. "
+		text.text += "This part is gone for good and has been removed from your rig. The rest of your rig is intact.\n\nYour run continues. Return to the workbench to review the missing part and install a replacement."
+	elif unstable:
+		text.text = "Your part survived, but %.2fx clock / %.2fx voltage was unstable. These settings were NOT applied.\n\nLast working tuning retained: %.2fx clock / %.2fx voltage.\nCondition after test: %d/100. Test time is spent; any wear and charm consumption from this test still apply.\n\nTry a lower clock or the safe preset. Your run continues." % [float(outcome.get("clock", 1)), float(outcome.get("voltage", 1)), float(outcome.get("applied_clock", 1)), float(outcome.get("applied_voltage", 1)), int(outcome.get("condition", 100))]
+	else:
+		text.text = "The actual stress test passed. Your stable settings are applied: %.2fx clock / %.2fx voltage.\nCondition after test: %d/100.\n\nKeep building — this result does not finish your run." % [float(outcome.get("clock", 1)), float(outcome.get("voltage", 1)), int(outcome.get("condition", 100))]
+	var continue_button: Button = dlg.get_node("Box/Buttons/Continue")
+	continue_button.pressed.connect(close)
+	var workbench: Button = dlg.get_node("Box/Buttons/Workbench")
+	workbench.pressed.connect(func():
+		close()
+		workbench_requested.emit())
+	continue_button.grab_focus()
 
 
 func _clear_center() -> void:

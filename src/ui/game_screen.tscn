@@ -80,9 +80,24 @@ text = "SLOPYARD / TOWN"
 layout_mode = 2
 theme_type_variation = "Big"
 
-[node name="Cash" type="Label" parent="Topbar/Row"]
+[node name="Funds" type="VBoxContainer" parent="Topbar/Row"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 0
+
+[node name="Cash" type="Label" parent="Topbar/Row/Funds"]
 layout_mode = 2
 theme_type_variation = "Big"
+
+[node name="Committed" type="Label" parent="Topbar/Row/Funds"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = "Tiny"
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 0
+theme_override_constants/shadow_outline_size = 6
+text = "$0 COMMITTED"
+tooltip_text = "Confirmed purchase meetings only. Cash is not reserved; incoming sale payments are excluded."
 
 [node name="Spacer" type="Control" parent="Topbar/Row"]
 layout_mode = 2
@@ -262,6 +277,24 @@ autowrap_mode = 3
 
 [node name="Meetings" type="VBoxContainer" parent="MapLayer/Scroll/Content"]
 layout_mode = 2
+
+[node name="InstalledFeedback" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_type_variation = "Big"
+theme_override_colors/font_shadow_color = Color(0.02, 0.04, 0.09, 0.95)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 4
+theme_override_font_sizes/font_size = 80
+text = "INSTALLED"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Dialogs" parent="." instance=ExtResource("6")]
 visible = false

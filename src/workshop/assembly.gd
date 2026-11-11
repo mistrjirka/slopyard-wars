@@ -26,6 +26,7 @@ const CPU_ART_SCALE := SOCKET_ART_SCALE * 0.75
 const CPU_PACKAGE_SIZE := Vector2(96, 96) * CPU_ART_SCALE
 const CPU_PASTE_RECT := Rect2(CPU_TARGET - Vector2(40, 40), Vector2(80, 80))
 # The mount, cooler art, outline and drag bounds share one footprint on both sockets.
+const COOLER_TARGET := CPU_TARGET - Vector2(8, 8)
 const COOLER_MOUNT_HALF := Vector2(66, 54)
 const COOLER_HIT_RADIUS := 18.0
 const COOLER_SIZE := (COOLER_MOUNT_HALF + Vector2.ONE * COOLER_HIT_RADIUS) * 2.0
@@ -41,14 +42,15 @@ const GPU_LATCH := GPU_SLOT_RECT.position + Vector2(GPU_SLOT_RECT.size.x + 16, G
 # almost centred, so the contact strip below uses an explicit, off-centre key.
 const RAM_BODY_REGION := Rect2(5, 20, 54, 20)
 const RAM_SIZE := Vector2(432, 192)
-const RAM_TARGET := Vector2(340, 238)
+const RAM_TARGET := Vector2(270, 238)
+const RAM_BENCH := Vector2(650, 176)
 const RAM_CONTACTS := Rect2(24, 160, 384, 24)
 const RAM_KEY_X := 180.0
 const RAM_KEY_WIDTH := 24.0
 const RAM_SLOT := Rect2(RAM_TARGET - RAM_SIZE * 0.5 + RAM_CONTACTS.position - Vector2(0, 2),
 	RAM_CONTACTS.size + Vector2(0, 4))
-const RAM_CLIPS: Array[Vector2] = [Vector2(112, 314), Vector2(568, 314)]
-const RAM_PRESS: Array[Vector2] = [Vector2(152, 230), Vector2(528, 230)]
+const RAM_CLIPS: Array[Vector2] = [RAM_TARGET + Vector2(-228, 76), RAM_TARGET + Vector2(228, 76)]
+const RAM_PRESS: Array[Vector2] = [RAM_TARGET + Vector2(-188, -8), RAM_TARGET + Vector2(188, -8)]
 const MAX_STRIKES := 5
 const SCREW_RATE := 65.0
 const GPU_SAFE_SPEED := 220.0
@@ -115,7 +117,6 @@ var _t := 0.0
 @onready var _retry: Button = $Footer/Actions/Retry
 @onready var _hint: Label = $Footer/Hint
 @onready var _penalties: Label = $Footer/Penalties
-@onready var _fit_cooler: Button = $FitCooler
 
 
 func _fit_footer() -> void:
@@ -142,7 +143,8 @@ func synchronize(part: Dictionary, installed: Dictionary, modifiers: Dictionary)
 		var previous_board: Dictionary = _context.get("installed", {}).get("motherboard", {})
 		var board: Dictionary = installed.get("motherboard", {})
 		if int(board.get("id", -1)) != int(previous_board.get("id", -1)):
-			if board.is_empty() and _pending_damage and _damage_target_id == int(previous_board.get("id", -1)) and _expected_strike >= MAX_STRIKES:
+			# Acknowledged fatal socket damage must stay visible on later refreshes.
+			if board.is_empty() and (_pending_damage or _socket_destroyed) and _damage_target_id == int(previous_board.get("id", -1)) and _expected_strike >= MAX_STRIKES:
 				mark_destroyed("motherboard")
 			else:
 				# The original socket is no longer available; never install against a stale board.
@@ -235,15 +237,14 @@ func _corner_points(center: Vector2, hx: float, hy: float) -> Array:
 
 
 func _uses_load_plate() -> bool:
-	# OX4 is the PGA LuckyZen family. OX3 LuckyCore and newer sockets use LGA.
-	return str(item.get("socket", "")) != "OX4"
+	# Both CPU families share Moonlight's detailed socket and retention flow.
+	# Hardware compatibility remains governed by the part's socket, not this art.
+	return true
 
 
 func _cpu_lever_position(open_socket: bool) -> Vector2:
-	if _uses_load_plate():
-		var origin := CPU_TARGET - SOCKET_CPU_ANCHOR * SOCKET_ART_SCALE
-		return origin + (Vector2(180, 54) if open_socket else Vector2(174, 180)) * SOCKET_ART_SCALE
-	return CPU_TARGET + (Vector2(68, -55) if open_socket else Vector2(170, 40))
+	var origin := CPU_TARGET - SOCKET_CPU_ANCHOR * SOCKET_ART_SCALE
+	return origin + (Vector2(180, 54) if open_socket else Vector2(174, 180)) * SOCKET_ART_SCALE
 
 
 func _socket_pins_rect() -> Rect2:
@@ -271,26 +272,26 @@ func _build() -> Array[Dictionary]:
 				var point := _clk(_hole_pos(id), 1, 11.0)
 				point["hole"] = id
 				points.append(point)
-			return [{"kind": "standoffs", "title": "1/3  MATCH THE STANDOFFS", "hint": "Match the board's mounting holes with the case tray.\nClick a hole to fit or remove a standoff."},
+			return [{"kind": "standoffs", "title": "1/3  MATCH THE STANDOFFS", "hint": "Match the board's mounting holes with the case tray.\nFit supports, then drag the board from the parts bench."},
 				_drag("2/3  LOWER THE MOTHERBOARD", "Match letters; keep blue REAR I/O edges at top.\nSupports under solid PCB cause damage; outside extras are safe.", Vector2(645, 220), BOARD_TARGET, 2.6, 0, "board"),
 				{"kind": "board_check", "title": "CHECK THE SUPPORTS", "hint": "Not enough supports beneath the board.\nLift Board to add supports at its mounting holes."},
 				_clicks("3/3  FASTEN THE BOARD", "Hold left to tighten, right to loosen; finish when secure.\nExtra supported screws are optional; all seated = done.", points)]
 		"cpu":
 			var seating_hint := "R / right-click to rotate; match the gold corner.\n"
-			seating_hint += "Avoid exposed pins: each click damages the board; 5 destroy it." if _uses_load_plate() else "Seat the CPU flat before locking the socket."
+			seating_hint += "Avoid exposed pins: each click damages the board; 5 destroy it."
 			return [_clicks("1/6  RELEASE THE SOCKET", "Click the retention lever to open the socket.\nNever force the CPU into a locked socket.", [_clk(_cpu_lever_position(false), 1, 20)], "lever"),
 				_drag("2/6  SEAT THE CPU", seating_hint, Vector2(650, 230), CPU_TARGET, 1.6, 1),
 				_clicks("3/6  LOCK THE SOCKET", "Click the retention lever to secure the CPU.\nLock the socket before fitting the cooler.", [_clk(_cpu_lever_position(true), 1, 20)], "lever"),
-				{"kind": "paste", "title": "4/6  APPLY THERMAL PASTE", "hint": "Hold left mouse on CPU for paste; 100% is enough.\nToo little: up to 50% CPU performance loss. Extra is harmless."},
-				_drag("5/6  PLACE THE COOLER", "Drag the bundled cooler onto the CPU.\nMissing paste costs up to 50% CPU performance.", COOLER_BENCH, CPU_TARGET, 1.0, 0, "cooler"),
-				_clicks("6/6  TIGHTEN EVENLY", "Hold left to tighten, right to loosen; alternate corners.\nSafe: 100–150%. Over 150% damages; uneven turns hurt cooling.", _corner_points(CPU_TARGET, COOLER_MOUNT_HALF.x, COOLER_MOUNT_HALF.y), "cooler")]
+				{"kind": "paste", "title": "4/6  APPLY THERMAL PASTE", "hint": "Hold left on CPU for paste, then drag the cooler onto it.\n100% is enough; too little loses up to 50% CPU performance. Extra is safe."},
+				_drag("5/6  PLACE THE COOLER", "Drag the bundled cooler onto the CPU.\nMissing paste costs up to 50% CPU performance.", COOLER_BENCH, COOLER_TARGET, 1.0, 0, "cooler"),
+				_clicks("6/6  TIGHTEN EVENLY", "Hold left to tighten, right to loosen; alternate corners.\nSafe: 100–150%. Over 150% damages; uneven turns hurt cooling.", _corner_points(COOLER_TARGET, COOLER_MOUNT_HALF.x, COOLER_MOUNT_HALF.y), "cooler")]
 		"gpu":
 			return [_clicks("1/3  OPEN THE PCIe LATCH", "Click the latch at the end of the PCIe slot.\nOpen it before inserting the GPU.", [_clk(GPU_LATCH, 1, 18)], "lever"),
 				{"kind": "gpu_drag", "title": "2/3  LOWER THE GRAPHICS CARD GENTLY", "hint": "Align the gold connector; drag gently down into the slot.\nFast impact damages the GPU.", "pos": _gpu_target() - Vector2(0, 148), "target": _gpu_target(), "scale": 2.6, "inc": 0, "rot": 0, "tol": 24.0, "part": "gpu"},
 				_clicks("3/3  SECURE THE CASE BRACKET", "Hold left mouse on the top bracket screw to reach 100%.\nMetal case screws cannot cause damage.", [_clk(GPU_SEATED_ORIGIN + Vector2(8, 11) * GPU_ART_SCALE)])]
 		"ram":
 			return [_clicks("1/3  OPEN THE CLIPS", "Click both DIMM clips to open them.\nOpen them before inserting RAM.", [_clk(RAM_CLIPS[0] + Vector2(12, 0), 1, 18), _clk(RAM_CLIPS[1] - Vector2(12, 0), 1, 18)], "lever"),
-				_drag("2/3  ALIGN THE NOTCH", "R / right-click to flip; drag gold contacts into the slot.\nThe gap must fit over the green key.", Vector2(390, 135), RAM_TARGET, 1.0, 2),
+				_drag("2/3  ALIGN THE NOTCH", "R / right-click to flip; drag gold contacts into the slot.\nThe gap must fit over the green key.", RAM_BENCH, RAM_TARGET, 1.0, 2),
 				_clicks("3/3  PRESS BOTH ENDS", "Click each glowing end three times; clips close as it seats.\nSeat both ends to install the RAM.", [_clk(RAM_PRESS[0], 3, 20), _clk(RAM_PRESS[1], 3, 20)], "press")]
 		"psu":
 			var points: Array = []
@@ -567,14 +568,11 @@ func _refresh_controls() -> void:
 	var secondary_text := ""
 	if not _done and not _destroyed and not steps.is_empty():
 		var step: Dictionary = steps[si]
-		primary_visible = step.kind in ["standoffs", "board_check", "paste"] or _screw_style(step)
-		if step.kind == "standoffs":
-			primary_text = "LOWER BOARD"
-		elif step.kind == "board_check":
+		primary_visible = step.kind == "board_check" or _screw_style(step)
+		if step.kind == "board_check":
 			primary_text = "START SCREWS"
 			primary_disabled = blocked or _support_count() < RigRules.BOARD_MIN_SCREWS
 		elif step.kind == "paste":
-			primary_text = "FIT COOLER · PASTE %d%%" % roundi(minf(_paste_amount, 1.0) * 100)
 			secondary_visible = true
 			secondary_text = "CLEAR PASTE"
 		elif _screw_style(step):
@@ -589,13 +587,7 @@ func _refresh_controls() -> void:
 			secondary_text = "LIFT BOARD"
 			secondary_disabled = blocked or (_screw_style(step) and not _all_backed_out(step))
 	# Apply each final state once: hiding/re-showing a button every frame cancels clicks.
-	var fitting_cooler: bool = not _done and not _destroyed and not steps.is_empty() and steps[si].kind == "paste"
-	_fit_cooler.visible = fitting_cooler
-	_fit_cooler.disabled = blocked
-	_fit_cooler.text = "FIT COOLER\nPASTE %d%%" % roundi(minf(_paste_amount, 1.0) * 100)
-	_fit_cooler.theme_type_variation = &"PrimaryButton" if _paste_amount >= 1.0 else &"AssemblyPartialButton"
-	_fit_cooler.tooltip_text = "Continue with up to 50% CPU performance loss." if _paste_amount < 1.0 else "Paste is sufficient. Place the cooler next."
-	_primary.visible = primary_visible and not fitting_cooler
+	_primary.visible = primary_visible
 	_primary.disabled = primary_disabled
 	_primary.text = primary_text
 	_primary.theme_type_variation = primary_style
@@ -625,7 +617,7 @@ func _gui_input(event: InputEvent) -> void:
 			var elapsed := maxf(0.001, float(now - _last_motion_us) / 1000000.0)
 			_last_motion_us = now
 			var previous: Vector2 = step.pos
-			step.pos = (_mouse - _grab).clamp(Vector2(45, 65), Vector2(W - 45, 380))
+			step.pos = _carry_position(step, _mouse - _grab)
 			_drag_speed = Vector2(step.pos).distance_to(previous) / elapsed
 			if step.kind == "gpu_drag" and previous.y < step.target.y and step.pos.y >= step.target.y:
 				if absf(step.pos.x - step.target.x) <= float(step.tol):
@@ -654,7 +646,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _press(step: Dictionary, right: bool) -> void:
-	if cat == "cpu" and si == 1 and _uses_load_plate() and _socket_pins_rect().has_point(_mouse):
+	if cat == "cpu" and si == 1 and _socket_pins_rect().has_point(_mouse):
 		var cpu_rect := Rect2(Vector2(step.pos) - CPU_PACKAGE_SIZE * 0.5, CPU_PACKAGE_SIZE)
 		if not cpu_rect.has_point(_mouse):
 			_request_damage("socket_pins", "Pin damage is permanent. Handle the CPU by its edges.\nMatch the gold corner; avoid the exposed socket pins.")
@@ -677,9 +669,19 @@ func _press(step: Dictionary, right: bool) -> void:
 	elif right:
 		_rotate(step)
 	elif step.kind == "standoffs":
+		if Rect2(Vector2(645, 220) - BOARD_RECT.size * 0.57 * 0.5, BOARD_RECT.size * 0.57).has_point(_mouse):
+			if _support_count() < RigRules.BOARD_MIN_SCREWS:
+				note = "Not enough supports. Match more of the board's mounting holes."
+				note_err = false
+				return
+			_advance()
+			_start_drag(steps[si])
+			return
 		for id: String in HOLES:
 			if _mouse.distance_to(_hole_pos(id)) <= 9.0:
 				_standoffs[id] = not bool(_standoffs.get(id, false))
+				note = str(step.hint)
+				note_err = false
 				if not bool(_standoffs[id]) and id in _repair_extras:
 					_repair_extras.erase(id)
 					if _repair_extras.is_empty():
@@ -687,6 +689,10 @@ func _press(step: Dictionary, right: bool) -> void:
 						note_err = false
 				return
 	elif step.kind == "paste":
+		if Rect2(COOLER_BENCH - COOLER_SIZE * 0.5, COOLER_SIZE).has_point(_mouse):
+			_advance()
+			_start_drag(steps[si])
+			return
 		_held_paste = CPU_PASTE_RECT.has_point(_mouse)
 		if _held_paste:
 			Sound.play("paste")
@@ -702,15 +708,28 @@ func _press(step: Dictionary, right: bool) -> void:
 	elif step.kind in ["drag", "gpu_drag"]:
 		var half := _part_size(step) * 0.5 + Vector2(8, 8)
 		if Rect2(Vector2(step.pos) - half, half * 2).has_point(_mouse):
-			_dragging = true
-			_grab = _mouse - Vector2(step.pos)
-			_last_motion_us = Time.get_ticks_usec()
-			_drag_speed = 0.0
+			_start_drag(step)
+
+
+func _start_drag(step: Dictionary) -> void:
+	_dragging = true
+	_grab = _mouse - Vector2(step.pos)
+	_last_motion_us = Time.get_ticks_usec()
+	_drag_speed = 0.0
+	step.pos = _carry_position(step, Vector2(step.pos))
+
+
+func _carry_position(step: Dictionary, position: Vector2) -> Vector2:
+	if step.get("part") == "board" or cat == "ram":
+		# Full-sized carried hardware stays below the title and above the footer.
+		var half := _part_size(step, true) * 0.5
+		return position.clamp(Vector2(8, 64) + half, Vector2(W - 8, 370) - half)
+	return position.clamp(Vector2(45, 65), Vector2(W - 45, 380))
 
 
 func _part_size(step: Dictionary, at_target: bool = false) -> Vector2:
 	if step.get("part") == "board":
-		return BOARD_RECT.size * (1.0 if at_target or Vector2(step.pos).distance_to(BOARD_TARGET) < 30 else 0.57)
+		return BOARD_RECT.size * (1.0 if at_target or _dragging or Vector2(step.pos).distance_to(BOARD_TARGET) < 30 else 0.57)
 	if step.get("part") == "drive":
 		return DRIVE_SIZE
 	if step.get("part") == "m2":
@@ -722,7 +741,7 @@ func _part_size(step: Dictionary, at_target: bool = false) -> Vector2:
 	if cat == "cpu":
 		return CPU_PACKAGE_SIZE
 	if cat == "ram":
-		return RAM_SIZE
+		return RAM_SIZE * (0.45 if not at_target and not _dragging and Vector2(step.pos) == RAM_BENCH else 1.0)
 	if step.get("part") == "psu":
 		return PSU_SIZE * (1.0 if at_target or Vector2(step.pos).distance_to(PSU_TARGET) < 30 else 0.8)
 	var extent := PartArt.drawing_size(cat, item, float(step.scale))
@@ -874,28 +893,10 @@ func _scene() -> void:
 	match cat:
 		"cpu":
 			var socket_open := si in [1, 2]
-			if _uses_load_plate():
-				var texture: Texture2D = Art.SOCKET_OPEN if socket_open else (Art.SOCKET_WITH_CPU if si >= 3 else Art.SOCKET_CLOSED)
-				var origin := CPU_TARGET - SOCKET_CPU_ANCHOR * SOCKET_ART_SCALE
-				draw_texture_rect(texture, Rect2(origin, texture.get_size() * SOCKET_ART_SCALE), false)
-				_txt(Vector2(550, 90), "LGA · LOAD PLATE", 11, K.SKY)
-			else:
-				# PGA schematic: provide real PCB beneath the whole shared mount footprint.
-				var pcb := Rect2(CPU_TARGET - COOLER_SIZE * 0.5, COOLER_SIZE).grow(18.0)
-				draw_rect(pcb, K.cat_color("motherboard").darkened(0.65))
-				draw_rect(pcb, K.cat_color("motherboard"), false, 2)
-				for i in 4:
-					var trace_y := pcb.position.y + 10.0 + i * 5.0
-					draw_line(Vector2(pcb.position.x + 10.0, trace_y), Vector2(pcb.end.x - 10.0, trace_y), K.LINE, 1)
-				var socket_rect := Rect2(CPU_TARGET - Vector2(62, 62), Vector2(124, 124))
-				draw_rect(socket_rect, K.NAVY0)
-				draw_rect(socket_rect, K.FAINT, false, 5)
-				for i in 8:
-					for j in 8:
-						draw_circle(CPU_TARGET - Vector2(48, 48) + Vector2(i, j) * 13.7, 1.6, Color("c9b176"))
-				draw_colored_polygon(PackedVector2Array([socket_rect.position, socket_rect.position + Vector2(20, 0), socket_rect.position + Vector2(0, 20)]), Color("d9b95d"))
-				draw_line(CPU_TARGET + Vector2(68, 40), _cpu_lever_position(socket_open), K.CREAM, 5)
-				_txt(Vector2(550, 90), "PGA · RETENTION LEVER", 11, K.SKY)
+			var texture: Texture2D = Art.SOCKET_OPEN if socket_open else (Art.SOCKET_WITH_CPU if si >= 3 else Art.SOCKET_CLOSED)
+			var origin := CPU_TARGET - SOCKET_CPU_ANCHOR * SOCKET_ART_SCALE
+			draw_texture_rect(texture, Rect2(origin, texture.get_size() * SOCKET_ART_SCALE), false)
+			_txt(Vector2(550, 90), "LGA · LOAD PLATE", 11, K.SKY)
 		"gpu":
 			draw_rect(Rect2(70, 80, 420, 265), K.LINE, false, 4)
 			draw_rect(Rect2(75, 295, 405, 45), K.cat_color("motherboard").darkened(0.6))
@@ -907,6 +908,9 @@ func _scene() -> void:
 			_txt(Vector2(540, 144), "Latch locks on seating.", 11, K.MUTED)
 			draw_rect(Rect2(GPU_LATCH - Vector2(10, 7) - (Vector2(0, 12) if si == 1 else Vector2.ZERO), Vector2(20, 14)), K.ORANGE if si < 2 else K.LIME_DIM)
 		"ram":
+			if si == 0:
+				_draw_ram(RAM_BENCH, false, 0.45)
+				_txt(Vector2(550, 252), "Open clips, then drag RAM.", 11, K.MUTED)
 			draw_rect(RAM_SLOT, K.NAVY0)
 			draw_rect(RAM_SLOT, K.cat_color(cat), false, 2)
 			var key_x := RAM_TARGET.x - RAM_SIZE.x * 0.5 + RAM_KEY_X
@@ -1078,9 +1082,9 @@ func _draw_gpu(center: Vector2) -> void:
 	draw_texture_rect(texture, Rect2(center - extent * 0.5, extent), false)
 
 
-func _draw_ram(center: Vector2, flipped: bool) -> void:
-	var mirror := Vector2(-1, 1) if flipped else Vector2.ONE
-	draw_set_transform_matrix(Transform2D(0, mirror, 0, center - Vector2(0, RAM_SIZE.y * 0.5)))
+func _draw_ram(center: Vector2, flipped: bool, scale_factor: float = 1.0) -> void:
+	var mirror := (Vector2(-1, 1) if flipped else Vector2.ONE) * scale_factor
+	draw_set_transform_matrix(Transform2D(0, mirror, 0, center - Vector2(0, RAM_SIZE.y * scale_factor * 0.5)))
 	var left := -RAM_SIZE.x * 0.5
 	var texture := Art.part("ram", item, true)
 	draw_texture_rect_region(texture, Rect2(left, 0, RAM_SIZE.x, 160), RAM_BODY_REGION)
@@ -1175,7 +1179,7 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 			if active:
 				_draw_cooler(COOLER_BENCH)
 				_txt(Vector2(550, 272), "Paste applied: %d%%" % roundi(_paste_amount * 100), 13, K.SKY)
-				_txt(Vector2(550, 294), "100% enough; extra safe.", 11, K.MUTED)
+				_txt(Vector2(550, 294), "Drag cooler onto CPU.", 11, K.MUTED)
 		"clicks":
 			for point: Dictionary in step.pts:
 				var at: Vector2 = point.p
@@ -1203,7 +1207,7 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 				draw_rect(outline, Color(K.LIME, 0.08))
 				draw_rect(outline, K.LIME, false, 1)
 			if step.get("part") == "board":
-				_draw_board(pos, 1.0 if pos.distance_to(BOARD_TARGET) < 30 else 0.57)
+				_draw_board(pos, _part_size(step).x / BOARD_RECT.size.x)
 			elif step.get("part") == "cooler":
 				_draw_cooler(pos)
 			elif step.get("part") == "psu":
@@ -1216,10 +1220,10 @@ func _draw_step(step: Dictionary, active: bool) -> void:
 			elif step.kind == "gpu_drag":
 				_draw_gpu(pos)
 			elif cat == "ram":
-				_draw_ram(pos, int(step.rot) != 0)
+				_draw_ram(pos, int(step.rot) != 0, _part_size(step).x / RAM_SIZE.x)
 			elif cat == "cpu":
 				# The closed LGA texture already includes the seated CPU under its plate.
-				if not _uses_load_plate() or si < 3:
+				if si < 3:
 					_draw_cpu(pos, int(step.rot))
 			else:
 				var transform := Transform2D(float(step.rot) * PI / 2, Vector2(step.scale, step.scale), 0, pos)

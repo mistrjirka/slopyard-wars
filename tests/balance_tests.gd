@@ -100,7 +100,7 @@ func _market() -> void:
 	player.offers[sale.id] = sale.first_offer
 	player.meetings[sale.id] = {"start": game.clock(), "end": game.clock() + 90, "pos": sale.pos, "place": sale.location}
 	player.area = "town"
-	player.pos = sale.pos
+	player.pos = game.market.meeting_position(player.meetings[sale.id])
 	game.act("handoff", {"listing_id": sale.id})
 	game.act("handoff", {"listing_id": sale.id})
 	check.call(player.cash == cash + sale.first_offer and not player.inventory.has(spare), "Selling worn spares still earns cash exactly once")
@@ -253,7 +253,7 @@ func _runs() -> void:
 			# collision/pathfinding and physical assembly are tested separately.
 			game.advance_time(maxf(0, float(meeting.start) - game.clock()) + 10)
 			player.area = "town"
-			player.pos = meeting.pos
+			player.pos = game.market.meeting_position(meeting)
 			game.act("handoff", {"listing_id": listing.id})
 			check.call(listing.status == "sold", "Shopping plan can physically collect its part before the window closes")
 		game.advance_time(20)

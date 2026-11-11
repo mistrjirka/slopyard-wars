@@ -6,6 +6,8 @@ const Catalog = preload("res://src/data/catalog.gd")
 const Stats = preload("res://src/data/hardware_stats.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
 const Relationships = preload("res://src/trading/contact_relationships.gd")
+const MEETING_REMINDER_MINUTES := 20.0
+const World = preload("res://src/world/world_rules.gd")
 
 var session: Node
 var state: Dictionary:
@@ -76,13 +78,45 @@ func meeting_conflict(contact: String, listing_id: int, candidate: Dictionary) -
 	return false
 
 
+## Input is the raw canonical booking, never an active_meetings() display copy.
+## Keep NPC feet, tracking, waiting and the authoritative 28px handoff together.
+func meeting_position(booking: Dictionary) -> Vector2:
+	var pole: Vector2 = booking.get("pos", Catalog.LOCATIONS.get(str(booking.get("place", "")), Vector2.ZERO))
+	var offsets := [Vector2(0, 48), Vector2(0, 56), Vector2(48, 56), Vector2(-48, 56),
+		Vector2(88, 24), Vector2(-88, 24), Vector2(0, -56), Vector2(0, -80), Vector2(32, 80), Vector2(-32, 80),
+		Vector2(56, 64), Vector2(-56, 64), Vector2(88, -56), Vector2(-88, -56)]
+	for offset: Vector2 in offsets:
+		var point := pole + offset
+		if not World.clear_at("town", point, 10):
+			continue
+		# Reserve the full name/marker/body envelope, not just the contact's feet.
+		var visible := Rect2(point - Vector2(60, 44), Vector2(120, 48))
+		var covered := false
+		for prop: Dictionary in World.town_props():
+			var rect: Rect2 = prop.get("rect", Rect2())
+			if prop.kind == "sign":
+				rect = Rect2(prop.pos - Vector2(60, 54), Vector2(120, 54))
+			if rect.has_area() and visible.intersects(rect):
+				covered = true
+				break
+		if not covered:
+			return point
+	# Canonical places all have a clear candidate; keep custom bookings walkable too.
+	for offset: Vector2 in offsets:
+		if World.clear_at("town", pole + offset, 10):
+			return pole + offset
+	return pole
+
+
 func active_meetings(player: Dictionary) -> Array:
 	var out: Array = []
 	for lid in player.get("meetings", {}):
 		var m: Dictionary = player.meetings[lid]
 		var l := listing(int(lid))
-		if not l.is_empty() and l.status == "available":
+		if not l.is_empty() and l.status == "available" and not Relationships.blocked(player, l):
 			var copy: Dictionary = m.duplicate(true)
+			copy["pos"] = meeting_position(m)
+			copy["contact_id"] = str(Characters.for_listing(l).id)
 			copy["listing_id"] = int(lid)
 			copy["name"] = l.name
 			copy["contact"] = l.seller
@@ -90,6 +124,45 @@ func active_meetings(player: Dictionary) -> Array:
 			copy["status"] = "missed" if session.clock() > float(m.end) else ("early" if session.clock() < float(m.start) else "now")
 			out.append(copy)
 	return out
+
+
+## Informational only: confirmed purchases do not reserve or subtract cash.
+func committed_purchase_total(player: Dictionary) -> int:
+	var total := 0
+	for meeting: Dictionary in active_meetings(player):
+		if meeting.side != "buy" or meeting.status == "missed":
+			continue
+		var lid := int(meeting.listing_id)
+		if Relationships.blocked(player, listing(lid)):
+			continue
+		total += maxi(0, int(player.get("offers", {}).get(lid, 0)))
+	return total
+
+
+## Private phone texts reuse Lucky's unread badge, saved history and incoming cue.
+func remind_meetings(elapsed: float) -> void:
+	var now: float = session.clock()
+	for pid in state.players:
+		var player: Dictionary = state.players[pid]
+		if player.ready:
+			continue
+		for meeting: Dictionary in active_meetings(player):
+			var lid := int(meeting.listing_id)
+			var item := listing(lid)
+			var booked: Dictionary = player.meetings[lid]
+			if bool(booked.get("reminder_sent", false)) or int(player.offers.get(lid, 0)) <= 0 or Relationships.blocked(player, item):
+				continue
+			var lead := float(meeting.start) - now
+			if lead > MEETING_REMINDER_MINUTES or now > float(meeting.end):
+				continue
+			# A time-cost action may cross the reminder and the start in one tick.
+			# Catch that crossing, but do not send stale reminders for older meetings.
+			if lead < 0.0 and lead + elapsed < MEETING_REMINDER_MINUTES:
+				continue
+			booked["reminder_sent"] = true
+			var when := "Meeting in %d min" % ceili(lead) if lead > 0.0 else "Meeting now"
+			var message := "%s: %s at %s for %s (%s)." % [when, meeting.contact, meeting.place, meeting.name, Trade.stamp(meeting.start)]
+			session.text_player(int(pid), message, str(meeting.place))
 
 
 func handoff(pid: int, p: Dictionary, lid: int) -> void:
@@ -101,7 +174,7 @@ func handoff(pid: int, p: Dictionary, lid: int) -> void:
 		session.notify_player(pid, "No live agreed meeting for this listing.")
 		return
 	var m: Dictionary = p.meetings[lid]
-	if p.area != "town" or p.driving or p.pos.distance_to(m.pos) > 28:
+	if p.area != "town" or p.driving or p.pos.distance_to(meeting_position(m)) > 28:
 		session.notify_player(pid, "Park and walk up to the contact at the agreed place.")
 		return
 	if session.clock() < float(m.start):

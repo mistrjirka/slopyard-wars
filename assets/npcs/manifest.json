@@ -1,0 +1,30 @@
+{
+  "source_archive": "slopyard_npc_32x32.zip",
+  "source": "User-supplied PNGs, preserved byte-for-byte",
+  "assets": [
+    {
+      "file": "npc_cap.png",
+      "bytes": 466,
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "sha256": "7e526dbf6f8aa198e70e9cad305124fc90e673e645e49b93d07efbacfb084259"
+    },
+    {
+      "file": "npc_bob.png",
+      "bytes": 493,
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "sha256": "a76ac9b5eeec70168567670900d7e66ff91115b056a95faca6e97a2965005b33"
+    },
+    {
+      "file": "npc_glasses.png",
+      "bytes": 494,
+      "width": 32,
+      "height": 32,
+      "mode": "RGBA",
+      "sha256": "a2913e86fa10da0924acff504389d84181c93286d6eee2192f69945012bfb730"
+    }
+  ]
+}

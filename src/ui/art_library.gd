@@ -60,6 +60,18 @@ const PLAYER_WALK = [
 		preload("res://assets/player/right/walk_03.png"), preload("res://assets/player/right/walk_04.png")],
 ]
 
+## User-supplied 32x32 contacts; identity selection does not depend on listing/order.
+const NPCS: Array[Texture2D] = [
+	preload("res://assets/npcs/npc_cap.png"),
+	preload("res://assets/npcs/npc_bob.png"),
+	preload("res://assets/npcs/npc_glasses.png"),
+]
+
+
+static func npc(contact_id: String) -> Texture2D:
+	return NPCS[posmod(contact_id.hash(), NPCS.size())]
+
+
 const WORLD = {
 	"lucky_shrine": preload("res://assets/world_activities/lucky_shrine.png"),
 	"salvage_bin": preload("res://assets/world_activities/salvage_bin.png"),

@@ -4,6 +4,10 @@ extends Node
 
 signal changed
 signal notice(message: String)
+## Accepted manual install/reinstall only; startup seeding bypasses this action event.
+signal component_installed(item_id: int)
+## Emitted only after an authoritative roll and its permanent consequences are applied.
+signal stress_test_resolved(outcome: Dictionary)
 
 const LanTransport = preload("res://src/network/lan_transport.gd")
 const Snapshot = preload("res://src/network/snapshot.gd")
@@ -270,6 +274,7 @@ func _host_tick(dt: float) -> void:
 		return
 	dialogue.tick()
 	market.deliver_interest()
+	market.remind_meetings(dt)
 	for threshold in [60.0, Config.BUILD_REMINDER_MINUTES]:
 		if float(state.remaining) <= threshold and float(state.remaining) + dt > threshold:
 			var message := "Final hour! Finish your build at the workbench before the match deadline." if threshold == 60 else "Three game hours left. Time to bring the bargains home: leave room for assembly and stress tests."
@@ -333,15 +338,28 @@ func _handle(pid: int, action: String, data: Dictionary) -> void:
 				listing.status = "cancelled"
 		"world_activity": activities.use(pid, p, data)
 		"wait": movement.wait(pid, p)
+		"sleep": movement.sleep(pid, p)
 		"chat": dialogue.chat(pid, p, data)
 		"choose_meeting": dialogue.choose_meeting(pid, p, data)
-		"install": workshop.install(pid, p, data)
+		"install":
+			if workshop.install(pid, p, data) and pid == local_id():
+				component_installed.emit(int(number(data.get("item_id"), -1)))
 		"uninstall": workshop.uninstall(pid, p, data)
 		"assembly_damage": workshop.assembly_damage(pid, p, data)
 		"tune": workshop.tune(pid, p, data)
 		"finish": workshop.finish(pid, p)
 		_: notify_player(pid, "Unknown action '%s'" % action)
 	mark_changed()
+
+
+## Store the same authoritative outcome consumed by the tuning view and result dialog.
+func publish_stress_result(pid: int, outcome: Dictionary) -> void:
+	var player: Dictionary = state.players[pid]
+	outcome["serial"] = int(player.get("last_stress_test", {}).get("serial", 0)) + 1
+	player["last_stress_test"] = outcome.duplicate(true)
+	mark_changed()
+	if pid == local_id():
+		stress_test_resolved.emit(outcome.duplicate(true))
 
 
 func check_all_ready() -> void:

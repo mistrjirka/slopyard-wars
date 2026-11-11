@@ -33,7 +33,7 @@ window/size/min_height=720
 
 [editor_plugins]
 
-enabled=PackedStringArray()
+enabled=PackedStringArray("res://addons/bundled_credentials/plugin.cfg")
 
 [input]
 

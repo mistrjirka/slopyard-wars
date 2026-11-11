@@ -86,7 +86,10 @@ func _paint() -> void:
 		if other.area != p.area:
 			continue
 		if p.area == "town":
-			actors.append({"pos": other.car_pos, "kind": "car", "p": other, "id": int(pid)})
+			var car_facing: Vector2 = other.facing if other.driving else Vector2.LEFT
+			var car_base := World.car_footprint(other.car_pos, car_facing)
+			actors.append({"pos": Vector2(other.car_pos.x, car_base.end.y), "draw_pos": other.car_pos,
+				"kind": "car", "p": other, "id": int(pid)})
 		if not other.driving:
 			actors.append({"pos": other.pos, "kind": "person", "p": other, "id": int(pid)})
 	if p.area == "home":
@@ -96,25 +99,26 @@ func _paint() -> void:
 		var contacts := {}
 		for player: Dictionary in Game.state.players.values():
 			for m: Dictionary in Game.active_meetings(player):
-				var key := str(m.contact) + str(m.pos)
+				var key := str(m.contact_id) + "|" + str(m.place)
 				if m.status == "now" and not contacts.has(key):
 					contacts[key] = true
 					actors.append({"pos": m.pos, "kind": "contact", "meeting": m})
 	var local_position: Vector2 = p.car_pos if p.driving else p.pos
-	var local_body := World.car_footprint(local_position, p.facing) if p.driving else Rect2()
+	var local_body := World.car_visual_bounds(local_position, p.facing) if p.driving else Rect2()
 	actors.sort_custom(func(a, b): return a.pos.y < b.pos.y)
 	for actor: Dictionary in actors:
 		if actor.kind == "car":
-			_car(actor.pos, actor.p, actor.id)
+			_car(actor.draw_pos, actor.p, actor.id)
 		elif actor.kind == "person":
 			_person(actor.pos, actor.p.facing, actor.id, str(actor.p.name))
 		elif actor.kind != "contact":
 			var alpha := 0.42 if Props.obscures_local(actor, local_position, local_body) else 1.0
 			Props.draw_prop(_canvas, actor, true, alpha)
 		else:
-			_person(actor.pos, Vector2.DOWN, 9, str(actor.meeting.contact), false)
-			_r(actor.pos.x - 3, actor.pos.y - 35, 6, 9, "fff1b9")
-			_text(actor.pos + Vector2(-1, -28), "!", "8f5b56", true)
+			_person(actor.pos, Vector2.DOWN, 9, str(actor.meeting.contact), false, str(actor.meeting.contact_id))
+			# Marker beside the head; name above it, never over the sprite or pole.
+			_r(actor.pos.x + 11, actor.pos.y - 26, 6, 9, "fff1b9")
+			_text(actor.pos + Vector2(13, -19), "!", "8f5b56", true)
 	if p.area == "town":
 		_track(p, view)
 	# A restrained day/night tint. Appointment text/HUD stays outside the world viewport.
@@ -128,7 +132,7 @@ func _paint() -> void:
 	_tint.color = Color(0.08, 0.12, 0.30, night)
 
 
-func _person(at: Vector2, facing: Vector2, id: int, label: String, is_player: bool = true) -> void:
+func _person(at: Vector2, facing: Vector2, id: int, label: String, is_player: bool = true, contact_id: String = "") -> void:
 	var dir := 0
 	if absf(facing.x) > absf(facing.y):
 		dir = 2 if facing.x < 0 else 3
@@ -144,8 +148,11 @@ func _person(at: Vector2, facing: Vector2, id: int, label: String, is_player: bo
 			texture = frames[int(_time * 2.0 * frames.size()) % frames.size()]
 		_canvas.draw_texture(texture, (at - Vector2(16, 29)).round(), tint)
 	else:
-		_sprite(Vector2i(dir * 2, 0), at + Vector2(0, 1), 1, tint)
-	if id != Game.local_id():
+		# Source alpha ends at y=28; y=29 is the same ground line as the player.
+		_canvas.draw_texture(Art.npc(contact_id), (at - Vector2(16, 29)).round())
+		var width := K.world_font().get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+		_text(at + Vector2(-width / 2, -34), label, "273f4a")
+	if is_player and id != Game.local_id():
 		_text(at + Vector2(-18, -26), label, "273f4a")
 
 

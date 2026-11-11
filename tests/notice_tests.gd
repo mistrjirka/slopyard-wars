@@ -179,6 +179,110 @@ func run(session: Node, assertion: Callable) -> void:
 		"LAN snapshots retain the recipient's Lucky history and hide other players' texts")
 	viewport.queue_free()
 	await game.get_tree().process_frame
+	await _meeting_reminders()
+
+
+func _reminder_fixture() -> Dictionary:
+	game.solo("Meeting reminder", 1000, "Balanced")
+	game.set_process(false)
+	game.set_physics_process(false)
+	var player: Dictionary = game.me()
+	for listing: Dictionary in game.state.listings:
+		for slot: Dictionary in game.contact_options(listing):
+			if float(slot.start) >= 1080.0:
+				continue
+			player.offers[listing.id] = int(listing.price)
+			game.act("choose_meeting", {"match_id": game.state.match_id, "listing_id": listing.id, "meeting_id": slot.id})
+			check.call(player.meetings.has(listing.id), "Reminder fixture confirms a real host-owned meeting")
+			return {"player": player, "listing": listing, "meeting": player.meetings.get(listing.id, {})}
+	check.call(false, "Reminder fixture finds a morning/daytime contact")
+	return {}
+
+
+func _reminder_messages(player: Dictionary) -> Array:
+	return player.lucky_messages.filter(func(message: Dictionary): return str(message.text).begins_with("Meeting "))
+
+
+func _meeting_reminders() -> void:
+	var fixture := _reminder_fixture()
+	if fixture.is_empty():
+		return
+	var player: Dictionary = fixture.player
+	var listing: Dictionary = fixture.listing
+	var meeting: Dictionary = fixture.meeting
+	var other := preload("res://src/core/state_factory.gd").player("Other recipient")
+	other.offers[listing.id] = int(listing.price)
+	other.meetings[listing.id] = meeting.duplicate(true)
+	game.state.players[2] = other
+	viewport = SubViewport.new()
+	viewport.size = Vector2i(1440, 900)
+	game.get_tree().root.add_child(viewport)
+	var shell: Control = load("res://src/main.tscn").instantiate()
+	viewport.add_child(shell)
+	await settle()
+	screen = shell._screen
+	phone = screen._phone
+	var unread_before: int = phone.unread_count()
+	game.advance_time(float(meeting.start) - 20.25 - game.clock())
+	check.call(_reminder_messages(player).is_empty(), "Phone reminder is not sent before the twenty-minute threshold")
+	game.advance_time(0.25)
+	game.changed.emit()
+	var messages := _reminder_messages(player)
+	check.call(messages.size() == 1 and messages[0].text.contains("20 min") and messages[0].text.contains(listing.seller) and messages[0].text.contains(meeting.place) and messages[0].place == meeting.place, "Twenty-minute phone reminder names the contact and exact meeting place")
+	check.call(phone.lucky_unread_count() == 1 and phone.unread_count() == unread_before + 1 and not screen._phone_layer.visible, "Reminder arrives as an unread phone notification without opening it")
+	var snapshot := Snapshot.for_player(game.state, 1)
+	check.call(_reminder_messages(other).size() == 1 and snapshot.players[2].lucky_messages.is_empty(), "Each recipient gets a private reminder without exposing another player's history")
+	game.advance_time(1)
+	game.act("choose_meeting", {"match_id": game.state.match_id, "listing_id": listing.id, "meeting_id": meeting.id})
+	game.advance_time(1)
+	check.call(_reminder_messages(player).size() == 1 and player.meetings[listing.id].get("reminder_sent", false), "Further ticks and reaffirming the same slot cannot repeat its reminder")
+	screen._toggle_phone()
+	var deadline := Time.get_ticks_msec() + 3000
+	while screen._phone_motion != "open" and Time.get_ticks_msec() < deadline:
+		await game.get_tree().process_frame
+	var intro: Button = phone._body.get_child(0).get_node_or_null("Unfold")
+	if intro != null:
+		intro.pressed.emit()
+	phone.set_unfolded(false)
+	phone.open_lucky()
+	await settle()
+	check.call(phone._log.get_child_count() == 1 and phone._log.get_child(0).place_label.text == "From " + str(meeting.place) and phone.lucky_unread_count() == 0, "Opening Lucky displays the saved meeting reminder and clears its notification")
+	var choices: Array = game.contact_options(listing)
+	check.call(not choices.is_empty(), "A later meeting remains available for reminder rescheduling")
+	if not choices.is_empty():
+		game.act("choose_meeting", {"match_id": game.state.match_id, "listing_id": listing.id, "meeting_id": choices[0].id})
+		var rescheduled: Dictionary = player.meetings[listing.id]
+		check.call(rescheduled.id != meeting.id and not rescheduled.get("reminder_sent", false), "Rescheduling creates a fresh reminder rather than inheriting the old flag")
+		game.advance_time(float(rescheduled.start) - 20.0 - game.clock())
+		check.call(_reminder_messages(player).size() == 2 and rescheduled.get("reminder_sent", false), "The rescheduled meeting receives exactly its own twenty-minute reminder")
+	viewport.queue_free()
+	await game.get_tree().process_frame
+	for reason: String in ["unagreed", "blocked", "sold", "cancelled", "ready", "expired", "already_started"]:
+		fixture = _reminder_fixture()
+		if fixture.is_empty():
+			return
+		player = fixture.player
+		listing = fixture.listing
+		meeting = fixture.meeting
+		match reason:
+			"unagreed": player.offers.erase(listing.id)
+			"blocked": player.contact_relations[str(listing.character_id)] = {"blocked": true}
+			"sold": listing.status = "sold"
+			"cancelled": player.meetings.erase(listing.id)
+			"ready": player.ready = true
+			"already_started": game.state.remaining = game.deadline() - (float(meeting.start) + 5.0)
+		var advance: float = 1.0 if reason == "already_started" else float(meeting.start) - 20.0 - game.clock()
+		if reason == "expired":
+			advance = float(meeting.end) - game.clock() + 1.0
+		game.advance_time(advance)
+		check.call(_reminder_messages(player).is_empty(), "No stale or unavailable meeting reminder: " + reason)
+	fixture = _reminder_fixture()
+	if not fixture.is_empty():
+		player = fixture.player
+		meeting = fixture.meeting
+		game.advance_time(float(meeting.start) - game.clock() + 5.0)
+		messages = _reminder_messages(player)
+		check.call(messages.size() == 1 and messages[0].text.begins_with("Meeting now:"), "Skipping over the reminder and start reports an open meeting, not a false future time")
 
 
 func settle() -> void:

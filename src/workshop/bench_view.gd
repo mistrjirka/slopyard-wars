@@ -203,8 +203,9 @@ func _rebuild(me: Dictionary) -> void:
 	if int(quality.unrecorded) > 0:
 		_quality_label.text += "\nUnrecorded installs: %d" % int(quality.unrecorded)
 	_quality_label.add_theme_color_override("font_color", K.MUTED)
-	_finish_btn.disabled = bool(me.get("ready", false))
-	_finish_btn.text = "RIG LOCKED" if bool(me.get("ready", false)) else ("FINISH & RUN BENCHMARK" if issues.is_empty() else "FINISH ANYWAY (SCORE 0)")
+	_finish_btn.disabled = bool(me.get("ready", false)) or not issues.is_empty()
+	_finish_btn.text = "RIG LOCKED" if bool(me.get("ready", false)) else "FINISH & RUN BENCHMARK"
+	_finish_btn.tooltip_text = "Resolve the build checklist before benchmarking:\n" + "\n".join(issues) if not issues.is_empty() else ""
 
 
 func _inv_card(it: Dictionary, me: Dictionary) -> void:
@@ -291,24 +292,21 @@ func _installation_penalties(part: Dictionary, player: Dictionary) -> String:
 
 func _finish() -> void:
 	var me := _me()
-	var issues: Array = Game.build_issues(me)
-	var msg := "Locks your rig and submits it to the benchmark. "
-	if issues.is_empty():
-		msg += "Your build is valid."
-		var tests := Overclock.final_tests(me.installed, me.tuning, me.workshop_modifiers)
-		if not tests.is_empty():
-			msg += "\n\nFINAL RELIABILITY TESTS (in order; stop if the rig cannot run):"
-			for test: Dictionary in tests:
-				var risk: Dictionary = test.result
-				msg += "\n%s: %.1f%% destruction chance; %d condition wear if it survives." % [me.installed[test.category].name, risk.damage_chance * 100, risk.wear]
-				if risk.fire_chance > 0:
-					msg += " Includes %.1f%% CONNECTOR FIRE risk." % (risk.fire_chance * 100)
-				if risk.uses_luck:
-					msg += " Lucky's reduction is included; this test consumes the blessing."
-			msg += "\nDestroyed parts are removed before scoring. A lost GPU can fall back to integrated graphics; a rig that cannot boot scores zero."
-		msg += "\n\nUnused cash does not add score. Finish now?"
-	else:
-		msg += "Your build is INCOMPLETE and will score ZERO:\n- " + "\n- ".join(issues.slice(0, 4)) + "\n\nFinish anyway?"
+	if bool(me.get("ready", false)) or not Game.build_issues(me).is_empty():
+		return
+	var msg := "Locks your rig and submits it to the benchmark. Your build is valid."
+	var tests := Overclock.final_tests(me.installed, me.tuning, me.workshop_modifiers)
+	if not tests.is_empty():
+		msg += "\n\nFINAL RELIABILITY TESTS (in order; stop if the rig cannot run):"
+		for test: Dictionary in tests:
+			var risk: Dictionary = test.result
+			msg += "\n%s: %.1f%% destruction chance; %d condition wear if it survives." % [me.installed[test.category].name, risk.damage_chance * 100, risk.wear]
+			if risk.fire_chance > 0:
+				msg += " Includes %.1f%% CONNECTOR FIRE risk." % (risk.fire_chance * 100)
+			if risk.uses_luck:
+				msg += " Lucky's reduction is included; this test consumes the blessing."
+		msg += "\nDestroyed parts are removed before scoring. A lost GPU can fall back to integrated graphics; a rig that cannot boot scores zero."
+	msg += "\n\nUnused cash does not add score. Finish now?"
 	if ask.is_valid():
 		ask.call("Finish and benchmark?", msg, "Finish", func(): Game.act("finish", {}))
 	else:

@@ -69,6 +69,12 @@ These are sourced font assets, not generated artwork or modified outlines.
 
 `hinge_open.wav` and `hinge_close.wav` use separate excerpts of **creaky door hinge.wav** by **chonkdonk**, [Freesound sound 619819](https://freesound.org/people/chonkdonk/sounds/619819/), published as **CC0 1.0**. The publicly available HQ MP3 preview is preserved in `assets/audio/sources/chonkdonk_619819_hinge.mp3`. Mono conversion, gentle filtering, resampling, fades and level adjustment are reproducible with `scripts/prepare_hinges.gd`. Each output lasts 1.15 seconds, with the opening creak delayed to match the phone's lateral shift. The full CC0 legal text and individual source/license records are in `assets/audio/licenses/CC0-1.0.txt`, `hinge_open.LICENSE.txt` and `hinge_close.LICENSE.txt`.
 
+## User-supplied meeting NPCs
+
+`assets/npcs/npc_cap.png`, `npc_bob.png` and `npc_glasses.png` are the user's supplied artwork from `slopyard_npc_32x32.zip`. Only the three regular PNG entries were extracted after filename/type/size and decoded-image inspection. All are transparent 32×32 RGBA images, preserved byte-for-byte (466, 493 and 494 bytes respectively); `assets/npcs/manifest.json` records SHA-256 hashes. No image generation, recolouring or new licensing claim is involved; ownership/terms remain those of the supplied artwork.
+
+Explicit `ArtLibrary` preloads select appearance by stable character identity, not listing order. Town rendering uses nearest-neighbour sampling and the source's y=29 ground anchor, leaving player art and ground-depth sorting unchanged. `Market.meeting_position(raw_booking)` chooses a clear nearby ground position away from the canonical sign, with geometry-aware fallback candidates; active meeting copies and physical handoffs share that position without modifying booking labels or canonical trade options.
+
 ## Reused visual assets
 
 - `assets/computer_parts/`: existing component textures, reused for inventory and assembly illustrations.

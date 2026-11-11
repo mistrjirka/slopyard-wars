@@ -20,10 +20,16 @@ func run(session: Node, assertion: Callable) -> void:
 	_hardware()
 	_resale_condition()
 	_overclocking()
+	_unstable_overclocking()
+	_voltage_only_risk()
+	_manual_finish_guard()
 	_stock_reliability()
 	_gpu_fires()
 	_activities()
 	await _interfaces()
+	await _socket_damage_interface()
+	await _installation_feedback_and_ram_return()
+	await _meeting_indicator_deadlines()
 
 
 func fresh() -> Dictionary:
@@ -118,6 +124,9 @@ func _resale_condition() -> void:
 
 func _overclocking() -> void:
 	var player := fresh()
+	var outcomes: Array[Dictionary] = []
+	var receive_outcome := func(outcome: Dictionary): outcomes.append(outcome)
+	game.stress_test_resolved.connect(receive_outcome)
 	var item: Dictionary = game.state.listings.filter(func(part): return part.category == "cpu")[0].duplicate(true)
 	item.condition = 90
 	player.installed.cpu = item
@@ -142,6 +151,7 @@ func _overclocking() -> void:
 	player.workshop_modifiers.lucky_tests = 1
 	game.act("tune", {"category": "cpu", "clock": 1.0, "voltage": 1.0})
 	check.call(player.workshop_modifiers.lucky_tests == 1 and item.condition == 90, "Safe tests preserve blessing and condition")
+	check.call(not player.last_stress_test.destroyed and player.last_stress_test.source == "tuning" and player.last_stress_test.category == "cpu" and game.state.phase == "playing", "Actual safe-test success publishes a complete outcome without finishing the run")
 	player.busy = 0
 	_seed_for(float(lucky.damage_chance), false)
 	game.act("tune", {"category": "cpu", "clock": 1.4, "voltage": 1.32})
@@ -152,6 +162,75 @@ func _overclocking() -> void:
 	_seed_for(float(risk.damage_chance), true)
 	game.act("tune", {"category": "cpu", "clock": 1.4, "voltage": 1.32})
 	check.call(not player.installed.has("cpu") and player.destroyed.has(item.name), "Host probabilistic failure actually removes the part")
+	check.call(player.last_stress_test.destroyed and player.last_stress_test.failure_mode == "damage" and game.state.phase == "playing", "Actual destruction publishes failure while the run continues")
+	check.call(outcomes.size() == 3 and not outcomes[0].destroyed and not outcomes[1].destroyed and outcomes[2].destroyed and outcomes[2].serial == 3, "Only actual outcomes emit the authoritative result event, with increasing serials")
+	game.stress_test_resolved.disconnect(receive_outcome)
+
+
+func _unstable_overclocking() -> void:
+	var player := _reliability_rig("luckycore_l7_12700l")
+	var item: Dictionary = player.installed.cpu
+	game.act("tune", {"category": "cpu", "clock": 1.6, "voltage": 1.0})
+	check.call(player.last_stress_test.failure_mode == "unstable" and not player.last_stress_test.destroyed and not player.last_stress_test.applied, "Unstable zero-risk test reports non-destructive failed OC, not success")
+	check.call(player.tuning.is_empty() and item.condition == 100 and player.busy > 0 and game.state.phase == "playing", "Failed stock-voltage OC retains implicit stock and costs test time without inventing wear")
+	player.busy = 0
+	var preset := Overclock.safe_preset(item, player.installed)
+	game.act("tune", {"category": "cpu", "clock": preset.clock, "voltage": preset.voltage})
+	check.call(player.last_stress_test.applied and player.last_stress_test.failure_mode == "" and player.tuning.cpu.clock == preset.clock, "Stable successful test applies the proposed tune")
+	var working: Dictionary = player.tuning.duplicate(true)
+	player.busy = 0
+	player.workshop_modifiers.lucky_tests = 1
+	var result := Overclock.evaluate(item, 1.6, 1.32, player.installed, player.workshop_modifiers)
+	check.call(result.stable_clock < 1.6 and result.damage_chance > 0 and result.uses_luck, "Risky unstable fixture has electrical risk and a consumed blessing")
+	_seed_for(result.damage_chance, false)
+	game.act("tune", {"category": "cpu", "clock": 1.6, "voltage": 1.32})
+	check.call(player.tuning == working and player.installed.has("cpu") and player.destroyed.is_empty(), "Surviving unstable test keeps the last working tuning and all hardware")
+	check.call(item.condition == 100 - int(result.wear) and player.workshop_modifiers.lucky_tests == 0 and player.busy > 0, "Unstable survivor still pays voltage wear, Lucky and test time")
+	check.call(player.last_stress_test.failure_mode == "unstable" and player.last_stress_test.applied_clock == preset.clock and player.last_stress_test.applied_voltage == preset.voltage, "Unstable outcome names retained settings separately from attempted settings")
+	player.busy = 0
+	game.act("tune", {"category": "cpu", "clock": 1.6, "voltage": 1.41})
+	check.call(player.last_stress_test.destroyed and player.last_stress_test.failure_mode == "damage" and not player.last_stress_test.applied and not player.installed.has("cpu"), "Guaranteed destruction takes precedence over instability; failed OC cannot bypass electrical damage")
+
+
+func _voltage_only_risk() -> void:
+	for template: Resource in Catalog.PARTS:
+		if template.category not in Rig.TUNABLE:
+			continue
+		var item := Catalog.build_listing(game.rng, template, 9900)
+		for health in [30, 100]:
+			item.condition = health
+			for modifiers: Dictionary in [{}, {"cooling_bonus": 12, "cpu_mount_quality": 0.0, "lucky_tests": 1}]:
+				var previous := {"damage_chance": 0.0, "fire_chance": 0.0}
+				for voltage_step in range(61):
+					var voltage := 1.0 + voltage_step / 100.0
+					var baseline := Overclock.evaluate(item, 1.0, voltage, {}, modifiers)
+					var invariant := true
+					for clock_step in range(61):
+						var result := Overclock.evaluate(item, 1.0 + clock_step / 100.0, voltage, {}, modifiers)
+						invariant = invariant and result.damage_chance == baseline.damage_chance and result.fire_chance == baseline.fire_chance
+					check.call(invariant, "Every clock 1..1.6 has identical risk at fixed voltage: %s %.2fV" % [item.name, voltage])
+					check.call(baseline.damage_chance >= previous.damage_chance and baseline.fire_chance >= previous.fire_chance, "Voltage never decreases stress within existing probability caps")
+					previous = baseline
+
+
+func _manual_finish_guard() -> void:
+	var player := fresh()
+	player.pos = World.BENCH
+	var before: int = game.rng.state
+	game.act("finish")
+	check.call(game.state.phase == "playing" and not player.ready and not player.benchmark_checked and game.rng.state == before, "Incomplete manual benchmark is refused without locking, rolling or ending the run")
+	game.state.remaining = 0.1
+	game.advance_time(1)
+	check.call(game.state.phase == "results" and player.ready and player.score.total == 0, "Deadline still ends incomplete builds")
+	player = _reliability_rig("luckycore_l7_12700l")
+	var capacity: int = player.installed.psu.capacity
+	player.installed.psu.capacity = 1
+	game.act("finish")
+	check.call(game.state.phase == "playing" and not player.ready and not player.benchmark_checked, "Manual benchmark refuses installed but overloaded builds")
+	player.installed.psu.capacity = capacity
+	check.call(not player.installed.has("gpu") and Rig.igpu_usable(player.installed), "Complete iGPU build needs no discrete GPU")
+	game.act("finish")
+	check.call(game.state.phase == "results" and player.score.valid, "Manual benchmark accepts a complete valid iGPU build")
 
 
 func _stock_reliability() -> void:
@@ -219,7 +298,14 @@ func _gpu_fires() -> void:
 		worse.psu.support_quality = 10
 		check.call(Overclock.evaluate(gpu, 1.3, 1.3, better).fire_chance < Overclock.evaluate(gpu, 1.3, 1.3, worse).fire_chance, "Strong PSU regulation reduces extra-power connector risk")
 		var cool := Overclock.evaluate(gpu, 1.3, 1.3, player.installed, {"cooling_bonus": 12})
-		check.call(cool.temperature < hot.temperature and cool.fire_chance < hot.fire_chance, "Paste reduces the heat-related portion of heavy-OC fire risk")
+		check.call(cool.temperature < hot.temperature and cool.fire_chance <= hot.fire_chance, "Cooling lowers gameplay heat and never increases voltage-driven connector risk")
+		# At stock clock / legal 1.40 voltage, poor case airflow puts BOTH authored GPUs
+		# above the risk-heat threshold. This must detect removal of the cooling modifier.
+		var hot_platform: Dictionary = player.installed.duplicate(true)
+		hot_platform.case.support_quality = 0
+		var heat_risk := Overclock.evaluate(gpu, 1.0, 1.40, hot_platform)
+		var cooled_risk := Overclock.evaluate(gpu, 1.0, 1.40, hot_platform, {"cooling_bonus": 12})
+		check.call(cooled_risk.fire_chance < heat_risk.fire_chance and cooled_risk.damage_chance < heat_risk.damage_chance, "Cooling strictly reduces heat-derived fire and destruction risk at legal hot voltage")
 		check.call(is_equal_approx(Overclock.evaluate(gpu, 1, 1, player.installed, {"cooling_bonus": 100}).fire_chance, stock.fire_chance), "Paste cannot cure the inherent connector flaw")
 		var lucky := Overclock.evaluate(gpu, 1.3, 1.3, player.installed, {"lucky_tests": 1})
 		check.call(is_equal_approx(lucky.fire_chance, hot.fire_chance * 0.75) and is_equal_approx(lucky.damage_chance, hot.damage_chance * 0.75), "Lucky reduces both fire and overall risk once")
@@ -466,6 +552,185 @@ func _interfaces() -> void:
 	bench._finish()
 	check.call(confirmations.size() == 1 and confirmations[0].contains("21.0% destruction chance") and confirmations[0].contains("14.0% CONNECTOR FIRE"), "Finish dialog quotes a blessed CPU and unblessed GPU in test order")
 	bench.free()
+
+
+func _assembly_tap(assembly: Control, at: Vector2) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.position = at
+	event.pressed = true
+	assembly._gui_input(event)
+	event.pressed = false
+	assembly._gui_input(event)
+
+
+func _installation_feedback_and_ram_return() -> void:
+	var accepted: Array[int] = []
+	var on_install := func(id: int): accepted.append(id)
+	game.component_installed.connect(on_install)
+	game.start_assembly_test("Install feedback")
+	game.set_process(false)
+	game.set_physics_process(false)
+	check.call(accepted.is_empty(), "Startup seed does not announce manual installation")
+	var player: Dictionary = game.me()
+	var shell: Control = load("res://src/main.tscn").instantiate()
+	root_add(shell)
+	await game.get_tree().process_frame
+	var screen: Control = shell._screen
+	var board: Dictionary = player.installed.motherboard
+	var ram: Dictionary = player.installed.ram
+	ram.condition = 73
+	ram["assembly_strikes"] = 2
+	var ram_before := ram.duplicate(true)
+	var others: Dictionary = player.installed.duplicate(true)
+	others.erase("motherboard")
+	others.erase("ram")
+	player.tuning.ram = {"clock": 1.1, "voltage": 1.05}
+	var before := player.duplicate(true)
+	game.act("uninstall", {"category": "motherboard", "item_id": int(board.id) - 1})
+	check.call(player == before, "Stale motherboard uninstall returns nothing and changes no metadata")
+	player.busy = 10.0
+	before = player.duplicate(true)
+	game.act("uninstall", {"category": "motherboard", "item_id": board.id})
+	check.call(player == before, "Busy motherboard uninstall cannot partially return RAM")
+	player.busy = 0.0
+	var count: int = player.inventory.size()
+	game.act("uninstall", {"category": "motherboard", "item_id": board.id})
+	check.call(not player.installed.has("motherboard") and not player.installed.has("ram") and player.inventory.size() == count + 2, "Manual motherboard uninstall returns exactly motherboard and RAM")
+	check.call(player.inventory.filter(func(part: Dictionary): return int(part.id) == int(ram.id)) == [ram_before], "Returned RAM preserves identity, wear and physical damage exactly once")
+	check.call(not player.tuning.has("ram") and not player.workshop_modifiers.assembly_fasteners.has("ram") and not player.workshop_modifiers.assembly_fasteners.has("motherboard"), "Returned RAM and motherboard lose installation metadata")
+	check.call(player.installed == others, "Motherboard removal preserves CPU, GPU and other slots")
+	game.act("uninstall", {"category": "motherboard", "item_id": board.id})
+	check.call(player.inventory.size() == count + 2, "Repeated uninstall cannot duplicate returned RAM")
+	check.call(accepted.is_empty() and not screen._installed_feedback.visible, "Uninstall and rejected actions never show installation success")
+	game.act("install", {"item_id": board.id})
+	check.call(accepted == [int(board.id)] and screen._installed_feedback.visible and not screen._dialogs.visible, "Accepted installation shows passive success without a dialog")
+	var first_tween: Tween = screen._installed_tween
+	game.act("install", {"item_id": ram.id})
+	check.call(accepted.size() == 2 and not first_tween.is_valid() and screen._installed_feedback.modulate.a == 1.0, "Back-to-back installs restart one feedback Tween")
+	await game.get_tree().create_timer(1.25).timeout
+	screen._dialogs.open_assembly(ram)
+	screen._dialogs._assembly.cancelled.emit()
+	check.call(accepted.size() == 2 and not screen._installed_feedback.visible, "Cancelling assembly cannot show installation success")
+	game.act("install", {"item_id": ram.id, "screws_seated": -1})
+	check.call(accepted.size() == 2 and not screen._installed_feedback.visible, "Rejected reinstall cannot show installation success")
+	screen._dialogs.open_assembly(ram)
+	var assembly: Control = screen._dialogs._assembly
+	assembly.completed.emit({"mount_quality": 1.0, "paste_amount": 1.0, "screws_seated": Rig.expected_fasteners(ram), "supports": Rig.expected_fasteners(ram)})
+	check.call(accepted.size() == 3 and not screen._dialogs.visible and screen._installed_feedback.visible, "Accepted reinstall closes assembly then shows success")
+	await game.get_tree().create_timer(1.25).timeout
+	check.call(not screen._installed_feedback.visible, "Installation success fades and hides without confirmation")
+	game.component_installed.disconnect(on_install)
+	shell.queue_free()
+	await game.get_tree().process_frame
+
+
+func _meeting_indicator_deadlines() -> void:
+	var player := fresh()
+	player.area = "town"
+	var listing: Dictionary = {}
+	var slot: Dictionary = {}
+	for candidate: Dictionary in game.state.listings:
+		for option: Dictionary in game.contact_options(candidate):
+			if option.end - option.start >= 90 and option.end - 30 - game.clock() > 120.25 and option.end + 0.25 < game.deadline():
+				listing = candidate
+				slot = option.duplicate(true)
+				break
+		if not slot.is_empty():
+			break
+	check.call(not slot.is_empty(), "Indicator fixture has a future canonical meeting window")
+	if slot.is_empty():
+		return
+	var other: Dictionary = game.state.listings.filter(func(part: Dictionary): return int(part.id) != int(listing.id))[0]
+	var sooner := slot.duplicate(true)
+	sooner.end = float(slot.end) - 30.0
+	player.offers[listing.id] = int(listing.price)
+	player.offers[other.id] = int(other.price)
+	player.meetings[listing.id] = slot
+	player.meetings[other.id] = sooner
+	var shell: Control = load("res://src/main.tscn").instantiate()
+	root_add(shell)
+	await game.get_tree().process_frame
+	var screen: Control = shell._screen
+	var indicators: Control = screen._meeting_indicators
+	var inverse := indicators.get_global_transform_with_canvas().affine_inverse()
+	var destination: Vector2 = game.market.meeting_position(slot)
+	var target: Vector2 = inverse * screen._world.world_to_screen(destination)
+	var offscreen := Rect2(Vector2(-10000, -10000), Vector2(400, 300))
+	var onscreen := Rect2(target - Vector2(100, 100), Vector2(200, 200))
+	var end: float = sooner.end
+	game.advance_time(end - 120.25 - game.clock())
+	check.call(indicators._meeting_groups(player, game.clock(), offscreen).is_empty(), "Edge pointers stay hidden more than two hours before all pickup deadlines")
+	check.call(indicators._meeting_groups(player, game.clock(), onscreen).size() == 1, "Visible destination dots retain their existing earlier guidance")
+	game.advance_time(0.25)
+	var groups: Dictionary = indicators._meeting_groups(player, game.clock(), offscreen)
+	check.call(groups.size() == 1 and groups.has(destination) and groups[destination].times.size() == 1 and groups[destination].ends[int(slot.start)] == end, "Edge pointer appears at exactly two hours and excludes later shared pickups outside that range")
+	game.advance_time(60)
+	var clock := "%02d:%02d" % [(int(slot.start) % 1440) / 60, int(slot.start) % 60]
+	check.call(indicators._time_text(int(slot.start), game.clock(), end) == clock, "Exactly one hour remaining still shows the meeting clock time")
+	game.advance_time(1)
+	groups = indicators._meeting_groups(player, game.clock(), offscreen)
+	check.call(groups.has(destination) and indicators._time_text(int(slot.start), game.clock(), groups[destination].ends[int(slot.start)]) == "59m left", "Under one hour the shared marker counts down to its soonest deadline")
+	game.advance_time(49)
+	groups = indicators._meeting_groups(player, game.clock(), offscreen)
+	check.call(groups.has(destination) and groups[destination].urgency == 2 and indicators._time_text(int(slot.start), game.clock(), end) == "10m left", "Final ten minutes retain red urgency and a remaining-minute label")
+	game.advance_time(10.25)
+	groups = indicators._meeting_groups(player, game.clock(), offscreen)
+	check.call(groups.size() == 1 and groups.has(destination) and groups[destination].ends[int(slot.start)] == slot.end and groups[destination].urgency == 1, "Expired shared pickups cannot retain the earlier countdown or red urgency")
+	game.advance_time(float(slot.end) - game.clock() + 0.25)
+	check.call(indicators._meeting_groups(player, game.clock(), offscreen).is_empty(), "Edge pointer disappears after every shared pickup window has expired")
+	shell.queue_free()
+	await game.get_tree().process_frame
+
+
+func _socket_damage_interface() -> void:
+	var player := _reliability_rig("luckycore_l7_12700l")
+	var cpu: Dictionary = player.installed.cpu
+	var cpu_condition: int = cpu.condition
+	var board: Dictionary = player.installed.motherboard
+	game.act("uninstall", {"category": "cpu", "item_id": cpu.id})
+	var shell: Control = load("res://src/main.tscn").instantiate()
+	root_add(shell)
+	await game.get_tree().process_frame
+	var screen: Control = shell.get_node("Screens").get_child(0)
+	screen._dialogs.open_assembly(cpu)
+	var assembly: Control = screen._dialogs._assembly
+	check.call(is_instance_valid(assembly), "Owned CPU opens against the installed socket")
+	if not is_instance_valid(assembly):
+		shell.queue_free()
+		await game.get_tree().process_frame
+		return
+	_assembly_tap(assembly, assembly.steps[0].pts[0].p)
+	var pins: Rect2 = assembly._socket_pins_rect()
+	for strike in range(1, 6):
+		_assembly_tap(assembly, pins.get_center())
+		game.changed.emit()
+		check.call(int(cpu.get("assembly_strikes", 0)) == 0 and cpu.condition == cpu_condition, "Exposed-pin clicks never damage the CPU")
+		if strike < 5:
+			check.call(int(board.get("assembly_strikes", 0)) == strike, "Exposed-pin click adds one persistent motherboard strike")
+	check.call(not player.installed.has("motherboard") and player.destroyed.has(board.name), "Fifth exposed-pin click destroys the motherboard")
+	check.call(assembly._socket_destroyed and assembly._hint.text.contains("Replace the destroyed motherboard"), "Destroyed-socket warning names the actual damaged part")
+	# Ordinary state refreshes must not dismiss the warning or leave a stale socket.
+	game.changed.emit()
+	await game.get_tree().process_frame
+	game.changed.emit()
+	await game.get_tree().process_frame
+	var warning_stays := is_instance_valid(screen._dialogs._assembly)
+	check.call(warning_stays and screen._dialogs.visible, "Destroyed-socket warning survives subsequent host refreshes")
+	if warning_stays:
+		assembly = screen._dialogs._assembly
+		check.call(assembly._socket_destroyed and not assembly._retry.visible and (not assembly._primary.visible or assembly._primary.disabled), "Destroyed socket cannot be retried or committed")
+		assembly._primary_pressed()
+	check.call(not player.installed.has("cpu") and player.inventory.any(func(part: Dictionary): return int(part.id) == int(cpu.id)), "Destroyed socket leaves the undamaged CPU owned but uninstalled")
+	var template: Resource = Catalog.PARTS.filter(func(part): return part.model_id == board.model_id)[0]
+	var replacement := Catalog.build_listing(game.rng, template, 99001)
+	player.inventory.append(replacement)
+	game.act("install", {"item_id": replacement.id})
+	game.changed.emit()
+	await game.get_tree().process_frame
+	check.call(int(player.installed.get("motherboard", {}).get("id", -1)) == int(replacement.id) and not is_instance_valid(screen._dialogs._assembly), "Replacing the motherboard closes the old socket's assembly dialog")
+	shell.queue_free()
+	await game.get_tree().process_frame
 
 
 func root_add(node: Node) -> void:

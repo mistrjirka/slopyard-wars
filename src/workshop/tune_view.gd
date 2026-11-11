@@ -187,13 +187,14 @@ func _readouts() -> void:
 		col = K.DANGER
 		message = "GUARANTEED DESTRUCTION: voltage exceeds the hard 1.40x limit. No charm or cooling upgrade can prevent this."
 	elif chance > 0:
-		message = "%.1f%% chance of permanent destruction. Surviving this test still costs %d condition points." % [chance * 100, result.wear]
+		message = "%.1f%% chance of permanent destruction. Surviving this test still lowers condition by %d." % [chance * 100, result.wear]
+	message += " Clock alone never adds destruction risk; voltage drives added risk. Clock still changes performance, stability, heat and power draw."
 	if stock_fault > 0:
 		message += " MODEL RELIABILITY FLAW: %.1f%% unblessed failure risk even at stock. The final benchmark also tests this part; cleaning cannot remove the flaw." % (stock_fault * 100)
 	if result.fire_chance > 0:
-		message += " CONNECTOR FIRE: %.1f%% chance at these settings, INCLUDED in the destruction chance above. More power and weak PSU regulation make it worse. Paste helps heat, but cannot cure the connector. The final benchmark tests this too." % (result.fire_chance * 100)
+		message += " CONNECTOR FIRE: %.1f%% chance at these settings, INCLUDED in the destruction chance above. Higher voltage and weak PSU regulation make it worse; clock alone does not. Paste cannot cure the connector. The final benchmark tests this too." % (result.fire_chance * 100)
 	if clock > float(result.stable_clock) + 0.0005:
-		message += " UNSTABLE: the extra clock is reducing performance."
+		message += " OVERCLOCK WILL FAIL — UNSTABLE: these settings will not be applied. Last working tuning stays; test time and any resulting wear/charm use still apply."
 	if result.uses_luck:
 		message += " Lucky's 25% risk reduction is included; this test consumes the charm."
 	elif int(me.get("workshop_modifiers", {}).get("lucky_tests", 0)) > 0:
@@ -206,6 +207,7 @@ func _readouts() -> void:
 	# projection
 	var tun2: Dictionary = me.get("tuning", {}).duplicate(true)
 	tun2[cat] = {"clock": clock, "voltage": volt}
+	var proposed_draw := RigRules.power_draw(inst, tun2)
 	var cur: Dictionary = Game.preview_score(me)
 	var now_inst := inst.duplicate(true)
 	var projection_title := "After a successful test (including wear)"
@@ -215,13 +217,16 @@ func _readouts() -> void:
 		projection_title = "After guaranteed destruction"
 	else:
 		now_inst[cat]["condition"] = maxi(1, int(item.get("condition", 100)) - int(result.wear))
+		if clock > float(result.stable_clock) + 0.0005:
+			tun2 = me.get("tuning", {}).duplicate(true)
+			projection_title = "After failed unstable test (last tuning + wear)"
 	var obj: String = String(Game.state.objective)
 	var sc: Dictionary = RigRules.score(now_inst, tun2, obj, me.get("workshop_modifiers", {}))
 	var cap: int = int(inst.psu.capacity) if inst.has("psu") else 0
-	var draw: int = RigRules.power_draw(inst, tun2)
+	var draw: int = proposed_draw
 	_prev.text = "Applied score now\n  CPU %5d  GPU %5d\n  RAM %5d  STO %5d\n  TOTAL %5d\n\n%s\n  CPU %5d  GPU %5d\n  RAM %5d  STO %5d\n  TOTAL %5d" % [cur.cpu, cur.gpu, cur.ram, cur.storage, cur.total, projection_title, sc.cpu, sc.gpu, sc.ram, sc.storage, sc.total]
 	var pcol := K.CREAM
-	_power.text = "Estimated draw %dW / %s PSU.%s" % [draw, ("%dW" % cap) if cap > 0 else "no", "  OVERLOADED - rig turns invalid!" if (cap > 0 and draw > cap) else ""]
+	_power.text = "Proposed test draw %dW / %s PSU.%s" % [draw, ("%dW" % cap) if cap > 0 else "no", "  OVERLOADED - rig turns invalid!" if (cap > 0 and draw > cap) else ""]
 	_power.add_theme_color_override("font_color", K.DANGER if (cap > 0 and draw > cap) else pcol)
 
 
@@ -244,7 +249,9 @@ func _apply() -> void:
 		"item_id": int(item.id), "risk_quote": result.damage_chance}
 	var go := func(): Game.act("tune", data)
 	if result.damage_chance > 0 and ask.is_valid():
-		var message := "%s has a %.1f%% chance of being permanently destroyed in this test. If it survives, it loses %d condition points. Cost: 20 game minutes." % [item.name, result.damage_chance * 100, result.wear]
+		var message := "%s has a %.1f%% chance of being permanently destroyed in this test. If it survives, its condition drops by %d. Cost: 20 game minutes." % [item.name, result.damage_chance * 100, result.wear]
+		if draft.clock > float(result.stable_clock) + 0.0005:
+			message += "\n\nUNSTABLE: if the part survives, this overclock still fails. Settings are not applied; last working tuning is retained. Time, wear and any Lucky charm are still spent."
 		if result.fire_chance > 0:
 			message += "\n\nCONNECTOR FIRE: %.1f%% chance, included in that total. A fire destroys this part; the rest of the rig survives." % (result.fire_chance * 100)
 		ask.call("Release the magic smoke?", message, "Run risky test", go)

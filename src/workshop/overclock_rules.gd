@@ -65,11 +65,13 @@ static func evaluate(item: Dictionary, clock: float, voltage: float,
 			multiplier *= paste_multiplier
 	var temperature := 29.0 + 24.0 * float(item.get("thermal_load", 1)) * clock * voltage * voltage - cooling * 0.16 + mount_heat
 	var voltage_stress := maxf(0, voltage - (limit - 0.04)) / 0.14
-	var clock_stress := maxf(0, excess - 0.025) / 0.4
-	var heat_stress := maxf(0, temperature - 82) / 35
-	var chance := clampf((voltage_stress * 0.45 + clock_stress * 0.25 + heat_stress * 0.35) * (1.0 + (100 - health) * 0.008), 0, 0.95)
-	# Stock removes tuning stress, but an authored reliability flaw can still fail.
-	if clock <= 1.0001 and voltage <= 1.0001:
+	# Permanent risk uses stock-clock heat/power, never the clock-driven gameplay readouts.
+	# Voltage still interacts with cooling, mount quality, condition and PSU regulation.
+	var risk_temperature := 29.0 + 24.0 * float(item.get("thermal_load", 1)) * voltage * voltage - cooling * 0.16 + mount_heat
+	var heat_stress := maxf(0, risk_temperature - 82) / 35 if voltage > 1.0001 else 0.0
+	var chance := clampf((voltage_stress * 0.45 + heat_stress * 0.35) * (1.0 + (100 - health) * 0.008), 0, 0.95)
+	# Stock voltage removes tuning stress at ANY clock; authored reliability flaws remain.
+	if voltage <= 1.0001:
 		chance = 0.0
 	var stock_fault := Stats.stock_failure_chance(item)
 	chance = 1.0 - (1.0 - chance) * (1.0 - stock_fault)
@@ -77,7 +79,7 @@ static func evaluate(item: Dictionary, clock: float, voltage: float,
 	# not a physical connector model or a real-world hardware failure estimate.
 	var fire := Stats.stock_fire_chance(item)
 	if fire > 0:
-		var power_stress := maxf(0, clock * voltage * voltage - 1.0)
+		var power_stress := maxf(0, voltage * voltage - 1.0)
 		var poor_regulation := 1.0 + maxf(0, 70 - regulation) / 100.0
 		var extra_fire := float(item.get("fire_power_sensitivity", 0)) * power_stress * poor_regulation + heat_stress * 0.04
 		fire = clampf(fire + extra_fire * (1.0 + (100 - health) * 0.008), 0, 0.85)
