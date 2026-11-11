@@ -19,7 +19,7 @@ const DISPLAY_FAULT_OFFSET := DISPLAY_FAULT_TOP - 0.63
 const HUE_STEPS: Array[float] = [0.10, -0.08, 0.14, -0.10, 0.12, -0.13]
 const HUE_DRIFT_SECONDS := 0.8
 const PULSE_HUE := 0.2
-const DISPLAY_CASTS: Array[Color] = [Color("a6f6c3"), Color("d3b5f7"), Color("c0efff"), Color("f4f0e5")]
+const DISPLAY_CASTS: Array[Color] = [Color("26f8a2"), Color("e245fa"), Color("38d9ff")]
 @export var closed_shape: StyleBoxFlat
 @export var open_shape: StyleBoxFlat
 var unfolded := false
@@ -187,9 +187,13 @@ func set_display_fault_enabled(enabled: bool) -> void:
 
 
 func _apply_display_hue() -> void:
-	# A very faint panel bias remains readable, even before the first snap.
-	_tint_shape.bg_color = Color.from_hsv(fposmod(_display_cast.h + _hue * 0.12, 1.0),
-		_display_cast.s, _display_cast.v, 0.035 + _pulse * 0.01)
+	var cast_material := _display_tint.material as ShaderMaterial
+	if cast_material != null:
+		var hue := fposmod(_display_cast.h + _hue * 0.12, 1.0)
+		cast_material.set_shader_parameter("primary_color", Color.from_hsv(hue, _display_cast.s, _display_cast.v))
+		cast_material.set_shader_parameter("secondary_color", Color.from_hsv(fposmod(hue + 0.42, 1.0), 0.8, 1.0))
+		# Visible discoloration, not an opaque screen or repeated flashing.
+		cast_material.set_shader_parameter("strength", 0.12 + _pulse * 0.10)
 	var material := _fault.material as ShaderMaterial
 	if material == null:
 		return
@@ -255,6 +259,9 @@ func _layout() -> void:
 	_display_tint.position = _display.position
 	_display_tint.size = _display.size
 	_display_tint.visible = unfolded
+	var cast_material := _display_tint.material as ShaderMaterial
+	if cast_material != null:
+		cast_material.set_shader_parameter("display_size", _display.size)
 	_fault.position = _display.position
 	_fault.size = _display.size
 	_fault.visible = unfolded and _display_fault_enabled
