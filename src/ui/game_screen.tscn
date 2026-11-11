@@ -241,7 +241,7 @@ size_flags_vertical = 3
 [node name="Help" type="Label" parent="MapLayer/Scroll/Content"]
 layout_mode = 2
 theme_type_variation = &"Muted"
-text = "Home: center of town. Meeting signs: harbor southwest, scrapyard northwest, Grease Alley north-center, mill northeast, suburbs east, dorms south, storage far east. The yellow world marker tracks your selected appointment."
+text = "Choose a meeting below to track it. Yellow marker = tracked meeting."
 autowrap_mode = 3
 
 [node name="Meetings" type="VBoxContainer" parent="MapLayer/Scroll/Content"]

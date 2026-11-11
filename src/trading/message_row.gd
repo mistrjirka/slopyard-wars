@@ -4,6 +4,20 @@ extends HBoxContainer
 @onready var label: Label = $Bubble/Label
 
 
+func text_line_bounds() -> Array[Rect2]:
+	var lines: Array[Rect2] = []
+	for index in label.text.length():
+		var bounds := label.get_character_bounds(index)
+		if not bounds.has_area():
+			continue
+		bounds.position += label.global_position
+		if not lines.is_empty() and bounds.position.y < lines[-1].end.y and bounds.end.y > lines[-1].position.y:
+			lines[-1] = lines[-1].merge(bounds)
+		else:
+			lines.append(bounds)
+	return lines
+
+
 func setup(msg: Dictionary, me_name: String) -> void:
 	var speaker := str(msg.get("speaker", ""))
 	var mine := speaker == me_name

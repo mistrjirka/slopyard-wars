@@ -214,6 +214,13 @@ func set_message_bar_height(value: float) -> void:
 	_layout()
 
 
+## Read-only: chat padding adapts to this fixed per-match damage, never vice versa.
+func message_fault_rect() -> Rect2:
+	var top := _display.global_position.y + (DISPLAY_FAULT_TOP - _display_fault_offset) * _display.size.y
+	var height := (DISPLAY_FAULT_BAND_BOTTOM - DISPLAY_FAULT_TOP) * _display.size.y
+	return Rect2(Vector2(message_text_left() - 8, top), Vector2(_display.size.x * 0.5, height))
+
+
 func message_text_left() -> float:
 	return _display.global_position.x + _display.size.x * DISPLAY_FAULT_COLUMN_RIGHT + 8.0
 

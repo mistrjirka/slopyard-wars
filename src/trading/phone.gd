@@ -36,6 +36,8 @@ var _send: Button
 var _log: VBoxContainer
 var _scroll: ScrollContainer
 var _context: Label
+var _fault_fit_queued := false
+var _thread_view: Control
 var _browse_filters := {"query": "", "category": "", "sort": "price_asc"}
 var _browse_view: Control
 var _sale_prices: Dictionary = {}
@@ -108,6 +110,7 @@ func _ready() -> void:
 	content.get_node("Status").resized.connect(_layout_heading)
 	_mode_button.text = "Unfold"
 	_mode_button.pressed.connect(_toggle_fold)
+	fold_finished.connect(_queue_fault_alignment)
 	_nav = _device.get_node("Nav")
 	_body = content.get_node("Body")
 	_tabs = {
@@ -146,6 +149,8 @@ func _toggle_fold() -> void:
 func set_pocket_transition(active: bool) -> void:
 	_pocket_transition = active
 	_viewport.gui_disable_input = active or _folding
+	if not active:
+		_queue_fault_alignment()
 
 
 func is_folding() -> bool:
@@ -626,7 +631,7 @@ func refresh() -> void:
 		for l in Game.state.listings:
 			sig += "%d%s%d" % [l.id, l.status, l.price]
 		if active_page == "messages":
-			sig += str(me.chats) + str(me.meetings)
+			sig += str(me.chats) + str(me.meetings) + str(me.offers) + str(Game.active_meetings(me))
 	if sig == _sig:
 		return
 	if active_page == "browse" and is_instance_valid(_browse_view) and _browse_view.get_parent() == _body:
@@ -638,6 +643,7 @@ func refresh() -> void:
 	_save_draft()
 	_sig = sig
 	_clear(_body)
+	_thread_view = null
 	_composer = null
 	for key in _tabs:
 		(_tabs[key] as Button).button_pressed = key == active_page
@@ -693,12 +699,17 @@ func _populate_threads(box: VBoxContainer, current: int = -1) -> void:
 		box.add_child(row)
 		row.setup(str(l.seller), int(l.get("owner", 0)) > 0, str(l.name).left(width), last.left(width))
 		row.set_current(int(id) == current)
+		var meeting: Dictionary = me.meetings.get(id, {})
+		var confirmed := not meeting.is_empty() and Game.clock() <= float(meeting.end)
+		confirmed = confirmed and int(me.offers.get(id, 0)) > 0 and l.status == "available" and not Relationships.blocked(me, l)
+		row.set_meeting_confirmed(confirmed)
 		row.pressed.connect(open_listing.bind(int(id)))
 
 
 func _thread() -> void:
 	var view: VBoxContainer = ThreadViewScene.instantiate()
 	_body.add_child(view)
+	_thread_view = view
 	view.back_pressed.connect(_back_from_thread)
 	view.back_btn.text = "‹"
 	var back_label: String = {"browse": "Back to marketplace", "sell": "Back to your listings", "messages": "All messages"}.get(_thread_origin, "All messages")
@@ -721,7 +732,24 @@ func _thread() -> void:
 	_context = view.context_label
 	if unfolded:
 		view.composer_row.resized.connect(_fit_message_bar.bind(weakref(view.composer_row)), CONNECT_DEFERRED)
+		view.messages_settled.connect(_queue_fault_alignment)
 	view.scroll_bottom_deferred()
+
+
+func _queue_fault_alignment() -> void:
+	if _fault_fit_queued:
+		return
+	_fault_fit_queued = true
+	_align_message_fault.call_deferred()
+
+
+func _align_message_fault() -> void:
+	_fault_fit_queued = false
+	if not unfolded or _folding or _pocket_transition or not is_visible_in_tree():
+		return
+	if not is_instance_valid(_thread_view) or not _thread_view.is_inside_tree():
+		return
+	_thread_view.settle_message_text(_device.message_fault_rect())
 
 
 func _fit_message_bar(row_reference: WeakRef) -> void:

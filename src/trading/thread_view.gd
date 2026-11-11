@@ -2,6 +2,7 @@ extends VBoxContainer
 ## Listing details and chat share the unfolded display; the cover shows chat alone.
 signal back_pressed
 signal send_text(text: String)
+signal messages_settled
 
 const Stats = preload("res://src/data/hardware_stats.gd")
 const Progress = preload("res://src/trading/part_progress.gd")
@@ -9,6 +10,7 @@ const PartArt = preload("res://src/ui/part_art.gd")
 const Characters = preload("res://src/data/characters.gd")
 const Relationships = preload("res://src/trading/contact_relationships.gd")
 const MessageRowScene = preload("res://src/trading/message_row.tscn")
+const MessageRow = preload("res://src/trading/message_row.gd")
 
 @onready var split: HBoxContainer = $Split
 @onready var gone_label: Label = $Gone
@@ -36,6 +38,8 @@ const MessageRowScene = preload("res://src/trading/message_row.tscn")
 @onready var quick_row: HBoxContainer = $Split/Right/Panes/Conversation/QuickRow
 @onready var quick_a: Button = $Split/Right/Panes/Conversation/QuickRow/QuickA
 
+var _messages_ready := false
+var _fault_padding_settled := false
 var _locked := true
 var _quick_a_text := ""
 
@@ -244,6 +248,43 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	fault_clearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
+func settle_message_text(fault: Rect2) -> void:
+	if not _messages_ready or _fault_padding_settled:
+		return
+	var lines: Array[Rect2] = []
+	var max_shift := 0
+	for row: MessageRow in log.get_children():
+		lines.append_array(row.text_line_bounds())
+		max_shift = maxi(max_shift, row.label.get_line_height() + row.label.get_theme_constant("line_spacing"))
+	if lines.is_empty():
+		return
+	_fault_padding_settled = true
+	var clip := history_scroll.get_global_rect()
+	var content := history_scroll.get_node("HistoryContent") as VBoxContainer
+	var slack := maxf(0, clip.size.y - content.get_combined_minimum_size().y)
+	var shift_up := slack <= max_shift
+	var best_shift := 0
+	var best_score := INF
+	for shift in range(max_shift + 1):
+		var coverage := 0.0
+		for line: Rect2 in lines:
+			line.position.y += -shift if shift_up else shift
+			var overlap := fault.intersection(line.intersection(clip))
+			if overlap.has_area():
+				coverage = maxf(coverage, overlap.size.y / line.size.y)
+		# Prefer the smallest layout nudge; leave most of each text line intact.
+		var score := maxf(0, coverage - 0.25) * 10000 + shift
+		if score < best_score:
+			best_score = score
+			best_shift = shift
+	if best_shift == 0:
+		return
+	var spacer: Control = content.get_node("FaultBottomSpace" if shift_up else "FaultTopSpace")
+	spacer.custom_minimum_size.y = best_shift + slack if shift_up else best_shift
+	# Only settle the newest message. Manual scrolling never repositions text or damage.
+	scroll_bottom_deferred()
+
+
 func scroll_bottom_deferred() -> void:
 	var ref: WeakRef = weakref(history_scroll)
 	_scroll_bottom(ref)
@@ -254,3 +295,7 @@ func _scroll_bottom(scroll_reference: WeakRef) -> void:
 	var scroll: ScrollContainer = scroll_reference.get_ref()
 	if is_instance_valid(scroll) and scroll.is_inside_tree():
 		scroll.scroll_vertical = int(scroll.get_v_scroll_bar().max_value)
+		await get_tree().process_frame
+		if is_instance_valid(scroll) and scroll.is_inside_tree():
+			_messages_ready = true
+			messages_settled.emit()

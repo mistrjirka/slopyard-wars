@@ -180,11 +180,19 @@ func _toggle_map() -> void:
 	_map_layer.visible = not _map_layer.visible
 	if not _map_layer.visible:
 		return
+	$MapLayer/Scroll/Content/Map.tracked = _tracked
 	K.clear(_meetings)
-	for meeting: Dictionary in Game.active_meetings(Game.me()):
+	var meetings: Array = Game.active_meetings(Game.me())
+	meetings.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.start) < float(b.start) if float(a.start) != float(b.start) else int(a.listing_id) < int(b.listing_id))
+	for meeting: Dictionary in meetings:
 		var button: Button = MeetingButton.instantiate()
 		_meetings.add_child(button)
-		button.text = str(meeting.name) + " · " + str(meeting.label) + " · " + str(meeting.status)
+		button.text = "Track: %s · %s · %s" % [meeting.contact, meeting.name, Trade.stamp(float(meeting.start))]
+		if meeting.status == "missed":
+			button.text += " (missed)"
+		button.clip_text = true
+		button.tooltip_text = str(meeting.label)
 		button.pressed.connect(_track_meeting.bind(int(meeting.listing_id)))
 
 
