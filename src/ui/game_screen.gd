@@ -24,13 +24,15 @@ const MeetingButton = preload("res://src/ui/map_meeting_button.tscn")
 @onready var _phone_shade: ColorRect = $PhoneLayer/Shade
 @onready var _workspace: Control = $Workspace
 @onready var _map_layer: Control = $MapLayer
-@onready var _minimap: Control = $Minimap
-@onready var _mini_map_view: Control = $Minimap/Box/Map
+@onready var _world_hud: Control = $WorldHud
+@onready var _minimap: Control = $WorldHud/Minimap
+@onready var _mini_map_view: Control = $WorldHud/Minimap/Box/Map
 
 var _move_t := 0.0
 var _tracked := -1
 var _phone_motion := "hidden"
 var _phone_wanted := false
+var _phone_reopen_unfolded := false
 var _phone_slide := 1.0
 var _phone_tween: Tween
 var _phone_reveal_generation := 0
@@ -91,7 +93,7 @@ func _toggle_phone() -> void:
 func _open_phone() -> void:
 	_phone_reveal_generation += 1
 	_phone_motion = "opening"
-	_phone.set_unfolded(false)
+	_phone.set_unfolded(_phone_reopen_unfolded)
 	_phone.set_pocket_transition(true)
 	_set_phone_slide(1.0)
 	_phone_layer.show()
@@ -121,6 +123,8 @@ func _close_phone(after: Callable = Callable()) -> void:
 		return
 	if _phone_motion in ["closing_fold", "closing_slide"]:
 		return
+	# Remember the player's mode before the physical fold-to-pocket animation.
+	_phone_reopen_unfolded = _phone.unfolded
 	if _phone_tween != null and _phone_tween.is_valid():
 		_phone_tween.kill()
 	_phone.set_pocket_transition(true)
@@ -244,7 +248,8 @@ func _update_world_hud() -> void:
 	if not is_instance_valid(_clock_lbl) or Game.me().is_empty():
 		return
 	var p: Dictionary = Game.me()
-	_minimap.visible = p.area == "town" and not _overlay_open()
+	_world_hud.visible = not _overlay_open()
+	_minimap.visible = p.area == "town"
 	_clock_lbl.text = Trade.stamp(Game.clock()) + " · ~" + K.real_left(Game.state.remaining) + " left"
 	_cash_lbl.text = "$%d" % int(p.cash)
 	var hint := "Home · E at the door to go outside. Walk to the PC desk for B: assembly / T: tuning."

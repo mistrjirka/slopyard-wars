@@ -45,6 +45,7 @@ These are sourced font assets, not generated artwork or modified outlines.
 ## Reused assets
 
 - `assets/computer_parts/`: existing component textures, reused for inventory and assembly illustrations.
+- `assets/player/{down,up,left,right}/`: existing 32×32 directional player sprites, integrated unchanged in place of the legacy atlas player. Each direction has an idle frame; vertical walks use two frames and horizontal walks use all four. A shared foot anchor and nearest-neighbour drawing preserve world alignment. No new character artwork was generated.
 - `assets/interior/`, `assets/tiles/` and other existing world art: reused; desk sizing and floor tiling are rendering changes, not newly generated artwork.
 - `assets/ui/luckyfold/display_fault.png`: existing artwork reused at runtime; its damaged-screen geometry is intentional. `device_frame.png` is preserved as a legacy/reference file, not used by the new procedural casing.
 - `assets/fonts/Hack-Regular.ttf` and `Hack-Bold.ttf`: existing UI fonts, unchanged. World/map labels use the dedicated pixel-font assets above rather than shrinking these fonts.

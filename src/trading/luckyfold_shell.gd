@@ -19,6 +19,7 @@ const DISPLAY_FAULT_OFFSET := DISPLAY_FAULT_TOP - 0.63
 const HUE_STEPS: Array[float] = [0.10, -0.08, 0.14, -0.10, 0.12, -0.13]
 const HUE_DRIFT_SECONDS := 0.8
 const PULSE_HUE := 0.2
+const DISPLAY_CASTS: Array[Color] = [Color("a6f6c3"), Color("d3b5f7"), Color("c0efff"), Color("f4f0e5")]
 @export var closed_shape: StyleBoxFlat
 @export var open_shape: StyleBoxFlat
 var unfolded := false
@@ -34,10 +35,13 @@ var _pulse := 0.0
 var _hue_tween: Tween
 var _pulse_tween: Tween
 var _display_shape: StyleBoxFlat
+var _tint_shape: StyleBoxFlat
+var _display_cast := Color.WHITE
 @onready var content: VBoxContainer = $Inset/Content
 @onready var _inset: MarginContainer = $Inset
 @onready var _display: Panel = $Display
 @onready var _fault: TextureRect = $Fault
+@onready var _display_tint: Panel = $DisplayTint
 @onready var _hinge: ColorRect = $Hinge
 @onready var _brand: Label = $Brand
 @onready var _nav: HBoxContainer = $Nav
@@ -47,6 +51,7 @@ var _display_shape: StyleBoxFlat
 func _ready() -> void:
 	# A device lives for one match. Folding/pocketing never rerolls its damage.
 	_display_fault_offset += randf_range(-0.05, 0.05)
+	_display_cast = DISPLAY_CASTS[randi_range(0, DISPLAY_CASTS.size() - 1)]
 	custom_minimum_size = Vector2(CLOSED_WIDTH, MAX_HEIGHT)
 	var frame: Panel = $Frame
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -54,6 +59,8 @@ func _ready() -> void:
 	_display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_display_shape = _display.get_theme_stylebox("panel").duplicate()
 	_display.add_theme_stylebox_override("panel", _display_shape)
+	_tint_shape = _display_tint.get_theme_stylebox("panel").duplicate()
+	_display_tint.add_theme_stylebox_override("panel", _tint_shape)
 	_hinge.color = Color(0.6, 0.68, 0.8, 0.08)
 	_hinge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_inset.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -180,6 +187,9 @@ func set_display_fault_enabled(enabled: bool) -> void:
 
 
 func _apply_display_hue() -> void:
+	# A very faint panel bias remains readable, even before the first snap.
+	_tint_shape.bg_color = Color.from_hsv(fposmod(_display_cast.h + _hue * 0.12, 1.0),
+		_display_cast.s, _display_cast.v, 0.035 + _pulse * 0.01)
 	var material := _fault.material as ShaderMaterial
 	if material == null:
 		return
@@ -237,9 +247,14 @@ func _layout() -> void:
 	# hinge-side corners stay square; the open display has four rounded corners.
 	for corner in ["top_left", "top_right", "bottom_left", "bottom_right"]:
 		var property := "corner_radius_" + str(corner)
-		_display_shape.set(property, maxi(0, int(housing.get(property)) - 18))
+		var radius := maxi(0, int(housing.get(property)) - 18)
+		_display_shape.set(property, radius)
+		_tint_shape.set(property, radius)
 	_display.position = Vector2(18, 18)
 	_display.size = Vector2(maxf(0, size.x - 36), maxf(0, size.y - (36 if unfolded else 110)))
+	_display_tint.position = _display.position
+	_display_tint.size = _display.size
+	_display_tint.visible = unfolded
 	_fault.position = _display.position
 	_fault.size = _display.size
 	_fault.visible = unfolded and _display_fault_enabled

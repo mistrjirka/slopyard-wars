@@ -319,8 +319,8 @@ func _test_screens() -> void:
 	await _wait_phone_motion(screen, "open")
 	for frame in 3:
 		await process_frame
-	expect(not screen._phone.unfolded and screen._phone.size.x < 500 and not device._fault.visible,
-		"Taking the phone out again always opens the folded cover")
+	expect(screen._phone.unfolded and screen._phone.size.x > 500 and device._fault.visible,
+		"Taking the phone out again preserves the unfolded display")
 	screen._phone.set_unfolded(true)
 	var listing_id: int = game.state.listings[0].id
 	screen._phone.open_listing(listing_id)
@@ -341,10 +341,10 @@ func _test_screens() -> void:
 	await _wait_phone_motion(screen, "open")
 	for frame in 3:
 		await process_frame
-	expect(not screen._phone.unfolded and screen._phone.selected == listing_id and screen._phone._composer.text == "Keep this message in my pocket",
-		"Closing and reopening folds the phone without losing the conversation or draft")
+	expect(screen._phone.unfolded and screen._phone.selected == listing_id and screen._phone._composer.text == "Keep this message in my pocket",
+		"Closing and reopening preserves the unfolded phone, conversation and draft")
 	expect(screen._phone._viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS and screen._phone._screen.modulate.a == 1.0,
-		"Reopened cover restores live rendering and opacity")
+		"Reopened phone restores live rendering and opacity")
 	# Simulate a fold still in flight without requiring GPU snapshots in headless CI.
 	screen._phone.set_unfolded(true)
 	screen._phone._folding = true

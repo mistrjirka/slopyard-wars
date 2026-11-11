@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://src/trading/luckyfold_shell.gd" id="1"]
 [ext_resource type="Shader" path="res://src/trading/fault_hue.gdshader" id="2"]
@@ -52,6 +52,14 @@ corner_radius_bottom_right = 16
 corner_radius_bottom_left = 16
 corner_detail = 16
 
+[sub_resource type="StyleBoxFlat" id="StyleBox_display_tint"]
+bg_color = Color(0.65, 0.96, 0.76, 0.035)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_left = 16
+corner_radius_bottom_right = 16
+corner_detail = 16
+
 [node name="LuckyFoldShell" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -98,6 +106,12 @@ theme_override_constants/separation = 6
 visible = false
 layout_mode = 0
 theme_override_constants/separation = 6
+
+[node name="DisplayTint" type="Panel" parent="."]
+visible = false
+layout_mode = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_display_tint")
 
 [node name="Fault" type="TextureRect" parent="."]
 material = SubResource("ShaderMaterial_fault")

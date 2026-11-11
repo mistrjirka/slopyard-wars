@@ -21,6 +21,22 @@ const PARTS = {
 	"storage": [preload("res://assets/computer_parts/storage/storage_a.png"), preload("res://assets/computer_parts/storage/storage_b.png"), preload("res://assets/computer_parts/storage/storage_detail_a.png"), preload("res://assets/computer_parts/storage/storage_detail_b.png")],
 }
 
+## Direction order matches TownView: down, up, left, right. Source frames are 32x32.
+const PLAYER_IDLE: Array[Texture2D] = [
+	preload("res://assets/player/down/idle.png"),
+	preload("res://assets/player/up/idle.png"),
+	preload("res://assets/player/left/idle.png"),
+	preload("res://assets/player/right/idle.png"),
+]
+const PLAYER_WALK = [
+	[preload("res://assets/player/down/walk_01.png"), preload("res://assets/player/down/walk_02.png")],
+	[preload("res://assets/player/up/walk_01.png"), preload("res://assets/player/up/walk_02.png")],
+	[preload("res://assets/player/left/walk_01.png"), preload("res://assets/player/left/walk_02.png"),
+		preload("res://assets/player/left/walk_03.png"), preload("res://assets/player/left/walk_04.png")],
+	[preload("res://assets/player/right/walk_01.png"), preload("res://assets/player/right/walk_02.png"),
+		preload("res://assets/player/right/walk_03.png"), preload("res://assets/player/right/walk_04.png")],
+]
+
 const WORLD = {
 	"lucky_shrine": preload("res://assets/world_activities/lucky_shrine.png"),
 	"salvage_bin": preload("res://assets/world_activities/salvage_bin.png"),

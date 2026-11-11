@@ -3,6 +3,7 @@ extends Control
 const World = preload("res://src/world/world_rules.gd")
 const K = preload("res://src/ui/ui_kit.gd")
 const ATLAS = preload("res://assets/town/atlas.png")
+const Art = preload("res://src/ui/art_library.gd")
 var tracked := -1
 @onready var _viewport: SubViewport = $Viewport
 @onready var _canvas: Node2D = $Viewport/Actors
@@ -94,7 +95,7 @@ func _paint() -> void:
 		elif actor.kind == "person":
 			_person(actor.pos, actor.p.facing, actor.id, str(actor.p.name))
 		else:
-			_person(actor.pos, Vector2.DOWN, 9, str(actor.meeting.contact))
+			_person(actor.pos, Vector2.DOWN, 9, str(actor.meeting.contact), false)
 			_r(actor.pos.x - 3, actor.pos.y - 35, 6, 9, "fff1b9")
 			_text(actor.pos + Vector2(-1, -28), "!", "8f5b56", true)
 	if p.area == "town":
@@ -110,16 +111,23 @@ func _paint() -> void:
 	_tint.color = Color(0.08, 0.12, 0.30, night)
 
 
-func _person(at: Vector2, facing: Vector2, id: int, label: String) -> void:
+func _person(at: Vector2, facing: Vector2, id: int, label: String, is_player: bool = true) -> void:
 	var dir := 0
 	if absf(facing.x) > absf(facing.y):
 		dir = 2 if facing.x < 0 else 3
 	elif facing.y < 0:
 		dir = 1
-	var frame := int(_time * 7) % 2 if _walking and id == Game.local_id() else 0
 	var tint := Color.WHITE if id == Game.local_id() else Color.from_hsv(fmod(id * 0.17, 1.0), 0.20, 1.0)
-	_r(at.x - 6, at.y - 2, 12, 4, "70856d")
-	_sprite(Vector2i(dir * 2 + frame, 0), at + Vector2(0, 1), 1, tint)
+	_r(at.x - 6, at.y - 2, 12, 4, "00000038")
+	if is_player:
+		var texture: Texture2D = Art.PLAYER_IDLE[dir]
+		if _walking and id == Game.local_id():
+			var frames: Array = Art.PLAYER_WALK[dir]
+			# Keep a half-second stride for both the two- and four-frame directions.
+			texture = frames[int(_time * 2.0 * frames.size()) % frames.size()]
+		_canvas.draw_texture(texture, (at - Vector2(16, 29)).round(), tint)
+	else:
+		_sprite(Vector2i(dir * 2, 0), at + Vector2(0, 1), 1, tint)
 	if id != Game.local_id():
 		_text(at + Vector2(-18, -26), label, "273f4a")
 

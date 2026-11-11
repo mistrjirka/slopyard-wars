@@ -1,0 +1,53 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/ui/build_checklist.gd" id="1"]
+[ext_resource type="PackedScene" path="res://src/ui/build_checklist_item.tscn" id="2"]
+
+[node name="BuildChecklist" type="PanelContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = "Card"
+script = ExtResource("1")
+
+[node name="Box" type="VBoxContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="Heading" type="Label" parent="Box"]
+layout_mode = 2
+theme_type_variation = "Tiny"
+text = "BUILD"
+
+[node name="Parts" type="HBoxContainer" parent="Box"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 3
+
+[node name="Case" parent="Box/Parts" instance=ExtResource("2")]
+layout_mode = 2
+category = "case"
+
+[node name="Motherboard" parent="Box/Parts" instance=ExtResource("2")]
+layout_mode = 2
+category = "motherboard"
+
+[node name="Cpu" parent="Box/Parts" instance=ExtResource("2")]
+layout_mode = 2
+category = "cpu"
+
+[node name="Ram" parent="Box/Parts" instance=ExtResource("2")]
+layout_mode = 2
+category = "ram"
+
+[node name="Gpu" parent="Box/Parts" instance=ExtResource("2")]
+layout_mode = 2
+category = "gpu"
+
+[node name="Storage" parent="Box/Parts" instance=ExtResource("2")]
+layout_mode = 2
+category = "storage"
+
+[node name="Psu" parent="Box/Parts" instance=ExtResource("2")]
+layout_mode = 2
+category = "psu"
