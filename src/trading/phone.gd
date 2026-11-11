@@ -9,6 +9,7 @@ const ThreadViewScene = preload("res://src/trading/thread_view.tscn")
 const K = preload("res://src/ui/ui_kit.gd")
 const Trade = preload("res://src/trading/trade_rules.gd")
 const Relationships = preload("res://src/trading/contact_relationships.gd")
+const Progress = preload("res://src/trading/part_progress.gd")
 ## The live device renders inside this phone's own capture SubViewport. Folding shows
 ## cached snapshots of the old and new state instead of resizing a visible device.
 const FOLD_DURATION := 1.15
@@ -610,6 +611,9 @@ func refresh() -> void:
 	sig += str(_waiting_for_reply()) + str(me.ready)
 	sig += str(me.get("contact_relations", {}))
 	if active_page == "messages" and selected >= 0:
+		# Compatibility references may change when another part is bought, agreed,
+		# blocked or sold, not just when this selected conversation changes.
+		sig += str(Progress.tracked_parts(me, Game.state.listings)).sha256_text()
 		var l := _listing(selected)
 		sig += str(me.chats.get(selected, [])).sha256_text() + str(me.offers.get(selected, 0)) + str(me.counters.get(selected, 0)) + str(me.meetings.get(selected, {})) + str(me.get("meeting_proposals", {}).get(selected, {})) + str(l.get("status", "gone")) + str(l.get("buyer_contacted", true)) + str(_slots)
 		if me.meetings.has(selected):

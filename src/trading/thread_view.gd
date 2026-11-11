@@ -4,6 +4,7 @@ signal back_pressed
 signal send_text(text: String)
 
 const Stats = preload("res://src/data/hardware_stats.gd")
+const Progress = preload("res://src/trading/part_progress.gd")
 const PartArt = preload("res://src/ui/part_art.gd")
 const Characters = preload("res://src/data/characters.gd")
 const Relationships = preload("res://src/trading/contact_relationships.gd")
@@ -19,7 +20,7 @@ const MessageRowScene = preload("res://src/trading/message_row.tscn")
 @onready var part_art: PartArt = $Split/Right/Panes/Conversation/HistoryScroll/HistoryContent/PartIdentity/Art
 @onready var part_name: Label = $Split/Right/Panes/Conversation/HistoryScroll/HistoryContent/PartIdentity/Name
 @onready var subtitle_label: Label = $Subtitle
-@onready var compatibility_label: Label = $Split/Right/Panes/Specs/Details/Compatibility
+@onready var compatibility_label: RichTextLabel = $Split/Right/Panes/Specs/Details/Compatibility
 @onready var panes: HBoxContainer = $Split/Right/Panes
 @onready var specs: ScrollContainer = $Split/Right/Panes/Specs
 @onready var tagline_label: Label = $Split/Right/Panes/Specs/Details/Tagline
@@ -58,21 +59,50 @@ func _submit(text: String) -> void:
 		send_text.emit(text)
 
 
-func _compatibility_text(item: Dictionary) -> String:
+func _compatibility_reference(label: String, category: String, field: String, value: String, parts: Array[Dictionary]) -> String:
+	var best: Dictionary = {}
+	for part: Dictionary in parts:
+		var item: Dictionary = part.item
+		if str(item.category) != category or (field != "" and str(item.get(field, "")) != value):
+			continue
+		if int(part.status) > int(best.get("status", Progress.Status.MISSING)):
+			best = part
+	var text := label.replace("[", "[lb]")
+	if best.is_empty():
+		return text
+	var item: Dictionary = best.item
+	text += " (" + str(item.name).replace("[", "[lb]") + ")"
+	return "[color=#%s]%s[/color]" % [Progress.color(best.status).to_html(false), text]
+
+
+func _compatibility_text(item: Dictionary, me: Dictionary) -> String:
+	var parts := Progress.tracked_parts(me, Game.state.listings)
 	match str(item.category):
 		"case":
-			return "Motherboards: " + ("ATX, mATX" if item.form == "ATX" else "mATX")
+			var forms: Array[String] = ["mATX"]
+			if item.form == "ATX":
+				forms.push_front("ATX")
+			var labels: Array[String] = []
+			for form: String in forms:
+				labels.append(_compatibility_reference(form, "motherboard", "form", form, parts))
+			return "Motherboards: " + ", ".join(labels)
 		"motherboard":
-			return "CPUs: %s socket\nRAM: %s\nCases: %s" % [item.socket, item.memory,
-				"ATX" if item.form == "ATX" else "ATX, mATX"]
+			var cases := _compatibility_reference("ATX", "case", "form", "ATX", parts)
+			if item.form == "mATX":
+				cases += ", " + _compatibility_reference("mATX", "case", "form", "mATX", parts)
+			return "CPUs: %s\nRAM: %s\nCases: %s" % [
+				_compatibility_reference(str(item.socket) + " socket", "cpu", "socket", str(item.socket), parts),
+				_compatibility_reference(str(item.memory), "ram", "memory", str(item.memory), parts), cases]
 		"cpu":
-			return "Motherboards: %s socket" % item.socket
+			return "Motherboards: " + _compatibility_reference(str(item.socket) + " socket", "motherboard", "socket", str(item.socket), parts)
 		"ram":
-			return "Motherboards: %s memory slots" % item.memory
+			return "Motherboards: " + _compatibility_reference(str(item.memory) + " memory slots", "motherboard", "memory", str(item.memory), parts)
 		"gpu", "storage":
-			return "Motherboards: any model"
+			return "Motherboards: " + _compatibility_reference("any model", "motherboard", "", "", parts)
 		"psu":
-			return "Cases: ATX, mATX\nCapacity must cover total build power."
+			return "Cases: %s, %s\nCapacity must cover total build power." % [
+				_compatibility_reference("ATX", "case", "form", "ATX", parts),
+				_compatibility_reference("mATX", "case", "form", "mATX", parts)]
 	return ""
 
 
@@ -157,7 +187,7 @@ func setup(listing: Dictionary, me: Dictionary, selected: int, drafts: Dictionar
 	part_name.text = (str(listing.get("manufacturer", "")) + " " + str(listing.name)).strip_edges()
 	subtitle_label.text = ("Your ask: $%d" if selling else "$%d") % int(listing.price)
 	tagline_label.text = Characters.for_listing(listing).tagline
-	compatibility_label.text = _compatibility_text(listing)
+	compatibility_label.text = _compatibility_text(listing, me)
 	spec_text.text = _specification_text(listing)
 	specs.visible = unfolded
 	conversation.visible = true
